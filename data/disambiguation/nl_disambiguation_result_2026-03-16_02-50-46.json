@@ -1,0 +1,386 @@
+{
+  "clean_text": "蓝方兵力分为四个集群，1号集群首先独立进攻hq_mark6，随后飞往hq_mark7与2号集群会合形成大部队，然后一起共同执行突破hq_mark1，然后突破hq_mark5，最后与其他编队汇聚到hq_2后，所有人飞往hq_mark4完成最后的突破。2号集群独立飞往hq_mark7，与1号集群会合后执行同样的后续行动。3号集群独立依次飞往hq_mark9、hq_mark8、hq_mark2、hq_mark4完成突破，随后前往hq_2与1、2、4号集群会合，后续共同行动。4号集群独立飞往hq_mark10、hq_mark3执行突破任务后，汇聚到hq_2与1、3号集群会合后，所有集群一起飞往hq_mark4完成突破。",
+  "mentions": [
+    {
+      "span_text": "1号集群",
+      "entity_type": "cluster",
+      "canonical": "cluster_1",
+      "candidates": [
+        "cluster_1"
+      ],
+      "confidence": 0.99,
+      "ambiguous": false,
+      "reason": "精确匹配",
+      "role": null
+    },
+    {
+      "span_text": "2号集群",
+      "entity_type": "cluster",
+      "canonical": "cluster_2",
+      "candidates": [
+        "cluster_2"
+      ],
+      "confidence": 0.99,
+      "ambiguous": false,
+      "reason": "精确匹配",
+      "role": null
+    },
+    {
+      "span_text": "3号集群",
+      "entity_type": "cluster",
+      "canonical": "cluster_3",
+      "candidates": [
+        "cluster_3"
+      ],
+      "confidence": 0.99,
+      "ambiguous": false,
+      "reason": "精确匹配",
+      "role": null
+    },
+    {
+      "span_text": "4号集群",
+      "entity_type": "cluster",
+      "canonical": "cluster_4",
+      "candidates": [
+        "cluster_4"
+      ],
+      "confidence": 0.99,
+      "ambiguous": false,
+      "reason": "精确匹配",
+      "role": null
+    },
+    {
+      "span_text": "hq_mark6",
+      "entity_type": "target",
+      "canonical": "hq_mark6",
+      "candidates": [
+        "hq_mark6"
+      ],
+      "confidence": 0.99,
+      "ambiguous": false,
+      "reason": "精确匹配",
+      "role": "cluster_local_target"
+    },
+    {
+      "span_text": "hq_mark7",
+      "entity_type": "target",
+      "canonical": "hq_mark7",
+      "candidates": [
+        "hq_mark7"
+      ],
+      "confidence": 0.99,
+      "ambiguous": false,
+      "reason": "精确匹配",
+      "role": "meeting_point"
+    },
+    {
+      "span_text": "hq_mark1",
+      "entity_type": "target",
+      "canonical": "hq_mark1",
+      "candidates": [
+        "hq_mark1"
+      ],
+      "confidence": 0.99,
+      "ambiguous": false,
+      "reason": "精确匹配",
+      "role": "global_final_target"
+    },
+    {
+      "span_text": "hq_mark5",
+      "entity_type": "target",
+      "canonical": "hq_mark5",
+      "candidates": [
+        "hq_mark5"
+      ],
+      "confidence": 0.99,
+      "ambiguous": false,
+      "reason": "精确匹配",
+      "role": "global_final_target"
+    },
+    {
+      "span_text": "hq_2",
+      "entity_type": "target",
+      "canonical": "hq_2",
+      "candidates": [
+        "hq_2"
+      ],
+      "confidence": 0.99,
+      "ambiguous": false,
+      "reason": "精确匹配",
+      "role": "meeting_point"
+    },
+    {
+      "span_text": "hq_mark4",
+      "entity_type": "target",
+      "canonical": "hq_mark4",
+      "candidates": [
+        "hq_mark4"
+      ],
+      "confidence": 0.99,
+      "ambiguous": false,
+      "reason": "精确匹配",
+      "role": "global_final_target"
+    },
+    {
+      "span_text": "hq_mark9",
+      "entity_type": "target",
+      "canonical": "hq_mark9",
+      "candidates": [
+        "hq_mark9"
+      ],
+      "confidence": 0.99,
+      "ambiguous": false,
+      "reason": "精确匹配",
+      "role": "cluster_local_target"
+    },
+    {
+      "span_text": "hq_mark8",
+      "entity_type": "target",
+      "canonical": "hq_mark8",
+      "candidates": [
+        "hq_mark8"
+      ],
+      "confidence": 0.99,
+      "ambiguous": false,
+      "reason": "精确匹配",
+      "role": "cluster_local_target"
+    },
+    {
+      "span_text": "hq_mark2",
+      "entity_type": "target",
+      "canonical": "hq_mark2",
+      "candidates": [
+        "hq_mark2"
+      ],
+      "confidence": 0.99,
+      "ambiguous": false,
+      "reason": "精确匹配",
+      "role": "cluster_local_target"
+    },
+    {
+      "span_text": "hq_mark10",
+      "entity_type": "target",
+      "canonical": "hq_mark10",
+      "candidates": [
+        "hq_mark10"
+      ],
+      "confidence": 0.99,
+      "ambiguous": false,
+      "reason": "精确匹配",
+      "role": "cluster_local_target"
+    },
+    {
+      "span_text": "hq_mark3",
+      "entity_type": "target",
+      "canonical": "hq_mark3",
+      "candidates": [
+        "hq_mark3"
+      ],
+      "confidence": 0.99,
+      "ambiguous": false,
+      "reason": "精确匹配",
+      "role": "cluster_local_target"
+    },
+    {
+      "span_text": "进攻",
+      "entity_type": "action",
+      "canonical": "attack",
+      "candidates": [
+        "attack"
+      ],
+      "confidence": 0.99,
+      "ambiguous": false,
+      "reason": "精确匹配",
+      "role": null
+    },
+    {
+      "span_text": "飞往",
+      "entity_type": "action",
+      "canonical": "move",
+      "candidates": [
+        "move"
+      ],
+      "confidence": 0.99,
+      "ambiguous": false,
+      "reason": "精确匹配",
+      "role": null
+    },
+    {
+      "span_text": "会合",
+      "entity_type": "action",
+      "canonical": "meet",
+      "candidates": [
+        "meet"
+      ],
+      "confidence": 0.99,
+      "ambiguous": false,
+      "reason": "精确匹配",
+      "role": null
+    },
+    {
+      "span_text": "突破",
+      "entity_type": "action",
+      "canonical": "breakthrough",
+      "candidates": [
+        "breakthrough"
+      ],
+      "confidence": 0.99,
+      "ambiguous": false,
+      "reason": "精确匹配",
+      "role": null
+    },
+    {
+      "span_text": "汇聚",
+      "entity_type": "action",
+      "canonical": "meet",
+      "candidates": [
+        "meet"
+      ],
+      "confidence": 0.99,
+      "ambiguous": false,
+      "reason": "精确匹配",
+      "role": null
+    },
+    {
+      "span_text": "其他编队",
+      "entity_type": "reference",
+      "canonical": null,
+      "candidates": [],
+      "confidence": 0.55,
+      "ambiguous": true,
+      "reason": "指代未明确列出的集群",
+      "role": null
+    },
+    {
+      "span_text": "所有人",
+      "entity_type": "reference",
+      "canonical": null,
+      "candidates": [],
+      "confidence": 0.55,
+      "ambiguous": true,
+      "reason": "指代所有参与集群",
+      "role": null
+    },
+    {
+      "span_text": "同样的后续行动",
+      "entity_type": "collective_phrase",
+      "canonical": null,
+      "candidates": [],
+      "confidence": 0.6,
+      "ambiguous": true,
+      "reason": "需展开为具体动作链",
+      "role": null
+    },
+    {
+      "span_text": "后续共同行动",
+      "entity_type": "collective_phrase",
+      "canonical": null,
+      "candidates": [],
+      "confidence": 0.6,
+      "ambiguous": true,
+      "reason": "需展开为具体动作链",
+      "role": null
+    },
+    {
+      "span_text": "所有集群",
+      "entity_type": "reference",
+      "canonical": null,
+      "candidates": [],
+      "confidence": 0.55,
+      "ambiguous": true,
+      "reason": "指代全部四个集群",
+      "role": null
+    }
+  ],
+  "ambiguities": [
+    {
+      "type": "coreference",
+      "span_text": "其他编队",
+      "candidates": [],
+      "reason": "未明确列出具体集群编号",
+      "need_human": false
+    },
+    {
+      "type": "coreference",
+      "span_text": "所有人",
+      "candidates": [],
+      "reason": "指代所有集群，但需确认是否包含全部四个",
+      "need_human": false
+    },
+    {
+      "type": "coreference",
+      "span_text": "同样的后续行动",
+      "candidates": [],
+      "reason": "需根据上下文展开为具体动作序列",
+      "need_human": false
+    },
+    {
+      "type": "coreference",
+      "span_text": "后续共同行动",
+      "candidates": [],
+      "reason": "需根据上下文展开为具体动作序列",
+      "need_human": false
+    },
+    {
+      "type": "coreference",
+      "span_text": "所有集群",
+      "candidates": [],
+      "reason": "指代全部四个集群",
+      "need_human": false
+    }
+  ],
+  "references": [
+    {
+      "span_text": "其他编队",
+      "refer_to": "除1、2号集群外的3、4号集群",
+      "resolved_actions": [],
+      "confidence": 0.85
+    },
+    {
+      "span_text": "所有人",
+      "refer_to": "1、2、3、4号集群",
+      "resolved_actions": [
+        "move(hq_mark4)",
+        "breakthrough(hq_mark4)"
+      ],
+      "confidence": 0.9
+    },
+    {
+      "span_text": "同样的后续行动",
+      "refer_to": "1号集群在会合后的行动链：breakthrough(hq_mark1) -> breakthrough(hq_mark5) -> move(hq_2) -> move(hq_mark4) -> breakthrough(hq_mark4)",
+      "resolved_actions": [
+        "breakthrough(hq_mark1)",
+        "breakthrough(hq_mark5)",
+        "move(hq_2)",
+        "move(hq_mark4)",
+        "breakthrough(hq_mark4)"
+      ],
+      "confidence": 0.9
+    },
+    {
+      "span_text": "后续共同行动",
+      "refer_to": "3号集群在hq_2会合后的行动：move(hq_mark4) -> breakthrough(hq_mark4)",
+      "resolved_actions": [
+        "move(hq_mark4)",
+        "breakthrough(hq_mark4)"
+      ],
+      "confidence": 0.85
+    },
+    {
+      "span_text": "所有集群",
+      "refer_to": "1、2、3、4号集群",
+      "resolved_actions": [
+        "move(hq_mark4)",
+        "breakthrough(hq_mark4)"
+      ],
+      "confidence": 0.9
+    }
+  ],
+  "normalized_sentences": [
+    "cluster_1: attack(hq_mark6) -> move(hq_mark7) -> meet(cluster_2, hq_mark7) -> breakthrough(hq_mark1) -> breakthrough(hq_mark5) -> move(hq_2) -> move(hq_mark4) -> breakthrough(hq_mark4)",
+    "cluster_2: move(hq_mark7) -> meet(cluster_1, hq_mark7) -> breakthrough(hq_mark1) -> breakthrough(hq_mark5) -> move(hq_2) -> move(hq_mark4) -> breakthrough(hq_mark4)",
+    "cluster_3: move(hq_mark9) -> breakthrough(hq_mark9) -> move(hq_mark8) -> breakthrough(hq_mark8) -> move(hq_mark2) -> breakthrough(hq_mark2) -> move(hq_mark4) -> breakthrough(hq_mark4) -> move(hq_2) -> meet([cluster_1, cluster_2, cluster_4], hq_2) -> move(hq_mark4) -> breakthrough(hq_mark4)",
+    "cluster_4: move(hq_mark10) -> breakthrough(hq_mark10) -> move(hq_mark3) -> breakthrough(hq_mark3) -> move(hq_2) -> meet([cluster_1, cluster_3], hq_2) -> move(hq_mark4) -> breakthrough(hq_mark4)"
+  ],
+  "needs_human_review": true
+}

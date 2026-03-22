@@ -1,0 +1,414 @@
+{
+  "input_text": "蓝方兵力分为四个集群，1号集群首先独立进攻hq_mark6，随后飞往hq_mark7与2号集群会合形成大部队，然后一起共同执行突破hq_mark1，然后突破hq_mark5，最后与其他编队汇聚到hq_2后，所有人飞往hq_mark4完成最后的突破。2号集群独立飞往hq_mark7，与1号集群会合后执行同样的后续行动。3号集群独立依次飞往hq_mark9、hq_mark8、hq_mark2、hq_mark4完成突破，随后前往hq_2与1、2、4号集群会合，后续共同行动。4号集群独立飞往hq_mark10、hq_mark3执行突破任务后，汇聚到hq_2与1、3号集群会合后，所有集群一起飞往hq_mark4完成突破。",
+  "events": [
+    {
+      "event_id": "E1",
+      "source_fragment": "1号集群首先独立进攻hq_mark6",
+      "explicit_text": "1号集群首先独立进攻hq_mark6。",
+      "actor": ["G1"],
+      "action_hint": "attack",
+      "target_hint": "hq_mark6",
+      "location_hint": "hq_mark6",
+      "time_marker": "首先",
+      "depends_on": [],
+      "trigger_text": "",
+      "group_state_before": [],
+      "group_state_after": ["G1"],
+      "new_group_created": {
+        "group_id": "GRP1",
+        "members": ["G1"]
+      },
+      "completion_type": ["explicit_subject"],
+      "needs_reference_resolution": false,
+      "reference_candidates": []
+    },
+    {
+      "event_id": "E2",
+      "source_fragment": "随后飞往hq_mark7",
+      "explicit_text": "1号集群随后飞往hq_mark7。",
+      "actor": ["G1"],
+      "action_hint": "move",
+      "target_hint": "hq_mark7",
+      "location_hint": "hq_mark7",
+      "time_marker": "随后",
+      "depends_on": ["E1"],
+      "trigger_text": "",
+      "group_state_before": ["G1"],
+      "group_state_after": ["G1"],
+      "new_group_created": {
+        "group_id": "",
+        "members": []
+      },
+      "completion_type": ["subject_inherited"],
+      "needs_reference_resolution": false,
+      "reference_candidates": []
+    },
+    {
+      "event_id": "E3",
+      "source_fragment": "与2号集群会合形成大部队",
+      "explicit_text": "1号集群与2号集群在hq_mark7会合形成大部队。",
+      "actor": ["G1", "G2"],
+      "action_hint": "rendezvous",
+      "target_hint": "2号集群",
+      "location_hint": "hq_mark7",
+      "time_marker": "然后",
+      "depends_on": ["E2"],
+      "trigger_text": "",
+      "group_state_before": ["G1"],
+      "group_state_after": ["G1", "G2"],
+      "new_group_created": {
+        "group_id": "GRP2",
+        "members": ["G1", "G2"]
+      },
+      "completion_type": ["group_scope_expanded", "compound_split"],
+      "needs_reference_resolution": false,
+      "reference_candidates": []
+    },
+    {
+      "event_id": "E4",
+      "source_fragment": "然后一起共同执行突破hq_mark1",
+      "explicit_text": "1号集群和2号集群随后共同突破hq_mark1。",
+      "actor": ["G1", "G2"],
+      "action_hint": "joint_attack",
+      "target_hint": "hq_mark1",
+      "location_hint": "hq_mark1",
+      "time_marker": "然后",
+      "depends_on": ["E3"],
+      "trigger_text": "",
+      "group_state_before": ["G1", "G2"],
+      "group_state_after": ["G1", "G2"],
+      "new_group_created": {
+        "group_id": "",
+        "members": []
+      },
+      "completion_type": ["subject_inherited", "group_scope_expanded"],
+      "needs_reference_resolution": false,
+      "reference_candidates": []
+    },
+    {
+      "event_id": "E5",
+      "source_fragment": "然后突破hq_mark5",
+      "explicit_text": "1号集群和2号集群随后突破hq_mark5。",
+      "actor": ["G1", "G2"],
+      "action_hint": "joint_attack",
+      "target_hint": "hq_mark5",
+      "location_hint": "hq_mark5",
+      "time_marker": "然后",
+      "depends_on": ["E4"],
+      "trigger_text": "",
+      "group_state_before": ["G1", "G2"],
+      "group_state_after": ["G1", "G2"],
+      "new_group_created": {
+        "group_id": "",
+        "members": []
+      },
+      "completion_type": ["subject_inherited", "group_scope_expanded"],
+      "needs_reference_resolution": false,
+      "reference_candidates": []
+    },
+    {
+      "event_id": "E6",
+      "source_fragment": "最后与其他编队汇聚到hq_2",
+      "explicit_text": "1号集群和2号集群最后与其他编队在hq_2汇聚。",
+      "actor": ["G1", "G2", "OTHER_FORMATIONS"],
+      "action_hint": "rendezvous",
+      "target_hint": "其他编队",
+      "location_hint": "hq_2",
+      "time_marker": "最后",
+      "depends_on": ["E5"],
+      "trigger_text": "",
+      "group_state_before": ["G1", "G2"],
+      "group_state_after": ["G1", "G2", "OTHER_FORMATIONS"],
+      "new_group_created": {
+        "group_id": "GRP3",
+        "members": ["G1", "G2", "OTHER_FORMATIONS"]
+      },
+      "completion_type": ["group_scope_expanded", "ambiguous_reference"],
+      "needs_reference_resolution": true,
+      "reference_candidates": ["G3", "G4", "G3,G4"]
+    },
+    {
+      "event_id": "E7",
+      "source_fragment": "后，所有人飞往hq_mark4完成最后的突破",
+      "explicit_text": "所有人随后飞往hq_mark4完成最后的突破。",
+      "actor": ["ALL"],
+      "action_hint": "final_attack",
+      "target_hint": "hq_mark4",
+      "location_hint": "hq_mark4",
+      "time_marker": "无",
+      "depends_on": ["E6"],
+      "trigger_text": "",
+      "group_state_before": ["G1", "G2", "OTHER_FORMATIONS"],
+      "group_state_after": ["ALL"],
+      "new_group_created": {
+        "group_id": "GRP4",
+        "members": ["ALL"]
+      },
+      "completion_type": ["subject_inherited", "group_scope_expanded"],
+      "needs_reference_resolution": false,
+      "reference_candidates": []
+    },
+    {
+      "event_id": "E8",
+      "source_fragment": "2号集群独立飞往hq_mark7",
+      "explicit_text": "2号集群独立飞往hq_mark7。",
+      "actor": ["G2"],
+      "action_hint": "move",
+      "target_hint": "hq_mark7",
+      "location_hint": "hq_mark7",
+      "time_marker": "无",
+      "depends_on": [],
+      "trigger_text": "",
+      "group_state_before": [],
+      "group_state_after": ["G2"],
+      "new_group_created": {
+        "group_id": "GRP5",
+        "members": ["G2"]
+      },
+      "completion_type": ["explicit_subject"],
+      "needs_reference_resolution": false,
+      "reference_candidates": []
+    },
+    {
+      "event_id": "E9",
+      "source_fragment": "与1号集群会合后执行同样的后续行动",
+      "explicit_text": "2号集群与1号集群在hq_mark7会合后执行同样的后续行动。",
+      "actor": ["G1", "G2"],
+      "action_hint": "rendezvous",
+      "target_hint": "1号集群",
+      "location_hint": "hq_mark7",
+      "time_marker": "无",
+      "depends_on": ["E8"],
+      "trigger_text": "",
+      "group_state_before": ["G2"],
+      "group_state_after": ["G1", "G2"],
+      "new_group_created": {
+        "group_id": "GRP6",
+        "members": ["G1", "G2"]
+      },
+      "completion_type": ["group_scope_expanded", "compound_split"],
+      "needs_reference_resolution": false,
+      "reference_candidates": []
+    },
+    {
+      "event_id": "E10",
+      "source_fragment": "3号集群独立依次飞往hq_mark9、hq_mark8、hq_mark2、hq_mark4完成突破",
+      "explicit_text": "3号集群独立依次飞往hq_mark9、hq_mark8、hq_mark2、hq_mark4完成突破。",
+      "actor": ["G3"],
+      "action_hint": "attack",
+      "target_hint": "hq_mark9,hq_mark8,hq_mark2,hq_mark4",
+      "location_hint": "hq_mark9,hq_mark8,hq_mark2,hq_mark4",
+      "time_marker": "无",
+      "depends_on": [],
+      "trigger_text": "",
+      "group_state_before": [],
+      "group_state_after": ["G3"],
+      "new_group_created": {
+        "group_id": "GRP7",
+        "members": ["G3"]
+      },
+      "completion_type": ["explicit_subject"],
+      "needs_reference_resolution": false,
+      "reference_candidates": []
+    },
+    {
+      "event_id": "E11",
+      "source_fragment": "随后前往hq_2与1、2、4号集群会合",
+      "explicit_text": "3号集群随后前往hq_2与1号集群、2号集群、4号集群会合。",
+      "actor": ["G3", "G1", "G2", "G4"],
+      "action_hint": "rendezvous",
+      "target_hint": "1、2、4号集群",
+      "location_hint": "hq_2",
+      "time_marker": "随后",
+      "depends_on": ["E10"],
+      "trigger_text": "",
+      "group_state_before": ["G3"],
+      "group_state_after": ["G1", "G2", "G3", "G4"],
+      "new_group_created": {
+        "group_id": "GRP8",
+        "members": ["G1", "G2", "G3", "G4"]
+      },
+      "completion_type": ["group_scope_expanded", "compound_split"],
+      "needs_reference_resolution": false,
+      "reference_candidates": []
+    },
+    {
+      "event_id": "E12",
+      "source_fragment": "后续共同行动",
+      "explicit_text": "1号集群、2号集群、3号集群、4号集群后续共同行动。",
+      "actor": ["G1", "G2", "G3", "G4"],
+      "action_hint": "unknown",
+      "target_hint": "",
+      "location_hint": "",
+      "time_marker": "无",
+      "depends_on": ["E11"],
+      "trigger_text": "",
+      "group_state_before": ["G1", "G2", "G3", "G4"],
+      "group_state_after": ["G1", "G2", "G3", "G4"],
+      "new_group_created": {
+        "group_id": "",
+        "members": []
+      },
+      "completion_type": ["subject_inferred_from_context", "group_scope_expanded"],
+      "needs_reference_resolution": false,
+      "reference_candidates": []
+    },
+    {
+      "event_id": "E13",
+      "source_fragment": "4号集群独立飞往hq_mark10、hq_mark3执行突破任务",
+      "explicit_text": "4号集群独立飞往hq_mark10、hq_mark3执行突破任务。",
+      "actor": ["G4"],
+      "action_hint": "attack",
+      "target_hint": "hq_mark10,hq_mark3",
+      "location_hint": "hq_mark10,hq_mark3",
+      "time_marker": "无",
+      "depends_on": [],
+      "trigger_text": "",
+      "group_state_before": [],
+      "group_state_after": ["G4"],
+      "new_group_created": {
+        "group_id": "GRP9",
+        "members": ["G4"]
+      },
+      "completion_type": ["explicit_subject"],
+      "needs_reference_resolution": false,
+      "reference_candidates": []
+    },
+    {
+      "event_id": "E14",
+      "source_fragment": "后，汇聚到hq_2与1、3号集群会合",
+      "explicit_text": "4号集群随后汇聚到hq_2与1号集群、3号集群会合。",
+      "actor": ["G4", "G1", "G3"],
+      "action_hint": "rendezvous",
+      "target_hint": "1、3号集群",
+      "location_hint": "hq_2",
+      "time_marker": "无",
+      "depends_on": ["E13"],
+      "trigger_text": "",
+      "group_state_before": ["G4"],
+      "group_state_after": ["G1", "G3", "G4"],
+      "new_group_created": {
+        "group_id": "GRP10",
+        "members": ["G1", "G3", "G4"]
+      },
+      "completion_type": ["group_scope_expanded", "compound_split"],
+      "needs_reference_resolution": true,
+      "reference_candidates": [
+        {"type": "single", "value": ["G1"]},
+        {"type": "group", "value": ["G1","G2"]}
+      ]
+    },
+    {
+      "event_id": "E15",
+      "source_fragment": "后，所有集群一起飞往hq_mark4完成突破",
+      "explicit_text": "所有集群随后一起飞往hq_mark4完成突破。",
+      "actor": ["ALL"],
+      "action_hint": "final_attack",
+      "target_hint": "hq_mark4",
+      "location_hint": "hq_mark4",
+      "time_marker": "无",
+      "depends_on": ["E14"],
+      "trigger_text": "",
+      "group_state_before": ["G1", "G3", "G4"],
+      "group_state_after": ["ALL"],
+      "new_group_created": {
+        "group_id": "GRP11",
+        "members": ["ALL"]
+      },
+      "completion_type": ["subject_inferred_from_context", "group_scope_expanded"],
+      "needs_reference_resolution": false,
+      "reference_candidates": []
+    }
+  ],
+  "group_registry": [
+    {
+      "group_id": "GRP1",
+      "members": ["G1"],
+      "created_by_event": "E1",
+      "reason": "初始单体"
+    },
+    {
+      "group_id": "GRP2",
+      "members": ["G1", "G2"],
+      "created_by_event": "E3",
+      "reason": "G1与G2会合形成联合体"
+    },
+    {
+      "group_id": "GRP3",
+      "members": ["G1", "G2", "OTHER_FORMATIONS"],
+      "created_by_event": "E6",
+      "reason": "与其他编队汇聚"
+    },
+    {
+      "group_id": "GRP4",
+      "members": ["ALL"],
+      "created_by_event": "E7",
+      "reason": "所有人汇聚"
+    },
+    {
+      "group_id": "GRP5",
+      "members": ["G2"],
+      "created_by_event": "E8",
+      "reason": "初始单体"
+    },
+    {
+      "group_id": "GRP6",
+      "members": ["G1", "G2"],
+      "created_by_event": "E9",
+      "reason": "G2与G1会合"
+    },
+    {
+      "group_id": "GRP7",
+      "members": ["G3"],
+      "created_by_event": "E10",
+      "reason": "初始单体"
+    },
+    {
+      "group_id": "GRP8",
+      "members": ["G1", "G2", "G3", "G4"],
+      "created_by_event": "E11",
+      "reason": "G3与G1,G2,G4会合"
+    },
+    {
+      "group_id": "GRP9",
+      "members": ["G4"],
+      "created_by_event": "E13",
+      "reason": "初始单体"
+    },
+    {
+      "group_id": "GRP10",
+      "members": ["G1", "G3", "G4"],
+      "created_by_event": "E14",
+      "reason": "G4与G1,G3会合"
+    },
+    {
+      "group_id": "GRP11",
+      "members": ["ALL"],
+      "created_by_event": "E15",
+      "reason": "所有集群汇聚"
+    }
+  ],
+  "unresolved_references": [
+    {
+      "event_id": "E6",
+      "surface_form": "其他编队",
+      "possible_resolutions": [
+        {"type": "single", "value": ["G3"]},
+        {"type": "single", "value": ["G4"]},
+        {"type": "multiple", "value": ["G3", "G4"]}
+      ],
+      "preferred_resolution": {"type": "multiple", "value": ["G3", "G4"]},
+      "reason": "上下文提到3号和4号集群各自行动，最终都汇聚到hq_2"
+    },
+    {
+      "event_id": "E14",
+      "surface_form": "1号集群",
+      "possible_resolutions": [
+        {"type": "single", "value": ["G1"]},
+        {"type": "group", "value": ["G1", "G2"]}
+      ],
+      "preferred_resolution": {"type": "group", "value": ["G1", "G2"]},
+      "reason": "前文E3/E9中G1与G2已会合，通常以联合体形式出现"
+    }
+  ]
+}

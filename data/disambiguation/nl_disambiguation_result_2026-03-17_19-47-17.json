@@ -1,0 +1,1551 @@
+{
+  "normalized": {
+    "clean_text": "蓝方兵力分为四个集群，1号集群首先独立进攻hq_mark6，随后飞往hq_mark7与2号集群会合形成大部队，然后一起共同执行突破hq_mark1，然后突破hq_mark5，最后与其他编队汇聚到hq_2后，所有人飞往hq_mark4完成最后的突破。2号集群独立飞往hq_mark7，与1号集群会合后执行同样的后续行动。3号集群独立依次飞往hq_mark9、hq_mark8、hq_mark2、hq_mark4完成突破，随后前往hq_2与1、2、4号集群会合，后续共同行动。4号集群独立飞往hq_mark10、hq_mark3执行突破任务后，汇聚到hq_2与1、3号集群会合后，所有集群一起飞往hq_mark4完成突破。",
+    "mentions": [
+      {
+        "span_text": "1号集群",
+        "entity_type": "cluster",
+        "canonical": "cluster_1",
+        "candidates": [
+          "cluster_1"
+        ],
+        "confidence": 0.99,
+        "ambiguous": false,
+        "reason": "精确匹配",
+        "role": null
+      },
+      {
+        "span_text": "2号集群",
+        "entity_type": "cluster",
+        "canonical": "cluster_2",
+        "candidates": [
+          "cluster_2"
+        ],
+        "confidence": 0.99,
+        "ambiguous": false,
+        "reason": "精确匹配",
+        "role": null
+      },
+      {
+        "span_text": "3号集群",
+        "entity_type": "cluster",
+        "canonical": "cluster_3",
+        "candidates": [
+          "cluster_3"
+        ],
+        "confidence": 0.99,
+        "ambiguous": false,
+        "reason": "精确匹配",
+        "role": null
+      },
+      {
+        "span_text": "4号集群",
+        "entity_type": "cluster",
+        "canonical": "cluster_4",
+        "candidates": [
+          "cluster_4"
+        ],
+        "confidence": 0.99,
+        "ambiguous": false,
+        "reason": "精确匹配",
+        "role": null
+      },
+      {
+        "span_text": "hq_mark6",
+        "entity_type": "target",
+        "canonical": "hq_mark6",
+        "candidates": [
+          "hq_mark6"
+        ],
+        "confidence": 0.99,
+        "ambiguous": false,
+        "reason": "精确匹配",
+        "role": "cluster_local_target"
+      },
+      {
+        "span_text": "hq_mark7",
+        "entity_type": "target",
+        "canonical": "hq_mark7",
+        "candidates": [
+          "hq_mark7"
+        ],
+        "confidence": 0.99,
+        "ambiguous": false,
+        "reason": "精确匹配",
+        "role": "meeting_point"
+      },
+      {
+        "span_text": "hq_mark1",
+        "entity_type": "target",
+        "canonical": "hq_mark1",
+        "candidates": [
+          "hq_mark1"
+        ],
+        "confidence": 0.99,
+        "ambiguous": false,
+        "reason": "精确匹配",
+        "role": "global_final_target"
+      },
+      {
+        "span_text": "hq_mark5",
+        "entity_type": "target",
+        "canonical": "hq_mark5",
+        "candidates": [
+          "hq_mark5"
+        ],
+        "confidence": 0.99,
+        "ambiguous": false,
+        "reason": "精确匹配",
+        "role": "global_final_target"
+      },
+      {
+        "span_text": "hq_2",
+        "entity_type": "target",
+        "canonical": "hq_2",
+        "candidates": [
+          "hq_2"
+        ],
+        "confidence": 0.99,
+        "ambiguous": false,
+        "reason": "精确匹配",
+        "role": "meeting_point"
+      },
+      {
+        "span_text": "hq_mark4",
+        "entity_type": "target",
+        "canonical": "hq_mark4",
+        "candidates": [
+          "hq_mark4"
+        ],
+        "confidence": 0.99,
+        "ambiguous": false,
+        "reason": "精确匹配",
+        "role": "global_final_target"
+      },
+      {
+        "span_text": "hq_mark9",
+        "entity_type": "target",
+        "canonical": "hq_mark9",
+        "candidates": [
+          "hq_mark9"
+        ],
+        "confidence": 0.99,
+        "ambiguous": false,
+        "reason": "精确匹配",
+        "role": "cluster_local_target"
+      },
+      {
+        "span_text": "hq_mark8",
+        "entity_type": "target",
+        "canonical": "hq_mark8",
+        "candidates": [
+          "hq_mark8"
+        ],
+        "confidence": 0.99,
+        "ambiguous": false,
+        "reason": "精确匹配",
+        "role": "cluster_local_target"
+      },
+      {
+        "span_text": "hq_mark2",
+        "entity_type": "target",
+        "canonical": "hq_mark2",
+        "candidates": [
+          "hq_mark2"
+        ],
+        "confidence": 0.99,
+        "ambiguous": false,
+        "reason": "精确匹配",
+        "role": "cluster_local_target"
+      },
+      {
+        "span_text": "hq_mark10",
+        "entity_type": "target",
+        "canonical": "hq_mark10",
+        "candidates": [
+          "hq_mark10"
+        ],
+        "confidence": 0.99,
+        "ambiguous": false,
+        "reason": "精确匹配",
+        "role": "cluster_local_target"
+      },
+      {
+        "span_text": "hq_mark3",
+        "entity_type": "target",
+        "canonical": "hq_mark3",
+        "candidates": [
+          "hq_mark3"
+        ],
+        "confidence": 0.99,
+        "ambiguous": false,
+        "reason": "精确匹配",
+        "role": "cluster_local_target"
+      },
+      {
+        "span_text": "进攻",
+        "entity_type": "action",
+        "canonical": "attack",
+        "candidates": [
+          "attack"
+        ],
+        "confidence": 0.99,
+        "ambiguous": false,
+        "reason": "精确匹配",
+        "role": null
+      },
+      {
+        "span_text": "飞往",
+        "entity_type": "action",
+        "canonical": "move",
+        "candidates": [
+          "move"
+        ],
+        "confidence": 0.99,
+        "ambiguous": false,
+        "reason": "精确匹配",
+        "role": null
+      },
+      {
+        "span_text": "会合",
+        "entity_type": "action",
+        "canonical": "meet",
+        "candidates": [
+          "meet"
+        ],
+        "confidence": 0.99,
+        "ambiguous": false,
+        "reason": "精确匹配",
+        "role": null
+      },
+      {
+        "span_text": "突破",
+        "entity_type": "action",
+        "canonical": "breakthrough",
+        "candidates": [
+          "breakthrough"
+        ],
+        "confidence": 0.99,
+        "ambiguous": false,
+        "reason": "精确匹配",
+        "role": null
+      },
+      {
+        "span_text": "汇聚",
+        "entity_type": "action",
+        "canonical": "meet",
+        "candidates": [
+          "meet"
+        ],
+        "confidence": 0.99,
+        "ambiguous": false,
+        "reason": "精确匹配",
+        "role": null
+      },
+      {
+        "span_text": "其他编队",
+        "entity_type": "reference",
+        "canonical": null,
+        "candidates": [],
+        "confidence": 0.6,
+        "ambiguous": true,
+        "reason": "指代未明确列出的编队",
+        "role": null
+      },
+      {
+        "span_text": "所有人",
+        "entity_type": "reference",
+        "canonical": null,
+        "candidates": [],
+        "confidence": 0.6,
+        "ambiguous": true,
+        "reason": "泛指所有参与集群",
+        "role": null
+      },
+      {
+        "span_text": "同样的后续行动",
+        "entity_type": "reference",
+        "canonical": null,
+        "candidates": [],
+        "confidence": 0.7,
+        "ambiguous": true,
+        "reason": "明确回指前文1号集群的动作链",
+        "role": null
+      },
+      {
+        "span_text": "后续共同行动",
+        "entity_type": "reference",
+        "canonical": null,
+        "candidates": [],
+        "confidence": 0.7,
+        "ambiguous": true,
+        "reason": "未明确说明具体动作内容",
+        "role": null
+      },
+      {
+        "span_text": "所有集群",
+        "entity_type": "reference",
+        "canonical": null,
+        "candidates": [],
+        "confidence": 0.8,
+        "ambiguous": false,
+        "reason": "明确指代全部四个集群",
+        "role": null
+      }
+    ],
+    "ambiguities": [
+      {
+        "type": "coreference",
+        "span_text": "其他编队",
+        "candidates": [],
+        "reason": "未明确列出具体是哪些编队",
+        "need_human": false
+      },
+      {
+        "type": "coreference",
+        "span_text": "所有人",
+        "candidates": [],
+        "reason": "泛指所有集群，但上下文已可推断为全部四个集群",
+        "need_human": false
+      },
+      {
+        "type": "coreference",
+        "span_text": "后续共同行动",
+        "candidates": [],
+        "reason": "未明确说明具体动作内容，需依赖上下文推断",
+        "need_human": true
+      }
+    ],
+    "references": [
+      {
+        "span_text": "同样的后续行动",
+        "refer_to": "1号集群在hq_mark7会合后的动作链",
+        "resolved_actions": [
+          "breakthrough(hq_mark1)",
+          "breakthrough(hq_mark5)",
+          "move(hq_2)",
+          "meet(OTHER_CLUSTERS, hq_2)",
+          "move(hq_mark4)",
+          "breakthrough(hq_mark4)"
+        ],
+        "confidence": 0.95
+      },
+      {
+        "span_text": "所有人",
+        "refer_to": "1、2、3、4号集群",
+        "resolved_actions": [
+          "move(hq_mark4)",
+          "breakthrough(hq_mark4)"
+        ],
+        "confidence": 0.9
+      },
+      {
+        "span_text": "所有集群",
+        "refer_to": "1、2、3、4号集群",
+        "resolved_actions": [
+          "move(hq_mark4)",
+          "breakthrough(hq_mark4)"
+        ],
+        "confidence": 0.95
+      },
+      {
+        "span_text": "其他编队",
+        "refer_to": "除1、2号集群外的其余集群（即3、4号）",
+        "resolved_actions": [
+          "move(hq_2)",
+          "meet(cluster_1, cluster_2, hq_2)"
+        ],
+        "confidence": 0.75
+      }
+    ],
+    "normalized_sentences": [
+      "cluster_1: attack(hq_mark6) -> move(hq_mark7) -> meet(cluster_2, hq_mark7) -> breakthrough(hq_mark1) -> breakthrough(hq_mark5) -> move(hq_2) -> meet(cluster_3, cluster_4, hq_2) -> move(hq_mark4) -> breakthrough(hq_mark4)",
+      "cluster_2: move(hq_mark7) -> meet(cluster_1, hq_mark7) -> breakthrough(hq_mark1) -> breakthrough(hq_mark5) -> move(hq_2) -> meet(cluster_3, cluster_4, hq_2) -> move(hq_mark4) -> breakthrough(hq_mark4)",
+      "cluster_3: move(hq_mark9) -> breakthrough(hq_mark9) -> move(hq_mark8) -> breakthrough(hq_mark8) -> move(hq_mark2) -> breakthrough(hq_mark2) -> move(hq_mark4) -> breakthrough(hq_mark4) -> move(hq_2) -> meet(cluster_1, cluster_2, cluster_4, hq_2) -> move(hq_mark4) -> breakthrough(hq_mark4)",
+      "cluster_4: move(hq_mark10) -> breakthrough(hq_mark10) -> move(hq_mark3) -> breakthrough(hq_mark3) -> move(hq_2) -> meet(cluster_1, cluster_3, hq_2) -> move(hq_mark4) -> breakthrough(hq_mark4)"
+    ],
+    "needs_human_review": true
+  },
+  "formal_steps": [
+    {
+      "step_id": "cluster_1_s01",
+      "cluster": "cluster_1",
+      "order": 1,
+      "stage": "local",
+      "action": "attack",
+      "target": "hq_mark6",
+      "participants": [],
+      "sync_id": null,
+      "requires": [],
+      "inferred": true,
+      "source_fragment": "attack(hq_mark6)"
+    },
+    {
+      "step_id": "cluster_1_s02",
+      "cluster": "cluster_1",
+      "order": 2,
+      "stage": "local",
+      "action": "move",
+      "target": "hq_mark7",
+      "participants": [],
+      "sync_id": null,
+      "requires": [
+        "cluster_1_s01"
+      ],
+      "inferred": false,
+      "source_fragment": "move(hq_mark7)"
+    },
+    {
+      "step_id": "cluster_1_s03",
+      "cluster": "cluster_1",
+      "order": 3,
+      "stage": "local",
+      "action": "meet",
+      "target": "hq_mark7",
+      "participants": [
+        "cluster_2"
+      ],
+      "sync_id": "meet_hq_mark7_cluster_1_cluster_2",
+      "requires": [
+        "cluster_1_s02"
+      ],
+      "inferred": false,
+      "source_fragment": "meet(cluster_2, hq_mark7)"
+    },
+    {
+      "step_id": "cluster_1_s04",
+      "cluster": "cluster_1",
+      "order": 4,
+      "stage": "local",
+      "action": "breakthrough",
+      "target": "hq_mark1",
+      "participants": [],
+      "sync_id": null,
+      "requires": [
+        "cluster_1_s03"
+      ],
+      "inferred": true,
+      "source_fragment": "breakthrough(hq_mark1)"
+    },
+    {
+      "step_id": "cluster_1_s05",
+      "cluster": "cluster_1",
+      "order": 5,
+      "stage": "local",
+      "action": "breakthrough",
+      "target": "hq_mark5",
+      "participants": [],
+      "sync_id": null,
+      "requires": [
+        "cluster_1_s04"
+      ],
+      "inferred": true,
+      "source_fragment": "breakthrough(hq_mark5)"
+    },
+    {
+      "step_id": "cluster_1_s06",
+      "cluster": "cluster_1",
+      "order": 6,
+      "stage": "local",
+      "action": "move",
+      "target": "hq_2",
+      "participants": [],
+      "sync_id": null,
+      "requires": [
+        "cluster_1_s05"
+      ],
+      "inferred": false,
+      "source_fragment": "move(hq_2)"
+    },
+    {
+      "step_id": "cluster_1_s07",
+      "cluster": "cluster_1",
+      "order": 7,
+      "stage": "joint",
+      "action": "meet",
+      "target": "hq_2",
+      "participants": [
+        "cluster_2",
+        "cluster_3",
+        "cluster_4"
+      ],
+      "sync_id": "meet_hq_2_cluster_1_cluster_2_cluster_3_cluster_4",
+      "requires": [
+        "cluster_1_s06"
+      ],
+      "inferred": true,
+      "source_fragment": "meet(cluster_3, cluster_4, hq_2)"
+    },
+    {
+      "step_id": "cluster_1_s08",
+      "cluster": "cluster_1",
+      "order": 8,
+      "stage": "global_final",
+      "action": "move",
+      "target": "hq_mark4",
+      "participants": [],
+      "sync_id": null,
+      "requires": [
+        "cluster_1_s07"
+      ],
+      "inferred": false,
+      "source_fragment": "move(hq_mark4)"
+    },
+    {
+      "step_id": "cluster_1_s09",
+      "cluster": "cluster_1",
+      "order": 9,
+      "stage": "global_final",
+      "action": "breakthrough",
+      "target": "hq_mark4",
+      "participants": [
+        "cluster_1",
+        "cluster_2",
+        "cluster_3",
+        "cluster_4"
+      ],
+      "sync_id": "joint_breakthrough_hq_mark4",
+      "requires": [
+        "cluster_1_s08"
+      ],
+      "inferred": true,
+      "source_fragment": "breakthrough(hq_mark4)"
+    },
+    {
+      "step_id": "cluster_2_s01",
+      "cluster": "cluster_2",
+      "order": 1,
+      "stage": "local",
+      "action": "move",
+      "target": "hq_mark7",
+      "participants": [],
+      "sync_id": null,
+      "requires": [],
+      "inferred": false,
+      "source_fragment": "move(hq_mark7)"
+    },
+    {
+      "step_id": "cluster_2_s02",
+      "cluster": "cluster_2",
+      "order": 2,
+      "stage": "local",
+      "action": "meet",
+      "target": "hq_mark7",
+      "participants": [
+        "cluster_1"
+      ],
+      "sync_id": "meet_hq_mark7_cluster_1_cluster_2",
+      "requires": [
+        "cluster_2_s01"
+      ],
+      "inferred": false,
+      "source_fragment": "meet(cluster_1, hq_mark7)"
+    },
+    {
+      "step_id": "cluster_2_s03",
+      "cluster": "cluster_2",
+      "order": 3,
+      "stage": "local",
+      "action": "breakthrough",
+      "target": "hq_mark1",
+      "participants": [],
+      "sync_id": null,
+      "requires": [
+        "cluster_2_s02"
+      ],
+      "inferred": true,
+      "source_fragment": "breakthrough(hq_mark1)"
+    },
+    {
+      "step_id": "cluster_2_s04",
+      "cluster": "cluster_2",
+      "order": 4,
+      "stage": "local",
+      "action": "breakthrough",
+      "target": "hq_mark5",
+      "participants": [],
+      "sync_id": null,
+      "requires": [
+        "cluster_2_s03"
+      ],
+      "inferred": true,
+      "source_fragment": "breakthrough(hq_mark5)"
+    },
+    {
+      "step_id": "cluster_2_s05",
+      "cluster": "cluster_2",
+      "order": 5,
+      "stage": "local",
+      "action": "move",
+      "target": "hq_2",
+      "participants": [],
+      "sync_id": null,
+      "requires": [
+        "cluster_2_s04"
+      ],
+      "inferred": false,
+      "source_fragment": "move(hq_2)"
+    },
+    {
+      "step_id": "cluster_2_s06",
+      "cluster": "cluster_2",
+      "order": 6,
+      "stage": "joint",
+      "action": "meet",
+      "target": "hq_2",
+      "participants": [
+        "cluster_1",
+        "cluster_3",
+        "cluster_4"
+      ],
+      "sync_id": "meet_hq_2_cluster_1_cluster_2_cluster_3_cluster_4",
+      "requires": [
+        "cluster_2_s05"
+      ],
+      "inferred": true,
+      "source_fragment": "meet(cluster_3, cluster_4, hq_2)"
+    },
+    {
+      "step_id": "cluster_2_s07",
+      "cluster": "cluster_2",
+      "order": 7,
+      "stage": "global_final",
+      "action": "move",
+      "target": "hq_mark4",
+      "participants": [],
+      "sync_id": null,
+      "requires": [
+        "cluster_2_s06"
+      ],
+      "inferred": false,
+      "source_fragment": "move(hq_mark4)"
+    },
+    {
+      "step_id": "cluster_2_s08",
+      "cluster": "cluster_2",
+      "order": 8,
+      "stage": "global_final",
+      "action": "breakthrough",
+      "target": "hq_mark4",
+      "participants": [
+        "cluster_1",
+        "cluster_2",
+        "cluster_3",
+        "cluster_4"
+      ],
+      "sync_id": "joint_breakthrough_hq_mark4",
+      "requires": [
+        "cluster_2_s07"
+      ],
+      "inferred": true,
+      "source_fragment": "breakthrough(hq_mark4)"
+    },
+    {
+      "step_id": "cluster_3_s01",
+      "cluster": "cluster_3",
+      "order": 1,
+      "stage": "local",
+      "action": "move",
+      "target": "hq_mark9",
+      "participants": [],
+      "sync_id": null,
+      "requires": [],
+      "inferred": false,
+      "source_fragment": "move(hq_mark9)"
+    },
+    {
+      "step_id": "cluster_3_s02",
+      "cluster": "cluster_3",
+      "order": 2,
+      "stage": "local",
+      "action": "breakthrough",
+      "target": "hq_mark9",
+      "participants": [],
+      "sync_id": null,
+      "requires": [
+        "cluster_3_s01"
+      ],
+      "inferred": true,
+      "source_fragment": "breakthrough(hq_mark9)"
+    },
+    {
+      "step_id": "cluster_3_s03",
+      "cluster": "cluster_3",
+      "order": 3,
+      "stage": "local",
+      "action": "move",
+      "target": "hq_mark8",
+      "participants": [],
+      "sync_id": null,
+      "requires": [
+        "cluster_3_s02"
+      ],
+      "inferred": false,
+      "source_fragment": "move(hq_mark8)"
+    },
+    {
+      "step_id": "cluster_3_s04",
+      "cluster": "cluster_3",
+      "order": 4,
+      "stage": "local",
+      "action": "breakthrough",
+      "target": "hq_mark8",
+      "participants": [],
+      "sync_id": null,
+      "requires": [
+        "cluster_3_s03"
+      ],
+      "inferred": true,
+      "source_fragment": "breakthrough(hq_mark8)"
+    },
+    {
+      "step_id": "cluster_3_s05",
+      "cluster": "cluster_3",
+      "order": 5,
+      "stage": "local",
+      "action": "move",
+      "target": "hq_mark2",
+      "participants": [],
+      "sync_id": null,
+      "requires": [
+        "cluster_3_s04"
+      ],
+      "inferred": false,
+      "source_fragment": "move(hq_mark2)"
+    },
+    {
+      "step_id": "cluster_3_s06",
+      "cluster": "cluster_3",
+      "order": 6,
+      "stage": "local",
+      "action": "breakthrough",
+      "target": "hq_mark2",
+      "participants": [],
+      "sync_id": null,
+      "requires": [
+        "cluster_3_s05"
+      ],
+      "inferred": true,
+      "source_fragment": "breakthrough(hq_mark2)"
+    },
+    {
+      "step_id": "cluster_3_s07",
+      "cluster": "cluster_3",
+      "order": 7,
+      "stage": "local",
+      "action": "move",
+      "target": "hq_mark4",
+      "participants": [],
+      "sync_id": null,
+      "requires": [
+        "cluster_3_s06"
+      ],
+      "inferred": false,
+      "source_fragment": "move(hq_mark4)"
+    },
+    {
+      "step_id": "cluster_3_s08",
+      "cluster": "cluster_3",
+      "order": 8,
+      "stage": "local",
+      "action": "breakthrough",
+      "target": "hq_mark4",
+      "participants": [],
+      "sync_id": null,
+      "requires": [
+        "cluster_3_s07"
+      ],
+      "inferred": false,
+      "source_fragment": "breakthrough(hq_mark4)"
+    },
+    {
+      "step_id": "cluster_3_s09",
+      "cluster": "cluster_3",
+      "order": 9,
+      "stage": "local",
+      "action": "move",
+      "target": "hq_2",
+      "participants": [],
+      "sync_id": null,
+      "requires": [
+        "cluster_3_s08"
+      ],
+      "inferred": false,
+      "source_fragment": "move(hq_2)"
+    },
+    {
+      "step_id": "cluster_3_s10",
+      "cluster": "cluster_3",
+      "order": 10,
+      "stage": "joint",
+      "action": "meet",
+      "target": "hq_2",
+      "participants": [
+        "cluster_1",
+        "cluster_2",
+        "cluster_4"
+      ],
+      "sync_id": "meet_hq_2_cluster_1_cluster_2_cluster_3_cluster_4",
+      "requires": [
+        "cluster_3_s09"
+      ],
+      "inferred": true,
+      "source_fragment": "meet(cluster_1, cluster_2, cluster_4, hq_2)"
+    },
+    {
+      "step_id": "cluster_3_s11",
+      "cluster": "cluster_3",
+      "order": 11,
+      "stage": "global_final",
+      "action": "move",
+      "target": "hq_mark4",
+      "participants": [],
+      "sync_id": null,
+      "requires": [
+        "cluster_3_s10"
+      ],
+      "inferred": false,
+      "source_fragment": "move(hq_mark4)"
+    },
+    {
+      "step_id": "cluster_3_s12",
+      "cluster": "cluster_3",
+      "order": 12,
+      "stage": "global_final",
+      "action": "breakthrough",
+      "target": "hq_mark4",
+      "participants": [
+        "cluster_1",
+        "cluster_2",
+        "cluster_3",
+        "cluster_4"
+      ],
+      "sync_id": "joint_breakthrough_hq_mark4",
+      "requires": [
+        "cluster_3_s11"
+      ],
+      "inferred": true,
+      "source_fragment": "breakthrough(hq_mark4)"
+    },
+    {
+      "step_id": "cluster_4_s01",
+      "cluster": "cluster_4",
+      "order": 1,
+      "stage": "local",
+      "action": "move",
+      "target": "hq_mark10",
+      "participants": [],
+      "sync_id": null,
+      "requires": [],
+      "inferred": false,
+      "source_fragment": "move(hq_mark10)"
+    },
+    {
+      "step_id": "cluster_4_s02",
+      "cluster": "cluster_4",
+      "order": 2,
+      "stage": "local",
+      "action": "breakthrough",
+      "target": "hq_mark10",
+      "participants": [],
+      "sync_id": null,
+      "requires": [
+        "cluster_4_s01"
+      ],
+      "inferred": true,
+      "source_fragment": "breakthrough(hq_mark10)"
+    },
+    {
+      "step_id": "cluster_4_s03",
+      "cluster": "cluster_4",
+      "order": 3,
+      "stage": "local",
+      "action": "move",
+      "target": "hq_mark3",
+      "participants": [],
+      "sync_id": null,
+      "requires": [
+        "cluster_4_s02"
+      ],
+      "inferred": false,
+      "source_fragment": "move(hq_mark3)"
+    },
+    {
+      "step_id": "cluster_4_s04",
+      "cluster": "cluster_4",
+      "order": 4,
+      "stage": "local",
+      "action": "breakthrough",
+      "target": "hq_mark3",
+      "participants": [],
+      "sync_id": null,
+      "requires": [
+        "cluster_4_s03"
+      ],
+      "inferred": false,
+      "source_fragment": "breakthrough(hq_mark3)"
+    },
+    {
+      "step_id": "cluster_4_s05",
+      "cluster": "cluster_4",
+      "order": 5,
+      "stage": "local",
+      "action": "move",
+      "target": "hq_2",
+      "participants": [],
+      "sync_id": null,
+      "requires": [
+        "cluster_4_s04"
+      ],
+      "inferred": false,
+      "source_fragment": "move(hq_2)"
+    },
+    {
+      "step_id": "cluster_4_s06",
+      "cluster": "cluster_4",
+      "order": 6,
+      "stage": "joint",
+      "action": "meet",
+      "target": "hq_2",
+      "participants": [
+        "cluster_1",
+        "cluster_2",
+        "cluster_3"
+      ],
+      "sync_id": "meet_hq_2_cluster_1_cluster_2_cluster_3_cluster_4",
+      "requires": [
+        "cluster_4_s05"
+      ],
+      "inferred": true,
+      "source_fragment": "meet(cluster_1, cluster_3, hq_2)"
+    },
+    {
+      "step_id": "cluster_4_s07",
+      "cluster": "cluster_4",
+      "order": 7,
+      "stage": "global_final",
+      "action": "move",
+      "target": "hq_mark4",
+      "participants": [],
+      "sync_id": null,
+      "requires": [
+        "cluster_4_s06"
+      ],
+      "inferred": false,
+      "source_fragment": "move(hq_mark4)"
+    },
+    {
+      "step_id": "cluster_4_s08",
+      "cluster": "cluster_4",
+      "order": 8,
+      "stage": "global_final",
+      "action": "breakthrough",
+      "target": "hq_mark4",
+      "participants": [
+        "cluster_1",
+        "cluster_2",
+        "cluster_3",
+        "cluster_4"
+      ],
+      "sync_id": "joint_breakthrough_hq_mark4",
+      "requires": [
+        "cluster_4_s07"
+      ],
+      "inferred": true,
+      "source_fragment": "breakthrough(hq_mark4)"
+    }
+  ],
+  "sync_constraints": [
+    {
+      "sync_id": "meet_hq_mark7_cluster_1_cluster_2",
+      "sync_type": "meet",
+      "target": "hq_mark7",
+      "participants": [
+        "cluster_1",
+        "cluster_2"
+      ],
+      "preconditions": [],
+      "source": "cluster_1:meet(cluster_2, hq_mark7)"
+    },
+    {
+      "sync_id": "meet_hq_2_cluster_1_cluster_2_cluster_3_cluster_4",
+      "sync_type": "meet",
+      "target": "hq_2",
+      "participants": [
+        "cluster_1",
+        "cluster_2",
+        "cluster_3",
+        "cluster_4"
+      ],
+      "preconditions": [],
+      "source": "cluster_1:meet(cluster_3, cluster_4, hq_2)"
+    },
+    {
+      "sync_id": "joint_breakthrough_hq_mark4",
+      "sync_type": "joint_breakthrough",
+      "target": "hq_mark4",
+      "participants": [
+        "cluster_1",
+        "cluster_2",
+        "cluster_3",
+        "cluster_4"
+      ],
+      "preconditions": [],
+      "source": "由全局最终协同行动规则生成"
+    }
+  ],
+  "atomic_propositions": [
+    "φ1",
+    "φ2",
+    "φ3",
+    "φ4",
+    "φ5",
+    "φ6",
+    "φ7",
+    "φ8",
+    "φ9",
+    "φ10",
+    "φ11",
+    "φ12",
+    "φ13",
+    "φ14",
+    "φ15"
+  ],
+  "standardized_atomic_events": [
+    "cluster1_attack_hqmark6_done",
+    "cluster1_move_hqmark7_done",
+    "cluster2_move_hqmark7_done",
+    "cluster1_cluster2_meet_hqmark7_done",
+    "cluster1_cluster2_breakthrough_hqmark1_done",
+    "cluster1_cluster2_breakthrough_hqmark5_done",
+    "cluster1_cluster2_move_hq2_done",
+    "cluster3_move_hqmark9_done",
+    "cluster3_breakthrough_hqmark9_done",
+    "cluster3_move_hqmark8_done",
+    "cluster3_breakthrough_hqmark8_done",
+    "cluster3_move_hqmark2_done",
+    "cluster3_breakthrough_hqmark2_done",
+    "cluster3_move_hqmark4_done",
+    "cluster3_breakthrough_hqmark4_done",
+    "cluster3_move_hq2_done",
+    "cluster4_move_hqmark10_done",
+    "cluster4_breakthrough_hqmark10_done",
+    "cluster4_move_hqmark3_done",
+    "cluster4_breakthrough_hqmark3_done",
+    "cluster4_move_hq2_done",
+    "cluster1_2_3_4_meet_hq2_done",
+    "cluster1_2_3_4_move_hqmark4_done",
+    "cluster1_2_3_4_breakthrough_hqmark4_done"
+  ],
+  "atomic_event_mappings": [
+    {
+      "phi": null,
+      "event_name": "cluster1_attack_hqmark6_done",
+      "actors": [
+        "cluster_1"
+      ],
+      "action": "attack",
+      "target": "hq_mark6",
+      "stage": "local",
+      "source_step_ids": [
+        "cluster_1_s01"
+      ],
+      "depends_on": [],
+      "inferred": true,
+      "usable_in_ltl": false,
+      "excluded_reason": "包含推断动作，默认不直接分配原子命题"
+    },
+    {
+      "phi": "φ1",
+      "event_name": "cluster1_move_hqmark7_done",
+      "actors": [
+        "cluster_1"
+      ],
+      "action": "move",
+      "target": "hq_mark7",
+      "stage": "local",
+      "source_step_ids": [
+        "cluster_1_s02"
+      ],
+      "depends_on": [
+        "cluster1_attack_hqmark6_done"
+      ],
+      "inferred": false,
+      "usable_in_ltl": true,
+      "excluded_reason": null
+    },
+    {
+      "phi": "φ2",
+      "event_name": "cluster2_move_hqmark7_done",
+      "actors": [
+        "cluster_2"
+      ],
+      "action": "move",
+      "target": "hq_mark7",
+      "stage": "local",
+      "source_step_ids": [
+        "cluster_2_s01"
+      ],
+      "depends_on": [],
+      "inferred": false,
+      "usable_in_ltl": true,
+      "excluded_reason": null
+    },
+    {
+      "phi": "φ3",
+      "event_name": "cluster1_cluster2_meet_hqmark7_done",
+      "actors": [
+        "cluster_1",
+        "cluster_2"
+      ],
+      "action": "meet",
+      "target": "hq_mark7",
+      "stage": "joint",
+      "source_step_ids": [
+        "cluster_1_s03",
+        "cluster_2_s02"
+      ],
+      "depends_on": [
+        "cluster1_move_hqmark7_done",
+        "cluster2_move_hqmark7_done"
+      ],
+      "inferred": false,
+      "usable_in_ltl": true,
+      "excluded_reason": null
+    },
+    {
+      "phi": null,
+      "event_name": "cluster1_cluster2_breakthrough_hqmark1_done",
+      "actors": [
+        "cluster_1",
+        "cluster_2"
+      ],
+      "action": "breakthrough",
+      "target": "hq_mark1",
+      "stage": "joint",
+      "source_step_ids": [
+        "cluster_1_s04",
+        "cluster_2_s03"
+      ],
+      "depends_on": [
+        "cluster1_cluster2_meet_hqmark7_done"
+      ],
+      "inferred": true,
+      "usable_in_ltl": false,
+      "excluded_reason": "包含推断动作，默认不直接分配原子命题"
+    },
+    {
+      "phi": null,
+      "event_name": "cluster1_cluster2_breakthrough_hqmark5_done",
+      "actors": [
+        "cluster_1",
+        "cluster_2"
+      ],
+      "action": "breakthrough",
+      "target": "hq_mark5",
+      "stage": "joint",
+      "source_step_ids": [
+        "cluster_1_s05",
+        "cluster_2_s04"
+      ],
+      "depends_on": [
+        "cluster1_cluster2_breakthrough_hqmark1_done"
+      ],
+      "inferred": true,
+      "usable_in_ltl": false,
+      "excluded_reason": "包含推断动作，默认不直接分配原子命题"
+    },
+    {
+      "phi": "φ4",
+      "event_name": "cluster1_cluster2_move_hq2_done",
+      "actors": [
+        "cluster_1",
+        "cluster_2"
+      ],
+      "action": "move",
+      "target": "hq_2",
+      "stage": "joint",
+      "source_step_ids": [
+        "cluster_1_s06",
+        "cluster_2_s05"
+      ],
+      "depends_on": [
+        "cluster1_cluster2_breakthrough_hqmark5_done"
+      ],
+      "inferred": false,
+      "usable_in_ltl": true,
+      "excluded_reason": null
+    },
+    {
+      "phi": "φ5",
+      "event_name": "cluster3_move_hqmark9_done",
+      "actors": [
+        "cluster_3"
+      ],
+      "action": "move",
+      "target": "hq_mark9",
+      "stage": "local",
+      "source_step_ids": [
+        "cluster_3_s01"
+      ],
+      "depends_on": [],
+      "inferred": false,
+      "usable_in_ltl": true,
+      "excluded_reason": null
+    },
+    {
+      "phi": null,
+      "event_name": "cluster3_breakthrough_hqmark9_done",
+      "actors": [
+        "cluster_3"
+      ],
+      "action": "breakthrough",
+      "target": "hq_mark9",
+      "stage": "local",
+      "source_step_ids": [
+        "cluster_3_s02"
+      ],
+      "depends_on": [
+        "cluster3_move_hqmark9_done"
+      ],
+      "inferred": true,
+      "usable_in_ltl": false,
+      "excluded_reason": "包含推断动作，默认不直接分配原子命题"
+    },
+    {
+      "phi": "φ6",
+      "event_name": "cluster3_move_hqmark8_done",
+      "actors": [
+        "cluster_3"
+      ],
+      "action": "move",
+      "target": "hq_mark8",
+      "stage": "local",
+      "source_step_ids": [
+        "cluster_3_s03"
+      ],
+      "depends_on": [
+        "cluster3_breakthrough_hqmark9_done"
+      ],
+      "inferred": false,
+      "usable_in_ltl": true,
+      "excluded_reason": null
+    },
+    {
+      "phi": null,
+      "event_name": "cluster3_breakthrough_hqmark8_done",
+      "actors": [
+        "cluster_3"
+      ],
+      "action": "breakthrough",
+      "target": "hq_mark8",
+      "stage": "local",
+      "source_step_ids": [
+        "cluster_3_s04"
+      ],
+      "depends_on": [
+        "cluster3_move_hqmark8_done"
+      ],
+      "inferred": true,
+      "usable_in_ltl": false,
+      "excluded_reason": "包含推断动作，默认不直接分配原子命题"
+    },
+    {
+      "phi": "φ7",
+      "event_name": "cluster3_move_hqmark2_done",
+      "actors": [
+        "cluster_3"
+      ],
+      "action": "move",
+      "target": "hq_mark2",
+      "stage": "local",
+      "source_step_ids": [
+        "cluster_3_s05"
+      ],
+      "depends_on": [
+        "cluster3_breakthrough_hqmark8_done"
+      ],
+      "inferred": false,
+      "usable_in_ltl": true,
+      "excluded_reason": null
+    },
+    {
+      "phi": null,
+      "event_name": "cluster3_breakthrough_hqmark2_done",
+      "actors": [
+        "cluster_3"
+      ],
+      "action": "breakthrough",
+      "target": "hq_mark2",
+      "stage": "local",
+      "source_step_ids": [
+        "cluster_3_s06"
+      ],
+      "depends_on": [
+        "cluster3_move_hqmark2_done"
+      ],
+      "inferred": true,
+      "usable_in_ltl": false,
+      "excluded_reason": "包含推断动作，默认不直接分配原子命题"
+    },
+    {
+      "phi": "φ8",
+      "event_name": "cluster3_move_hqmark4_done",
+      "actors": [
+        "cluster_3"
+      ],
+      "action": "move",
+      "target": "hq_mark4",
+      "stage": "local",
+      "source_step_ids": [
+        "cluster_3_s07"
+      ],
+      "depends_on": [
+        "cluster3_breakthrough_hqmark2_done"
+      ],
+      "inferred": false,
+      "usable_in_ltl": true,
+      "excluded_reason": null
+    },
+    {
+      "phi": "φ9",
+      "event_name": "cluster3_breakthrough_hqmark4_done",
+      "actors": [
+        "cluster_3"
+      ],
+      "action": "breakthrough",
+      "target": "hq_mark4",
+      "stage": "local",
+      "source_step_ids": [
+        "cluster_3_s08"
+      ],
+      "depends_on": [
+        "cluster3_move_hqmark4_done"
+      ],
+      "inferred": false,
+      "usable_in_ltl": true,
+      "excluded_reason": null
+    },
+    {
+      "phi": "φ10",
+      "event_name": "cluster3_move_hq2_done",
+      "actors": [
+        "cluster_3"
+      ],
+      "action": "move",
+      "target": "hq_2",
+      "stage": "local",
+      "source_step_ids": [
+        "cluster_3_s09"
+      ],
+      "depends_on": [
+        "cluster3_breakthrough_hqmark4_done"
+      ],
+      "inferred": false,
+      "usable_in_ltl": true,
+      "excluded_reason": null
+    },
+    {
+      "phi": "φ11",
+      "event_name": "cluster4_move_hqmark10_done",
+      "actors": [
+        "cluster_4"
+      ],
+      "action": "move",
+      "target": "hq_mark10",
+      "stage": "local",
+      "source_step_ids": [
+        "cluster_4_s01"
+      ],
+      "depends_on": [],
+      "inferred": false,
+      "usable_in_ltl": true,
+      "excluded_reason": null
+    },
+    {
+      "phi": null,
+      "event_name": "cluster4_breakthrough_hqmark10_done",
+      "actors": [
+        "cluster_4"
+      ],
+      "action": "breakthrough",
+      "target": "hq_mark10",
+      "stage": "local",
+      "source_step_ids": [
+        "cluster_4_s02"
+      ],
+      "depends_on": [
+        "cluster4_move_hqmark10_done"
+      ],
+      "inferred": true,
+      "usable_in_ltl": false,
+      "excluded_reason": "包含推断动作，默认不直接分配原子命题"
+    },
+    {
+      "phi": "φ12",
+      "event_name": "cluster4_move_hqmark3_done",
+      "actors": [
+        "cluster_4"
+      ],
+      "action": "move",
+      "target": "hq_mark3",
+      "stage": "local",
+      "source_step_ids": [
+        "cluster_4_s03"
+      ],
+      "depends_on": [
+        "cluster4_breakthrough_hqmark10_done"
+      ],
+      "inferred": false,
+      "usable_in_ltl": true,
+      "excluded_reason": null
+    },
+    {
+      "phi": "φ13",
+      "event_name": "cluster4_breakthrough_hqmark3_done",
+      "actors": [
+        "cluster_4"
+      ],
+      "action": "breakthrough",
+      "target": "hq_mark3",
+      "stage": "local",
+      "source_step_ids": [
+        "cluster_4_s04"
+      ],
+      "depends_on": [
+        "cluster4_move_hqmark3_done"
+      ],
+      "inferred": false,
+      "usable_in_ltl": true,
+      "excluded_reason": null
+    },
+    {
+      "phi": "φ14",
+      "event_name": "cluster4_move_hq2_done",
+      "actors": [
+        "cluster_4"
+      ],
+      "action": "move",
+      "target": "hq_2",
+      "stage": "local",
+      "source_step_ids": [
+        "cluster_4_s05"
+      ],
+      "depends_on": [
+        "cluster4_breakthrough_hqmark3_done"
+      ],
+      "inferred": false,
+      "usable_in_ltl": true,
+      "excluded_reason": null
+    },
+    {
+      "phi": null,
+      "event_name": "cluster1_2_3_4_meet_hq2_done",
+      "actors": [
+        "cluster_1",
+        "cluster_2",
+        "cluster_3",
+        "cluster_4"
+      ],
+      "action": "meet",
+      "target": "hq_2",
+      "stage": "joint",
+      "source_step_ids": [
+        "cluster_1_s07",
+        "cluster_2_s06",
+        "cluster_3_s10",
+        "cluster_4_s06"
+      ],
+      "depends_on": [
+        "cluster1_cluster2_move_hq2_done",
+        "cluster3_move_hq2_done",
+        "cluster4_move_hq2_done"
+      ],
+      "inferred": true,
+      "usable_in_ltl": false,
+      "excluded_reason": "包含推断动作，默认不直接分配原子命题"
+    },
+    {
+      "phi": "φ15",
+      "event_name": "cluster1_2_3_4_move_hqmark4_done",
+      "actors": [
+        "cluster_1",
+        "cluster_2",
+        "cluster_3",
+        "cluster_4"
+      ],
+      "action": "move",
+      "target": "hq_mark4",
+      "stage": "global_final",
+      "source_step_ids": [
+        "cluster_1_s08",
+        "cluster_2_s07",
+        "cluster_3_s11",
+        "cluster_4_s07"
+      ],
+      "depends_on": [
+        "cluster1_2_3_4_meet_hq2_done"
+      ],
+      "inferred": false,
+      "usable_in_ltl": true,
+      "excluded_reason": null
+    },
+    {
+      "phi": null,
+      "event_name": "cluster1_2_3_4_breakthrough_hqmark4_done",
+      "actors": [
+        "cluster_1",
+        "cluster_2",
+        "cluster_3",
+        "cluster_4"
+      ],
+      "action": "breakthrough",
+      "target": "hq_mark4",
+      "stage": "global_final",
+      "source_step_ids": [
+        "cluster_1_s09",
+        "cluster_2_s08",
+        "cluster_3_s12",
+        "cluster_4_s08"
+      ],
+      "depends_on": [
+        "cluster1_2_3_4_move_hqmark4_done"
+      ],
+      "inferred": true,
+      "usable_in_ltl": false,
+      "excluded_reason": "包含推断动作，默认不直接分配原子命题"
+    }
+  ],
+  "phi_to_event_map": {
+    "φ1": "cluster1_move_hqmark7_done",
+    "φ2": "cluster2_move_hqmark7_done",
+    "φ3": "cluster1_cluster2_meet_hqmark7_done",
+    "φ4": "cluster1_cluster2_move_hq2_done",
+    "φ5": "cluster3_move_hqmark9_done",
+    "φ6": "cluster3_move_hqmark8_done",
+    "φ7": "cluster3_move_hqmark2_done",
+    "φ8": "cluster3_move_hqmark4_done",
+    "φ9": "cluster3_breakthrough_hqmark4_done",
+    "φ10": "cluster3_move_hq2_done",
+    "φ11": "cluster4_move_hqmark10_done",
+    "φ12": "cluster4_move_hqmark3_done",
+    "φ13": "cluster4_breakthrough_hqmark3_done",
+    "φ14": "cluster4_move_hq2_done",
+    "φ15": "cluster1_2_3_4_move_hqmark4_done"
+  },
+  "warnings": [
+    "cluster_1: 将非显式 attack(hq_mark6) 标记为可疑。",
+    "cluster_1: breakthrough(hq_mark1) 不是原文明确突破点，已标记为推断动作。",
+    "cluster_1: breakthrough(hq_mark5) 不是原文明确突破点，已标记为推断动作。",
+    "cluster_2: breakthrough(hq_mark1) 不是原文明确突破点，已标记为推断动作。",
+    "cluster_2: breakthrough(hq_mark5) 不是原文明确突破点，已标记为推断动作。",
+    "cluster_3: breakthrough(hq_mark9) 不是原文明确突破点，已标记为推断动作。",
+    "cluster_3: breakthrough(hq_mark8) 不是原文明确突破点，已标记为推断动作。",
+    "cluster_3: breakthrough(hq_mark2) 不是原文明确突破点，已标记为推断动作。",
+    "cluster_4: breakthrough(hq_mark10) 不是原文明确突破点，已标记为推断动作。",
+    "cluster_1: 已将 hq_2 的会合参与方统一修正为全局参与方。",
+    "cluster_2: 已将 hq_2 的会合参与方统一修正为全局参与方。",
+    "cluster_3: 已将 hq_2 的会合参与方统一修正为全局参与方。",
+    "cluster_4: 已将 hq_2 的会合参与方统一修正为全局参与方。"
+  ]
+}
