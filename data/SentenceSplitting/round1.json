@@ -1,0 +1,349 @@
+{
+  "input_text": "1号集群拆分成2个子集群，分别进攻hq_mark1和hq_mark2，随后两路兵力在hq_mark3会合。",
+  "events": [
+    {
+      "event_id": "E1",
+      "source_fragment": "1号集群拆分成2个子集群",
+      "explicit_text": "1号集群拆分成2个子集群，分别命名为G1_1和G1_2。",
+      "actor": [
+        "G1"
+      ],
+      "action_hint": "split",
+      "target_hint": "2个子集群",
+      "location_hint": "",
+      "time_marker": "无",
+      "depends_on": [],
+      "trigger_text": "",
+      "group_state_before": [
+        "G1"
+      ],
+      "group_state_after": [
+        "G1_1",
+        "G1_2"
+      ],
+      "entity_status_before": [
+        {
+          "entity_id": "G1",
+          "status": "active"
+        }
+      ],
+      "entity_status_after": [
+        {
+          "entity_id": "G1",
+          "status": "inactive"
+        },
+        {
+          "entity_id": "G1_1",
+          "status": "active"
+        },
+        {
+          "entity_id": "G1_2",
+          "status": "active"
+        }
+      ],
+      "new_group_created": {
+        "group_id": "",
+        "members": []
+      },
+      "split_registry_update": {
+        "parent": "G1",
+        "children": [
+          "G1_1",
+          "G1_2"
+        ],
+        "retained_main_entity": "",
+        "parent_status_after_split": "inactive"
+      },
+      "lineage_update": {
+        "operation": "split",
+        "input_entities": [
+          "G1"
+        ],
+        "output_entities": [
+          "G1_1",
+          "G1_2"
+        ]
+      },
+      "completion_type": [
+        "explicit_subject"
+      ],
+      "needs_reference_resolution": false,
+      "reference_candidates": []
+    },
+    {
+      "event_id": "E2",
+      "source_fragment": "分别进攻hq_mark1",
+      "explicit_text": "G1_1进攻hq_mark1。",
+      "actor": [
+        "G1_1"
+      ],
+      "action_hint": "attack",
+      "target_hint": "hq_mark1",
+      "location_hint": "hq_mark1",
+      "time_marker": "然后",
+      "depends_on": [
+        "E1"
+      ],
+      "trigger_text": "",
+      "group_state_before": [
+        "G1_1",
+        "G1_2"
+      ],
+      "group_state_after": [
+        "G1_1",
+        "G1_2"
+      ],
+      "entity_status_before": [
+        {
+          "entity_id": "G1_1",
+          "status": "active"
+        },
+        {
+          "entity_id": "G1_2",
+          "status": "active"
+        }
+      ],
+      "entity_status_after": [
+        {
+          "entity_id": "G1_1",
+          "status": "active"
+        },
+        {
+          "entity_id": "G1_2",
+          "status": "active"
+        }
+      ],
+      "new_group_created": {
+        "group_id": "",
+        "members": []
+      },
+      "split_registry_update": {
+        "parent": "",
+        "children": [],
+        "retained_main_entity": "",
+        "parent_status_after_split": ""
+      },
+      "lineage_update": {
+        "operation": "none",
+        "input_entities": [],
+        "output_entities": []
+      },
+      "completion_type": [
+        "compound_split"
+      ],
+      "needs_reference_resolution": false,
+      "reference_candidates": []
+    },
+    {
+      "event_id": "E3",
+      "source_fragment": "和hq_mark2",
+      "explicit_text": "G1_2进攻hq_mark2。",
+      "actor": [
+        "G1_2"
+      ],
+      "action_hint": "attack",
+      "target_hint": "hq_mark2",
+      "location_hint": "hq_mark2",
+      "time_marker": "然后",
+      "depends_on": [
+        "E1"
+      ],
+      "trigger_text": "",
+      "group_state_before": [
+        "G1_1",
+        "G1_2"
+      ],
+      "group_state_after": [
+        "G1_1",
+        "G1_2"
+      ],
+      "entity_status_before": [
+        {
+          "entity_id": "G1_1",
+          "status": "active"
+        },
+        {
+          "entity_id": "G1_2",
+          "status": "active"
+        }
+      ],
+      "entity_status_after": [
+        {
+          "entity_id": "G1_1",
+          "status": "active"
+        },
+        {
+          "entity_id": "G1_2",
+          "status": "active"
+        }
+      ],
+      "new_group_created": {
+        "group_id": "",
+        "members": []
+      },
+      "split_registry_update": {
+        "parent": "",
+        "children": [],
+        "retained_main_entity": "",
+        "parent_status_after_split": ""
+      },
+      "lineage_update": {
+        "operation": "none",
+        "input_entities": [],
+        "output_entities": []
+      },
+      "completion_type": [
+        "compound_split"
+      ],
+      "needs_reference_resolution": false,
+      "reference_candidates": []
+    },
+    {
+      "event_id": "E4",
+      "source_fragment": "随后两路兵力在hq_mark3会合",
+      "explicit_text": "G1_1和G1_2随后在hq_mark3会合，形成联合体GRP1。",
+      "actor": [
+        "G1_1",
+        "G1_2"
+      ],
+      "action_hint": "merge",
+      "target_hint": "两路兵力",
+      "location_hint": "hq_mark3",
+      "time_marker": "随后",
+      "depends_on": [
+        "E2",
+        "E3"
+      ],
+      "trigger_text": "",
+      "group_state_before": [
+        "G1_1",
+        "G1_2"
+      ],
+      "group_state_after": [
+        "GRP1"
+      ],
+      "entity_status_before": [
+        {
+          "entity_id": "G1_1",
+          "status": "active"
+        },
+        {
+          "entity_id": "G1_2",
+          "status": "active"
+        }
+      ],
+      "entity_status_after": [
+        {
+          "entity_id": "GRP1",
+          "status": "active"
+        }
+      ],
+      "new_group_created": {
+        "group_id": "GRP1",
+        "members": [
+          "G1_1",
+          "G1_2"
+        ]
+      },
+      "split_registry_update": {
+        "parent": "",
+        "children": [],
+        "retained_main_entity": "",
+        "parent_status_after_split": ""
+      },
+      "lineage_update": {
+        "operation": "merge",
+        "input_entities": [
+          "G1_1",
+          "G1_2"
+        ],
+        "output_entities": [
+          "GRP1"
+        ]
+      },
+      "completion_type": [
+        "subject_inherited",
+        "group_scope_expanded"
+      ],
+      "needs_reference_resolution": false,
+      "reference_candidates": []
+    }
+  ],
+  "entity_registry": [
+    {
+      "entity_id": "G1",
+      "entity_type": "base_group",
+      "parent_entities": [],
+      "status": "inactive",
+      "created_by_event": "E1",
+      "reason": "拆分后失活"
+    },
+    {
+      "entity_id": "G1_1",
+      "entity_type": "derived_group",
+      "parent_entities": [
+        "G1"
+      ],
+      "status": "active",
+      "created_by_event": "E1",
+      "reason": "由G1拆分得到"
+    },
+    {
+      "entity_id": "G1_2",
+      "entity_type": "derived_group",
+      "parent_entities": [
+        "G1"
+      ],
+      "status": "active",
+      "created_by_event": "E1",
+      "reason": "由G1拆分得到"
+    },
+    {
+      "entity_id": "GRP1",
+      "entity_type": "merged_group",
+      "parent_entities": [
+        "G1_1",
+        "G1_2"
+      ],
+      "status": "active",
+      "created_by_event": "E4",
+      "reason": "G1_1与G1_2会合形成联合体"
+    }
+  ],
+  "group_registry": [
+    {
+      "group_id": "GRP1",
+      "members": [
+        "G1_1",
+        "G1_2"
+      ],
+      "created_by_event": "E4",
+      "reason": "G1_1与G1_2会合形成联合体"
+    }
+  ],
+  "lineage_registry": [
+    {
+      "event_id": "E1",
+      "operation": "split",
+      "input_entities": [
+        "G1"
+      ],
+      "output_entities": [
+        "G1_1",
+        "G1_2"
+      ]
+    },
+    {
+      "event_id": "E4",
+      "operation": "merge",
+      "input_entities": [
+        "G1_1",
+        "G1_2"
+      ],
+      "output_entities": [
+        "GRP1"
+      ]
+    }
+  ],
+  "unresolved_references": []
+}
