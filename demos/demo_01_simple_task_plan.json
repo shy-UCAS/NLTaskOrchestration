@@ -1,0 +1,78 @@
+{
+  "plan_id": "plan_001",
+  "source_instruction": "侦察组A前出至R1区域搜索敌方目标，打击组B在Z1区域待机，发现敌方主群后执行拦截。",
+  "standard_task_plan_text": "侦察组A前出至R1区域执行侦察任务，确认敌方主群位置；打击组B进入Z1区域待机；当侦察组A发现并确认敌方主群后，打击组B对敌方主群执行拦截任务。",
+  "scenario_id": "scenario_demo_001",
+  "participants": [
+    {
+      "actor_id": "scout_team_A",
+      "type": "fleet",
+      "role": "recon",
+      "capability_ref": "scout_team_A"
+    },
+    {
+      "actor_id": "strike_team_B",
+      "type": "fleet",
+      "role": "strike",
+      "capability_ref": "strike_team_B"
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": "T1",
+      "actor": "scout_team_A",
+      "action": "reconnaissance",
+      "target": "R1",
+      "condition": "mission_start",
+      "time_window": null,
+      "expected_output": "enemy_main_group_location_confirmed",
+      "is_coalition": false,
+      "coalition_members": null
+    },
+    {
+      "task_id": "T2",
+      "actor": "strike_team_B",
+      "action": "standby",
+      "target": "Z1",
+      "condition": "mission_start",
+      "time_window": null,
+      "expected_output": "strike_team_B_ready_at_Z1",
+      "is_coalition": false,
+      "coalition_members": null
+    },
+    {
+      "task_id": "T3",
+      "actor": "strike_team_B",
+      "action": "intercept",
+      "target": "enemy_main_group",
+      "condition": "enemy_main_group_location_confirmed",
+      "time_window": null,
+      "expected_output": "enemy_main_group_intercepted",
+      "is_coalition": false,
+      "coalition_members": null
+    }
+  ],
+  "relations": [
+    {
+      "source": "T1",
+      "target": "T3",
+      "type": "condition_trigger",
+      "sync_tolerance": null,
+      "condition": "enemy_main_group_location_confirmed"
+    },
+    {
+      "source": "T2",
+      "target": "T3",
+      "type": "sequence",
+      "sync_tolerance": null,
+      "condition": "strike_team_B_ready_at_Z1"
+    }
+  ],
+  "global_constraints": {
+    "total_time_budget": null,
+    "rendezvous_points": []
+  },
+  "ambiguities": [],
+  "missing_fields": [],
+  "parse_confidence": 0.95
+}

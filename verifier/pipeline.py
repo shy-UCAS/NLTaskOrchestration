@@ -1,0 +1,443 @@
+"""
+verifier/pipeline.py
+四层递进验证管道
+Layer 1: 代码执行验证（语法 + 沙箱运行）
+Layer 2: 图结构验证（DAG 合法性 + 连通性 + 关键路径）
+Layer 3: Z3 约束验证（时序 + 资源 + 物理可行性）
+Layer 4: 语义反向校验（预留接口）
+"""
+from __future__ import annotations
+
+import subprocess
+import sys
+import tempfile
+import textwrap
+import time
+from dataclasses import dataclass, field
+from typing import Optional
+
+import networkx as nx
+
+from gcjp.mission_graph import BuiltGraph
+from gcjp.constraint_templates import Z3ConstraintBuilder
+from gcjp.safety_checker import check_gcjp_code
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 验证报告数据类
+# ─────────────────────────────────────────────────────────────────────────────
+
+@dataclass
+class LayerResult:
+    layer: int
+    name: str
+    passed: bool
+    details: dict = field(default_factory=dict)
+    error_msg: Optional[str] = None
+    elapsed_ms: float = 0.0
+
+    def summary_line(self) -> str:
+        icon = "✅" if self.passed else "❌"
+        return f"{icon} Layer {self.layer} [{self.name}]: {'通过' if self.passed else '失败'}"
+
+
+@dataclass
+class VerificationReport:
+    segment_id: str
+    overall_passed: bool
+    layers: list[LayerResult] = field(default_factory=list)
+    schedule: dict = field(default_factory=dict)      # Z3 求出的时间调度
+    unsat_core: list[str] = field(default_factory=list)
+    attribution: list[str] = field(default_factory=list)  # unsat core 归因
+    total_elapsed_ms: float = 0.0
+
+    def print_report(self):
+        print(f"\n{'='*60}")
+        print(f"验证报告 — 段: {self.segment_id}")
+        print(f"{'='*60}")
+        print(f"总体结果: {'✅ 通过' if self.overall_passed else '❌ 失败'}")
+        print(f"总耗时: {self.total_elapsed_ms:.1f} ms\n")
+        for lr in self.layers:
+            print(lr.summary_line())
+            if not lr.passed and lr.error_msg:
+                print(f"   → {lr.error_msg}")
+            if lr.details:
+                for k, v in lr.details.items():
+                    print(f"   {k}: {v}")
+        if self.unsat_core:
+            print(f"\nUNSAT Core 约束标签:")
+            for label in self.unsat_core:
+                print(f"  - {label}")
+        if self.attribution:
+            print(f"\n归因分析:")
+            for a in self.attribution:
+                print(f"  → {a}")
+        print(f"{'='*60}\n")
+
+    def to_dict(self) -> dict:
+        return {
+            "segment_id": self.segment_id,
+            "overall_passed": self.overall_passed,
+            "layers": [
+                {
+                    "layer": lr.layer, "name": lr.name, "passed": lr.passed,
+                    "details": lr.details, "error_msg": lr.error_msg,
+                    "elapsed_ms": lr.elapsed_ms,
+                }
+                for lr in self.layers
+            ],
+            "schedule": self.schedule,
+            "unsat_core": self.unsat_core,
+            "attribution": self.attribution,
+            "total_elapsed_ms": self.total_elapsed_ms,
+        }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 各层验证器
+# ─────────────────────────────────────────────────────────────────────────────
+
+class Layer1CodeVerifier:
+    """
+    第一层：代码执行验证
+    - 安全检查（API 白名单）
+    - subprocess 沙箱执行
+    - 语法错误 / 运行时错误捕获
+    """
+
+    TIMEOUT_SECONDS = 10
+
+    def verify(self, code: str) -> LayerResult:
+        t0 = time.time()
+
+        # 安全检查
+        safety = check_gcjp_code(code)
+        if not safety.passed:
+            return LayerResult(
+                layer=1, name="代码执行验证", passed=False,
+                error_msg="API 白名单校验失败:\n" + "\n".join(safety.violations),
+                details={"violations": safety.violations},
+                elapsed_ms=(time.time() - t0) * 1000,
+            )
+
+        # 在子进程中执行（沙箱）
+        # 注入 sys.path 保证能 import gcjp
+        sandbox_code = textwrap.dedent(f"""\
+            import sys, os
+            sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            {code}
+            # 验证 build() 是否被调用
+            # 由调用者通过 BuiltGraph 对象验证
+        """)
+
+        with tempfile.NamedTemporaryFile(suffix=".py", mode="w",
+                                         delete=False, encoding="utf-8") as f:
+            f.write(sandbox_code)
+            tmpfile = f.name
+
+        try:
+            result = subprocess.run(
+                [sys.executable, tmpfile],
+                capture_output=True, text=True,
+                timeout=self.TIMEOUT_SECONDS,
+            )
+            elapsed = (time.time() - t0) * 1000
+            if result.returncode != 0:
+                return LayerResult(
+                    layer=1, name="代码执行验证", passed=False,
+                    error_msg=f"运行时错误:\n{result.stderr}",
+                    details={"returncode": result.returncode, "stderr": result.stderr},
+                    elapsed_ms=elapsed,
+                )
+            return LayerResult(
+                layer=1, name="代码执行验证", passed=True,
+                details={"warnings": safety.warnings},
+                elapsed_ms=elapsed,
+            )
+        except subprocess.TimeoutExpired:
+            return LayerResult(
+                layer=1, name="代码执行验证", passed=False,
+                error_msg=f"执行超时（>{self.TIMEOUT_SECONDS}s）",
+                elapsed_ms=(time.time() - t0) * 1000,
+            )
+        finally:
+            import os
+            try:
+                os.unlink(tmpfile)
+            except Exception:
+                pass
+
+
+class Layer2GraphVerifier:
+    """
+    第二层：图结构验证
+    - DAG 合法性（无环）
+    - 连通性（无孤立节点）
+    - 节点覆盖（所有 actor 的任务都在图中）
+    - 关键路径计算
+    """
+
+    def verify(self, graph: BuiltGraph) -> LayerResult:
+        t0 = time.time()
+        g = graph.graph
+        issues = []
+
+        # 1. DAG 合法性
+        if not nx.is_directed_acyclic_graph(g):
+            cycles = list(nx.simple_cycles(g))
+            issues.append(f"图中存在环路: {cycles}")
+
+        # 2. 孤立节点检测（无入边且无出边的节点，除非图只有1个节点）
+        if len(g.nodes) > 1:
+            isolated = [n for n in g.nodes
+                        if g.in_degree(n) == 0 and g.out_degree(n) == 0]
+            if isolated:
+                issues.append(f"存在孤立节点（无依赖边）: {isolated}")
+
+        # 3. 节点覆盖：检查所有任务是否都在图中
+        missing = set(graph.task_ids) - set(g.nodes)
+        if missing:
+            issues.append(f"任务节点未加入图中: {missing}")
+
+        # 4. 关键路径（简单计算：最长路径，以 duration_lb 为权重）
+        critical_path = []
+        critical_path_len = 0.0
+        if nx.is_directed_acyclic_graph(g) and len(g.nodes) > 0:
+            try:
+                # 为每个节点设置 duration_lb 作为路径长度
+                for tid, node in graph.nodes.items():
+                    g.nodes[tid]["path_weight"] = node.duration_lb
+                    cp = nx.dag_longest_path(g)
+                    critical_path = cp
+                    critical_path_len = sum(graph.nodes[tid].duration_lb for tid in cp)
+            except Exception as e:
+                issues.append(f"关键路径计算失败: {e}")
+
+        elapsed = (time.time() - t0) * 1000
+        passed = len(issues) == 0
+
+        return LayerResult(
+            layer=2, name="图结构验证", passed=passed,
+            error_msg=("\n".join(issues) if issues else None),
+            details={
+                "node_count": len(g.nodes),
+                "edge_count": len(g.edges),
+                "is_dag": nx.is_directed_acyclic_graph(g),
+                "critical_path": critical_path,
+                "critical_path_length": critical_path_len,
+                "issues": issues,
+            },
+            elapsed_ms=elapsed,
+        )
+
+
+class Layer3Z3Verifier:
+    """
+    第三层：Z3 约束验证
+    - 构建 Z3 约束并求解
+    - SAT: 提取调度方案
+    - UNSAT: 提取 unsat core 并归因
+    """
+
+    def __init__(self, timeout_ms: int = 10_000):
+        self.timeout_ms = timeout_ms
+
+    def verify(self, graph: BuiltGraph) -> tuple[LayerResult, dict, list[str]]:
+        """
+        返回: (LayerResult, schedule_dict, unsat_core_labels)
+        """
+        t0 = time.time()
+        try:
+            builder = Z3ConstraintBuilder(graph, use_tracking=True)
+            builder.build_all()
+            result = builder.solve(timeout_ms=self.timeout_ms)
+        except Exception as e:
+            elapsed = (time.time() - t0) * 1000
+            lr = LayerResult(
+                layer=3, name="Z3 约束验证", passed=False,
+                error_msg=f"Z3 构建/求解异常: {e}",
+                elapsed_ms=elapsed,
+            )
+            return lr, {}, []
+
+        elapsed = (time.time() - t0) * 1000
+        res_str = result["result"]
+
+        if res_str == "sat":
+            lr = LayerResult(
+                layer=3, name="Z3 约束验证", passed=True,
+                details={
+                    "z3_result": "sat",
+                    "tasks_scheduled": len(result["schedule"]),
+                },
+                elapsed_ms=elapsed,
+            )
+            return lr, result["schedule"], []
+
+        elif res_str == "unsat":
+            core = result["unsat_core"]
+            attribution = _attribute_unsat_core(core, graph)
+            lr = LayerResult(
+                layer=3, name="Z3 约束验证", passed=False,
+                error_msg=f"约束不可满足（UNSAT），{len(core)} 条冲突约束",
+                details={"z3_result": "unsat", "unsat_core": core,
+                         "attribution": attribution},
+                elapsed_ms=elapsed,
+            )
+            return lr, {}, core
+
+        else:  # unknown
+            lr = LayerResult(
+                layer=3, name="Z3 约束验证", passed=False,
+                error_msg=result.get("error", "Z3 未知错误"),
+                details={"z3_result": "unknown"},
+                elapsed_ms=elapsed,
+            )
+            return lr, {}, []
+
+
+class Layer4SemanticVerifier:
+    """第四层：语义反向校验（预留接口，暂不实现）"""
+
+    def verify(self, graph: BuiltGraph, schedule: dict) -> LayerResult:
+        return LayerResult(
+            layer=4, name="语义反向校验", passed=True,
+            details={"status": "预留接口，暂未实现"},
+            elapsed_ms=0.0,
+        )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# unsat core 归因
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _attribute_unsat_core(core_labels: list[str], graph: BuiltGraph) -> list[str]:
+    """将 unsat core 中的约束标签翻译为人类可读的归因说明"""
+    attribution = []
+    for label in core_labels:
+        if label.startswith("seq_"):
+            parts = label[4:].split("__")
+            if len(parts) == 2:
+                attribution.append(
+                    f"顺序冲突: 任务 '{parts[0]}' 必须在 '{parts[1]}' 之前完成"
+                )
+        elif label.startswith("sync_"):
+            parts = label[5:].split("__")
+            if len(parts) == 2:
+                attribution.append(
+                    f"同步冲突: 任务 '{parts[0]}' 与 '{parts[1]}' 无法在同步时间窗内同时开始"
+                )
+        elif "resource" in label:
+            attribution.append(f"资源超限: {label}")
+        elif "phys_feasibility" in label:
+            parts = label.split("_")
+            tid = "_".join(parts[2:]) if len(parts) > 2 else label
+            attribution.append(
+                f"物理不可行: 任务 '{tid}' 的时间预算不足以完成飞行距离"
+            )
+        elif "dur_lb" in label:
+            tid = label.replace("dur_lb_", "")
+            attribution.append(
+                f"时间预算不足: 任务 '{tid}' 的分配时间小于最短执行时间"
+            )
+        elif "time_window" in label:
+            attribution.append(f"时间窗冲突: {label}")
+        else:
+            attribution.append(f"约束冲突: {label}")
+    return attribution
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 统一入口
+# ─────────────────────────────────────────────────────────────────────────────
+
+class VerificationPipeline:
+    """
+    四层验证管道统一入口。
+
+    用法:
+        pipeline = VerificationPipeline()
+        report = pipeline.verify_graph(built_graph)
+        report.print_report()
+
+        # 如果只有 GCJP 代码字符串（LLM 生成的情况）：
+        report = pipeline.verify_code(code_str, built_graph)
+    """
+
+    def __init__(self, z3_timeout_ms: int = 10_000):
+        self.l1 = Layer1CodeVerifier()
+        self.l2 = Layer2GraphVerifier()
+        self.l3 = Layer3Z3Verifier(timeout_ms=z3_timeout_ms)
+        self.l4 = Layer4SemanticVerifier()
+
+    def verify_graph(self, graph: BuiltGraph) -> VerificationReport:
+        """
+        对已构建的 BuiltGraph 对象运行 Layer 2-4 验证。
+        （Layer 1 代码验证需要原始代码字符串，此方法跳过）
+        """
+        t0 = time.time()
+        layers: list[LayerResult] = []
+
+        # Layer 2
+        l2_result = self.l2.verify(graph)
+        layers.append(l2_result)
+        if not l2_result.passed:
+            return VerificationReport(
+                segment_id=graph.segment_id,
+                overall_passed=False,
+                layers=layers,
+                total_elapsed_ms=(time.time() - t0) * 1000,
+            )
+
+        # Layer 3
+        l3_result, schedule, unsat_core = self.l3.verify(graph)
+        layers.append(l3_result)
+        attribution = l3_result.details.get("attribution", [])
+        if not l3_result.passed:
+            return VerificationReport(
+                segment_id=graph.segment_id,
+                overall_passed=False,
+                layers=layers,
+                schedule={},
+                unsat_core=unsat_core,
+                attribution=attribution,
+                total_elapsed_ms=(time.time() - t0) * 1000,
+            )
+
+        # Layer 4
+        l4_result = self.l4.verify(graph, schedule)
+        layers.append(l4_result)
+
+        return VerificationReport(
+            segment_id=graph.segment_id,
+            overall_passed=all(lr.passed for lr in layers),
+            layers=layers,
+            schedule=schedule,
+            unsat_core=[],
+            attribution=[],
+            total_elapsed_ms=(time.time() - t0) * 1000,
+        )
+
+    def verify_code(self, code: str, graph: BuiltGraph) -> VerificationReport:
+        """
+        对 LLM 生成的代码字符串 + 对应 BuiltGraph 运行全四层验证。
+        """
+        t0 = time.time()
+        layers: list[LayerResult] = []
+
+        # Layer 1
+        l1_result = self.l1.verify(code)
+        layers.append(l1_result)
+        if not l1_result.passed:
+            return VerificationReport(
+                segment_id=graph.segment_id,
+                overall_passed=False,
+                layers=layers,
+                total_elapsed_ms=(time.time() - t0) * 1000,
+            )
+
+        # Layer 2-4
+        rest = self.verify_graph(graph)
+        rest.layers = layers + rest.layers
+        rest.total_elapsed_ms = (time.time() - t0) * 1000
+        return rest

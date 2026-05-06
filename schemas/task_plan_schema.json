@@ -1,0 +1,363 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "task_plan_schema",
+  "title": "StandardizedTaskPlan",
+  "description": "NL作战指令经解析、消歧与规范化后的标准化任务计划格式",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "plan_id",
+    "source_instruction",
+    "standard_task_plan_text",
+    "participants",
+    "tasks",
+    "relations",
+    "ambiguities",
+    "missing_fields"
+  ],
+  "properties": {
+    "plan_id": {
+      "type": "string",
+      "description": "任务计划唯一标识符，如 plan_001"
+    },
+    "source_instruction": {
+      "type": "string",
+      "description": "原始自然语言作战指令"
+    },
+    "standard_task_plan_text": {
+      "type": "string",
+      "description": "消歧、补全后的标准化自然语言任务计划文本"
+    },
+    "scenario_id": {
+      "type": "string",
+      "description": "关联的场景配置ID"
+    },
+    "participants": {
+      "type": "array",
+      "description": "参与本次任务的所有集群、单机或联合编队",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "actor_id",
+          "type"
+        ],
+        "properties": {
+          "actor_id": {
+            "type": "string",
+            "description": "执行主体ID，如 fleet_1、scout_team_A"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "fleet",
+              "solo_uav",
+              "coalition"
+            ],
+            "description": "主体类型"
+          },
+          "role": {
+            "type": "string",
+            "description": "主体在本次任务中的角色，如 recon、strike、support、jammer"
+          },
+          "capability_ref": {
+            "type": "string",
+            "description": "引用 capability_model.yaml 中的能力定义键"
+          }
+        }
+      }
+    },
+    "tasks": {
+      "type": "array",
+      "description": "原子任务列表，每个任务对应任务DAG中的一个节点",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "task_id",
+          "actor",
+          "action",
+          "target"
+        ],
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "description": "任务节点唯一ID，如 t1_recon_mark9"
+          },
+          "actor": {
+            "type": "string",
+            "description": "执行该任务的主体ID，需在 participants 中出现"
+          },
+          "action": {
+            "type": "string",
+            "description": "动作类型，需在 action_templates.yaml 中定义",
+            "examples": [
+              "reconnaissance",
+              "track",
+              "intercept",
+              "strike",
+              "fly_to",
+              "jam",
+              "standby",
+              "breakthrough",
+              "rendezvous"
+            ]
+          },
+          "target": {
+            "type": "string",
+            "description": "任务目标，可以是目标点ID、区域ID、敌方目标ID或会合点ID"
+          },
+          "condition": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "任务执行的前置条件或触发条件的自然语言描述"
+          },
+          "time_window": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "任务时间窗口约束",
+            "additionalProperties": false,
+            "properties": {
+              "earliest": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "description": "最早开始时间，相对任务开始时刻"
+              },
+              "latest": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "description": "最晚开始时间"
+              },
+              "deadline": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "description": "最晚完成时间"
+              }
+            }
+          },
+          "expected_output": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "任务完成后的预期输出状态，如目标侦察完成、敌方位置确认、打击组就位"
+          },
+          "is_coalition": {
+            "type": "boolean",
+            "default": false,
+            "description": "是否为多主体联合执行任务"
+          },
+          "coalition_members": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "description": "若为联合任务，列出所有参与主体ID",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "relations": {
+      "type": "array",
+      "description": "任务间的依赖、时序或协同关系，对应任务DAG中的边",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source",
+          "target",
+          "type"
+        ],
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "源任务 task_id"
+          },
+          "target": {
+            "type": "string",
+            "description": "目标任务 task_id"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "sequence",
+              "parallel",
+              "sync",
+              "barrier",
+              "condition_trigger",
+              "handoff",
+              "fork",
+              "join"
+            ],
+            "description": "关系类型：sequence=顺序，parallel=并行，sync=同步，barrier=屏障，condition_trigger=条件触发，handoff=信息或状态交接，fork=分叉，join=汇聚"
+          },
+          "sync_tolerance": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "同步容忍时间窗，仅 type=sync 时有效"
+          },
+          "condition": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "条件触发或交接关系的具体条件"
+          }
+        }
+      }
+    },
+    "global_constraints": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "description": "适用于整个任务计划的全局约束",
+      "additionalProperties": false,
+      "properties": {
+        "total_time_budget": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "总任务时间上限"
+        },
+        "rendezvous_points": {
+          "type": "array",
+          "description": "全局会合点定义",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "point_id": {
+                "type": "string",
+                "description": "会合点ID"
+              },
+              "location_ref": {
+                "type": "string",
+                "description": "对应 environment_config.yaml 中的位置引用"
+              },
+              "required_actors": {
+                "type": "array",
+                "description": "需要到达该会合点的执行主体",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "time_window": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "description": "会合点时间窗口",
+                "additionalProperties": false,
+                "properties": {
+                  "earliest": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "latest": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "deadline": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "ambiguities": {
+      "type": "array",
+      "description": "解析过程中检测到的歧义项，供人机交互确认使用",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ambiguity_id",
+          "type",
+          "description",
+          "default_interpretation"
+        ],
+        "properties": {
+          "ambiguity_id": {
+            "type": "string",
+            "description": "歧义项唯一ID"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "referent_unclear",
+              "temporal_ambiguous",
+              "condition_missing",
+              "param_missing",
+              "target_unclear",
+              "actor_unclear",
+              "priority_unclear"
+            ],
+            "description": "歧义类型"
+          },
+          "location": {
+            "type": "string",
+            "description": "歧义在原始指令中的位置描述"
+          },
+          "description": {
+            "type": "string",
+            "description": "歧义说明"
+          },
+          "default_interpretation": {
+            "type": "string",
+            "description": "系统默认解释"
+          },
+          "alternative_interpretations": {
+            "type": "array",
+            "description": "其他可能解释",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "missing_fields": {
+      "type": "array",
+      "description": "无法从指令中推断或需要人工确认的缺失信息列表",
+      "items": {
+        "type": "string"
+      }
+    },
+    "parse_confidence": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "解析置信度，低于阈值时触发人机交互确认"
+    }
+  }
+}
