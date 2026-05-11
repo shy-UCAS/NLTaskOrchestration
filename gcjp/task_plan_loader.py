@@ -10,8 +10,10 @@ gcjp/task_plan_loader.py
 
 注意：
 - 本文件不调用 LLM；
-- 第一版使用动作默认参数 ACTION_DEFAULTS；
-- 后续可改为从 configs/action_templates.yaml 和 configs/capability_model.yaml 读取。
+- 支持从 action_templates.yaml 读取动作模板；
+- 支持从 capability_model.yaml 读取主体能力与资源上限；
+- 支持从 environment_config.yaml / environment_facilities.yaml 做环境引用校验；
+- 当前环境模型仅做引用校验，不做复杂轨迹可行性分析。
 """
 
 from __future__ import annotations
