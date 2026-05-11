@@ -20,6 +20,7 @@ import json
 from pathlib import Path
 from typing import Any, Optional
 
+from gcjp.debug_logger import debug
 from gcjp.mission_graph import TaskGraphBuilder, BuiltGraph
 
 
@@ -164,12 +165,12 @@ def load_action_defaults_from_yaml(action_templates_path: str | Path) -> dict[st
         return default
 
     action_templates_path = Path(action_templates_path)
-    print(f"\n[DEBUG] load_action_defaults_from_yaml — 读取文件: {action_templates_path}")
+    debug.log(f"\n[DEBUG] load_action_defaults_from_yaml — 读取文件: {action_templates_path}")
     with action_templates_path.open("r", encoding="utf-8") as f:
         raw = yaml.safe_load(f)
 
     actions = raw.get("actions", raw)
-    print(f"  动作模板数量: {len(actions)}")
+    debug.log(f"  动作模板数量: {len(actions)}")
     defaults: dict[str, dict[str, Any]] = {}
 
     for action_name, cfg in actions.items():
@@ -201,9 +202,9 @@ def load_action_defaults_from_yaml(action_templates_path: str | Path) -> dict[st
         src_energy = "resource_cost.energy_kwh" if raw_energy_kwh is not None else ("resource_cost.energy" if resource_cost.get("energy") is not None else ("energy_cost" if cfg.get("energy_cost") is not None else "default"))
         src_ammo = "resource_cost.ammo" if resource_cost.get("ammo") is not None else ("ammo_cost" if cfg.get("ammo_cost") is not None else "default")
         src_caps = "required_capabilities" if (cfg.get("required_capabilities")) else ("requires" if cfg.get("requires") else "default")
-        print(f"  {action_name:20s} | dur={float(duration_value):.1f}[{src_dur}] "
-              f"energy={float(energy_value):.1f}[{src_energy}] ammo={int(ammo_value)}[{src_ammo}] "
-              f"caps={list(required_caps)}[{src_caps}]")
+        debug.log(f"  {action_name:20s} | dur={float(duration_value):.1f}[{src_dur}] "
+                  f"energy={float(energy_value):.1f}[{src_energy}] ammo={int(ammo_value)}[{src_ammo}] "
+                  f"caps={list(required_caps)}[{src_caps}]")
 
     return defaults
 
@@ -237,34 +238,34 @@ def load_capability_model_from_yaml(
         ) from exc
 
     capability_model_path = Path(capability_model_path)
-    print(f"\n[DEBUG] load_capability_model_from_yaml — 读取文件: {capability_model_path}")
+    debug.log(f"\n[DEBUG] load_capability_model_from_yaml — 读取文件: {capability_model_path}")
     with capability_model_path.open("r", encoding="utf-8") as f:
         raw = yaml.safe_load(f)
 
     fleets_raw = raw.get("fleets", {})
-    print(f"  集群数量: {len(fleets_raw)}")
+    debug.log(f"  集群数量: {len(fleets_raw)}")
     result: dict[str, dict[str, Any]] = {}
 
     for fleet_id, fleet_cfg in fleets_raw.items():
-        print(f"\n  [{fleet_id}]")
+        debug.log(f"\n  [{fleet_id}]")
         fc = fleet_cfg.get("fleet_constraints", {}) or {}
 
         # 扫描所有 *_capable 字段，展示每个的取值
         all_capable_fields = {k: v for k, v in fc.items()
                               if isinstance(k, str) and k.endswith("_capable")}
-        print(f"    能力字段原始值: {all_capable_fields}")
+        debug.log(f"    能力字段原始值: {all_capable_fields}")
 
         capabilities = [
             key for key, val in fc.items()
             if isinstance(key, str) and key.endswith("_capable") and val is True
         ]
-        print(f"    提取到的能力 (val is True): {capabilities}")
+        debug.log(f"    提取到的能力 (val is True): {capabilities}")
 
         max_ammo_val = int(fc.get("max_ammo", 999))
         max_energy_val = float(fc.get("max_energy_kwh", 999.0))
         cruise_speed_val = float(fc.get("cruise_speed_kmh", 0))
-        print(f"    max_ammo={max_ammo_val}, max_energy_kwh={max_energy_val}, "
-              f"cruise_speed_kmh={cruise_speed_val}")
+        debug.log(f"    max_ammo={max_ammo_val}, max_energy_kwh={max_energy_val}, "
+                  f"cruise_speed_kmh={cruise_speed_val}")
 
         result[fleet_id] = {
             "capabilities": sorted(capabilities),
@@ -338,11 +339,9 @@ def build_graph_from_task_plan(
     if not assigned_actors:
         raise ValueError("任务计划中没有 participants，也无法从 tasks 推断 actor")
 
-    print("\n" + "-" * 60)
-    print("[DEBUG] build_graph_from_task_plan — 开始构建图")
-    print("-" * 60)
-    print(f"  segment_id     : {segment_id}")
-    print(f"  assigned_actors: {assigned_actors}")
+    debug.log_banner("[DEBUG] build_graph_from_task_plan — 开始构建图")
+    debug.log(f"  segment_id     : {segment_id}")
+    debug.log(f"  assigned_actors: {assigned_actors}")
 
     builder = TaskGraphBuilder(
         segment_id=segment_id,
@@ -358,7 +357,7 @@ def build_graph_from_task_plan(
     # -------------------------------------------------------------------------
     # 1. 添加任务节点
     # -------------------------------------------------------------------------
-    print(f"\n[DEBUG] === 阶段 1: 添加任务节点 ===")
+    debug.log(f"\n[DEBUG] === 阶段 1: 添加任务节点 ===")
     for task in plan.get("tasks", []):
         task_id = task["task_id"]
         actor = task["actor"]
@@ -373,9 +372,9 @@ def build_graph_from_task_plan(
 
         time_window = task.get("time_window") or {}
 
-        print(f"  [+] 任务: {task_id:30s} | actor={actor:12s} | action={action:15s} | "
-              f"target={target:15s} | dur_lb={defaults['duration_lb']:.1f} | "
-              f"energy={defaults.get('energy_cost', 0):.1f} | ammo={defaults.get('ammo_cost', 0)}")
+        debug.log(f"  [+] 任务: {task_id:30s} | actor={actor:12s} | action={action:15s} | "
+                  f"target={target:15s} | dur_lb={defaults['duration_lb']:.1f} | "
+                  f"energy={defaults.get('energy_cost', 0):.1f} | ammo={defaults.get('ammo_cost', 0)}")
 
         builder.add_task(
             task_id=task_id,
@@ -410,14 +409,14 @@ def build_graph_from_task_plan(
     # -------------------------------------------------------------------------
     # 2. 添加任务依赖边
     # -------------------------------------------------------------------------
-    print(f"\n[DEBUG] === 阶段 2: 添加依赖边 ===")
+    debug.log(f"\n[DEBUG] === 阶段 2: 添加依赖边 ===")
     for rel in plan.get("relations", []):
         relation_type = normalize_relation_type(rel["type"])
 
-        print(f"  [→] 边: {rel['source']:30s} → {rel['target']:30s} | "
-              f"type={relation_type:20s}"
-              + (f" | sync_tol={rel.get('sync_tolerance')}" if rel.get("sync_tolerance") else "")
-              + (f" | condition={rel.get('condition')}" if rel.get("condition") else ""))
+        debug.log(f"  [→] 边: {rel['source']:30s} → {rel['target']:30s} | "
+                  f"type={relation_type:20s}"
+                  + (f" | sync_tol={rel.get('sync_tolerance')}" if rel.get("sync_tolerance") else "")
+                  + (f" | condition={rel.get('condition')}" if rel.get("condition") else ""))
 
         builder.add_dependency(
             source=rel["source"],
@@ -430,17 +429,17 @@ def build_graph_from_task_plan(
     # -------------------------------------------------------------------------
     # 3. 添加全局时间约束
     # -------------------------------------------------------------------------
-    print(f"\n[DEBUG] === 阶段 3: 全局时间约束 ===")
+    debug.log(f"\n[DEBUG] === 阶段 3: 全局时间约束 ===")
     global_constraints = plan.get("global_constraints") or {}
     total_time_budget = global_constraints.get("total_time_budget")
 
     if total_time_budget is not None:
         # 对所有无出边节点添加 deadline，近似表示总任务完成时间上限
         sink_nodes = _get_sink_tasks(plan)
-        print(f"  total_time_budget = {total_time_budget}")
-        print(f"  汇点任务 (sink nodes): {sink_nodes}")
+        debug.log(f"  total_time_budget = {total_time_budget}")
+        debug.log(f"  汇点任务 (sink nodes): {sink_nodes}")
         for tid in sink_nodes:
-            print(f"  [+] 为汇点 {tid} 添加 deadline={total_time_budget}")
+            debug.log(f"  [+] 为汇点 {tid} 添加 deadline={total_time_budget}")
             builder.add_constraint(
                 constraint_type="time_window",
                 params={
@@ -450,26 +449,26 @@ def build_graph_from_task_plan(
                 source_label=f"global_deadline_{total_time_budget}_{tid}",
             )
     else:
-        print("  无全局时间预算约束")
+        debug.log("  无全局时间预算约束")
 
     # -------------------------------------------------------------------------
     # 4. 添加资源约束
     # -------------------------------------------------------------------------
-    print(f"\n[DEBUG] === 阶段 4: 资源约束 ===")
+    debug.log(f"\n[DEBUG] === 阶段 4: 资源约束 ===")
     if add_resource_constraints:
         for actor in assigned_actors:
             if capability_model is not None:
                 actor_info = _get_actor_from_capability_model(capability_model, actor)
                 ammo_limit = float(actor_info["max_ammo"])
                 energy_limit = float(actor_info["max_energy_kwh"])
-                print(f"  [+] {actor} (capability_model): ammo <= {ammo_limit}, "
-                      f"energy_kwh <= {energy_limit}")
+                debug.log(f"  [+] {actor} (capability_model): ammo <= {ammo_limit}, "
+                          f"energy_kwh <= {energy_limit}")
             else:
                 budget = resource_budgets.get(actor, resource_budgets["default"])
                 ammo_limit = float(budget.get("ammo", 999))
                 energy_limit = float(budget.get("energy_kwh", 999.0))
-                print(f"  [+] {actor} (fallback): ammo <= {ammo_limit}, "
-                      f"energy_kwh <= {energy_limit}")
+                debug.log(f"  [+] {actor} (fallback): ammo <= {ammo_limit}, "
+                          f"energy_kwh <= {energy_limit}")
 
             builder.add_resource_constraint(
                 actor=actor,
@@ -482,12 +481,12 @@ def build_graph_from_task_plan(
                 max_value=energy_limit,
             )
     else:
-        print("  跳过资源约束添加")
+        debug.log("  跳过资源约束添加")
 
     # -------------------------------------------------------------------------
     # 5. 添加能力约束
     # -------------------------------------------------------------------------
-    print(f"\n[DEBUG] === 阶段 5: 能力约束 ===")
+    debug.log(f"\n[DEBUG] === 阶段 5: 能力约束 ===")
     if capability_model is not None:
         for task in plan.get("tasks", []):
             task_id = task["task_id"]
@@ -496,15 +495,15 @@ def build_graph_from_task_plan(
             defaults = action_defaults.get(action, {})
             required = defaults.get("required_capability", [])
             if not required:
-                print(f"  [·] {task_id}: action={action} 无能力要求，跳过")
+                debug.log(f"  [·] {task_id}: action={action} 无能力要求，跳过")
                 continue
             actor_info = _get_actor_from_capability_model(capability_model, actor)
             actor_caps = actor_info.get("capabilities", [])
             satisfied = set(required).issubset(set(actor_caps))
             mark = "OK" if satisfied else "FAIL"
-            print(f"  [{mark}] {task_id}: actor={actor} "
-                  f"needs {required}, has {actor_caps} -> "
-                  f"{'matched' if satisfied else 'MISMATCH!'}")
+            debug.log(f"  [{mark}] {task_id}: actor={actor} "
+                      f"needs {required}, has {actor_caps} -> "
+                      f"{'matched' if satisfied else 'MISMATCH!'}")
             builder.add_constraint(
                 constraint_type="capability",
                 params={
@@ -515,34 +514,34 @@ def build_graph_from_task_plan(
                 source_label=f"capability_{task_id}_{actor}",
             )
     else:
-        print("  未提供 capability_model，跳过能力约束")
+        debug.log("  未提供 capability_model，跳过能力约束")
 
     graph = builder.build()
 
     # 打印最终构建的图摘要
-    print(f"\n[DEBUG] === 构建完成: BuiltGraph 摘要 ===")
-    print(f"  segment_id  : {graph.segment_id}")
-    print(f"  节点数       : {len(graph.nodes)}")
-    print(f"  边数         : {len(graph.edges)}")
-    print(f"  约束数       : {len(graph.constraints)}")
-    print(f"  执行主体     : {graph.actor_set}")
-    print(f"  任务ID列表   : {graph.task_ids}")
-    print(f"\n  [节点详情]")
+    debug.log(f"\n[DEBUG] === 构建完成: BuiltGraph 摘要 ===")
+    debug.log(f"  segment_id  : {graph.segment_id}")
+    debug.log(f"  节点数       : {len(graph.nodes)}")
+    debug.log(f"  边数         : {len(graph.edges)}")
+    debug.log(f"  约束数       : {len(graph.constraints)}")
+    debug.log(f"  执行主体     : {graph.actor_set}")
+    debug.log(f"  任务ID列表   : {graph.task_ids}")
+    debug.log(f"\n  [节点详情]")
     for tid, node in graph.nodes.items():
-        print(f"    {tid}: actor={node.actor}, action={node.action}, target={node.target}, "
-              f"dur_lb={node.duration_lb}, dur_ub={node.duration_ub}, "
-              f"energy={node.energy_cost}, ammo={node.ammo_cost}")
-    print(f"\n  [边详情]")
+        debug.log(f"    {tid}: actor={node.actor}, action={node.action}, target={node.target}, "
+                  f"dur_lb={node.duration_lb}, dur_ub={node.duration_ub}, "
+                  f"energy={node.energy_cost}, ammo={node.ammo_cost}")
+    debug.log(f"\n  [边详情]")
     for edge in graph.edges:
-        print(f"    {edge.source} → {edge.target} [{edge.relation}]"
-              + (f" sync_tol={edge.sync_tolerance}" if edge.sync_tolerance else "")
-              + (f" cond={edge.condition}" if edge.condition else ""))
-    print(f"\n  [约束详情]")
+        debug.log(f"    {edge.source} → {edge.target} [{edge.relation}]"
+                  + (f" sync_tol={edge.sync_tolerance}" if edge.sync_tolerance else "")
+                  + (f" cond={edge.condition}" if edge.condition else ""))
+    debug.log(f"\n  [约束详情]")
     for c in graph.constraints:
-        print(f"    {c.constraint_id}")
-        print(f"      type={c.constraint_type}, label={c.source_label}")
-        print(f"      params={c.params}")
-        print(f"      applies_to={c.applies_to}")
+        debug.log(f"    {c.constraint_id}")
+        debug.log(f"      type={c.constraint_type}, label={c.source_label}")
+        debug.log(f"      params={c.params}")
+        debug.log(f"      applies_to={c.applies_to}")
 
     return graph
 
@@ -562,36 +561,34 @@ def build_graph_from_task_plan_file(
     """
     plan = load_task_plan(task_plan_path, schema_path=schema_path)
 
-    print("\n" + "=" * 60)
-    print("[DEBUG] build_graph_from_task_plan_file — 加载的任务计划")
-    print("=" * 60)
-    print(f"  plan_id       : {plan.get('plan_id')}")
-    print(f"  description   : {plan.get('description', 'N/A')}")
-    print(f"  任务数         : {len(plan.get('tasks', []))}")
-    print(f"  关系数         : {len(plan.get('relations', []))}")
-    print(f"  参与者         : {[p.get('actor_id') for p in plan.get('participants', [])]}")
-    print(f"  全局约束       : {plan.get('global_constraints', {})}")
+    debug.log_banner("[DEBUG] build_graph_from_task_plan_file — 加载的任务计划", char="=")
+    debug.log(f"  plan_id       : {plan.get('plan_id')}")
+    debug.log(f"  description   : {plan.get('description', 'N/A')}")
+    debug.log(f"  任务数         : {len(plan.get('tasks', []))}")
+    debug.log(f"  关系数         : {len(plan.get('relations', []))}")
+    debug.log(f"  参与者         : {[p.get('actor_id') for p in plan.get('participants', [])]}")
+    debug.log(f"  全局约束       : {plan.get('global_constraints', {})}")
 
     action_defaults = ACTION_DEFAULTS
     if action_templates_path is not None:
         action_defaults = load_action_defaults_from_yaml(action_templates_path)
 
-    print(f"\n[DEBUG] 使用的动作默认参数来源: "
-          f"{'action_templates.yaml' if action_templates_path else '内置 ACTION_DEFAULTS'}")
+    debug.log(f"\n[DEBUG] 使用的动作默认参数来源: "
+              f"{'action_templates.yaml' if action_templates_path else '内置 ACTION_DEFAULTS'}")
     for act_name, act_cfg in action_defaults.items():
-        print(f"  {act_name:20s} → duration_lb={act_cfg['duration_lb']}, "
-              f"energy={act_cfg['energy_cost']}, ammo={act_cfg['ammo_cost']}, "
-              f"caps={act_cfg.get('required_capability', [])}")
+        debug.log(f"  {act_name:20s} → duration_lb={act_cfg['duration_lb']}, "
+                  f"energy={act_cfg['energy_cost']}, ammo={act_cfg['ammo_cost']}, "
+                  f"caps={act_cfg.get('required_capability', [])}")
 
     capability_model = None
     if capability_model_path is not None:
         capability_model = load_capability_model_from_yaml(capability_model_path)
-        print(f"\n[DEBUG] 使用的能力模型来源: capability_model.yaml")
+        debug.log(f"\n[DEBUG] 使用的能力模型来源: capability_model.yaml")
         for fleet_id, info in capability_model.items():
-            print(f"  {fleet_id:20s} → caps={info['capabilities']}, "
-                  f"max_ammo={info['max_ammo']}, max_energy={info['max_energy_kwh']}")
+            debug.log(f"  {fleet_id:20s} → caps={info['capabilities']}, "
+                      f"max_ammo={info['max_ammo']}, max_energy={info['max_energy_kwh']}")
     else:
-        print(f"\n[DEBUG] 未提供 capability_model，使用默认资源上限")
+        debug.log(f"\n[DEBUG] 未提供 capability_model，使用默认资源上限")
 
     return build_graph_from_task_plan(
         plan,

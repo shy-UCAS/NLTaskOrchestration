@@ -34,8 +34,15 @@ def main():
     pipeline = VerificationPipeline(z3_timeout_ms=15_000)
     report = pipeline.verify_graph(graph)
     report.print_report()
-
-    return report.overall_passed
+    expected_unsat = (
+        not report.overall_passed
+        and any("resource_fleet_1_ammo" in label for label in report.unsat_core)
+    )
+    if expected_unsat:
+        print("Demo 02 结果符合预期：检测到 fleet_1 弹药资源超限")
+    else:
+        print("Demo 02 结果不符合预期：未检测到预期资源冲突")
+    return expected_unsat
 
 
 if __name__ == "__main__":
