@@ -164,40 +164,30 @@ def load_action_defaults_from_yaml(action_templates_path: str | Path) -> dict[st
         return default
 
     action_templates_path = Path(action_templates_path)
+    print(f"\n[DEBUG] load_action_defaults_from_yaml — 读取文件: {action_templates_path}")
     with action_templates_path.open("r", encoding="utf-8") as f:
         raw = yaml.safe_load(f)
 
     actions = raw.get("actions", raw)
+    print(f"  动作模板数量: {len(actions)}")
     defaults: dict[str, dict[str, Any]] = {}
 
     for action_name, cfg in actions.items():
         cfg = cfg or {}
         resource_cost = cfg.get("resource_cost", {}) or {}
 
-        duration_value = first_not_none(
-            cfg.get("min_duration"),
-            cfg.get("duration_lb"),
-            default=1.0
-        )
+        # 读取原始 YAML 字段值（用于 debug 展示）
+        raw_min_dur = cfg.get("min_duration")
+        raw_dur_lb = cfg.get("duration_lb")
+        raw_energy_kwh = resource_cost.get("energy_kwh")
+        raw_energy = resource_cost.get("energy") or cfg.get("energy_cost")
+        raw_ammo = resource_cost.get("ammo") or cfg.get("ammo_cost")
+        raw_req_caps = cfg.get("required_capabilities") or cfg.get("requires") or []
 
-        energy_value = first_not_none(
-            resource_cost.get("energy_kwh"),
-            resource_cost.get("energy"),
-            cfg.get("energy_cost"),
-            default=0.0
-        )
-
-        ammo_value = first_not_none(
-            resource_cost.get("ammo"),
-            cfg.get("ammo_cost"),
-            default=0
-        )
-
-        required_caps = first_not_none(
-            cfg.get("required_capabilities"),
-            cfg.get("requires"),
-            default=[]
-        )
+        duration_value = first_not_none(raw_min_dur, raw_dur_lb, default=1.0)
+        energy_value = first_not_none(raw_energy_kwh, raw_energy, default=0.0)
+        ammo_value = first_not_none(raw_ammo, default=0)
+        required_caps = first_not_none(raw_req_caps, default=[])
 
         defaults[action_name] = {
             "duration_lb": float(duration_value),
@@ -205,6 +195,15 @@ def load_action_defaults_from_yaml(action_templates_path: str | Path) -> dict[st
             "energy_cost": float(energy_value),
             "ammo_cost": int(ammo_value),
         }
+
+        # 展示解析结果，标注字段来源
+        src_dur = "min_duration" if raw_min_dur is not None else ("duration_lb" if raw_dur_lb is not None else "default")
+        src_energy = "resource_cost.energy_kwh" if raw_energy_kwh is not None else ("resource_cost.energy" if resource_cost.get("energy") is not None else ("energy_cost" if cfg.get("energy_cost") is not None else "default"))
+        src_ammo = "resource_cost.ammo" if resource_cost.get("ammo") is not None else ("ammo_cost" if cfg.get("ammo_cost") is not None else "default")
+        src_caps = "required_capabilities" if (cfg.get("required_capabilities")) else ("requires" if cfg.get("requires") else "default")
+        print(f"  {action_name:20s} | dur={float(duration_value):.1f}[{src_dur}] "
+              f"energy={float(energy_value):.1f}[{src_energy}] ammo={int(ammo_value)}[{src_ammo}] "
+              f"caps={list(required_caps)}[{src_caps}]")
 
     return defaults
 
@@ -238,25 +237,40 @@ def load_capability_model_from_yaml(
         ) from exc
 
     capability_model_path = Path(capability_model_path)
+    print(f"\n[DEBUG] load_capability_model_from_yaml — 读取文件: {capability_model_path}")
     with capability_model_path.open("r", encoding="utf-8") as f:
         raw = yaml.safe_load(f)
 
     fleets_raw = raw.get("fleets", {})
+    print(f"  集群数量: {len(fleets_raw)}")
     result: dict[str, dict[str, Any]] = {}
 
     for fleet_id, fleet_cfg in fleets_raw.items():
+        print(f"\n  [{fleet_id}]")
         fc = fleet_cfg.get("fleet_constraints", {}) or {}
+
+        # 扫描所有 *_capable 字段，展示每个的取值
+        all_capable_fields = {k: v for k, v in fc.items()
+                              if isinstance(k, str) and k.endswith("_capable")}
+        print(f"    能力字段原始值: {all_capable_fields}")
 
         capabilities = [
             key for key, val in fc.items()
             if isinstance(key, str) and key.endswith("_capable") and val is True
         ]
+        print(f"    提取到的能力 (val is True): {capabilities}")
+
+        max_ammo_val = int(fc.get("max_ammo", 999))
+        max_energy_val = float(fc.get("max_energy_kwh", 999.0))
+        cruise_speed_val = float(fc.get("cruise_speed_kmh", 0))
+        print(f"    max_ammo={max_ammo_val}, max_energy_kwh={max_energy_val}, "
+              f"cruise_speed_kmh={cruise_speed_val}")
 
         result[fleet_id] = {
             "capabilities": sorted(capabilities),
-            "max_ammo": int(fc.get("max_ammo", 999)),
-            "max_energy_kwh": float(fc.get("max_energy_kwh", 999.0)),
-            "cruise_speed_kmh": float(fc.get("cruise_speed_kmh", 0)),
+            "max_ammo": max_ammo_val,
+            "max_energy_kwh": max_energy_val,
+            "cruise_speed_kmh": cruise_speed_val,
         }
 
     return result
