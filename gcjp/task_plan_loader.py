@@ -22,6 +22,10 @@ from typing import Any, Optional
 
 from gcjp.debug_logger import debug
 from gcjp.mission_graph import TaskGraphBuilder, BuiltGraph
+from gcjp.environment_model import (
+    load_environment_config,
+    validate_task_plan_environment,
+)
 
 
 # =============================================================================
@@ -552,6 +556,7 @@ def build_graph_from_task_plan_file(
     schema_path: Optional[str | Path] = None,
     action_templates_path: Optional[str | Path] = None,
     capability_model_path: Optional[str | Path] = None,
+    environment_config_path: Optional[str | Path] = None,
     segment_id: Optional[str] = None,
 ) -> BuiltGraph:
     """
@@ -589,6 +594,21 @@ def build_graph_from_task_plan_file(
                       f"max_ammo={info['max_ammo']}, max_energy={info['max_energy_kwh']}")
     else:
         debug.log(f"\n[DEBUG] 未提供 capability_model，使用默认资源上限")
+
+    # 环境配置引用校验
+    if environment_config_path is not None:
+        debug.log(f"\n[DEBUG] 使用的环境配置来源: environment_facilities.yaml")
+        env_config = load_environment_config(environment_config_path)
+        env_result = validate_task_plan_environment(plan, env_config)
+        if env_result.errors:
+            raise ValueError(
+                "环境引用校验失败:\n" + "\n".join(env_result.errors)
+            )
+        for w in env_result.warnings:
+            debug.log(f"  [环境校验 WARNING] {w}")
+        debug.log(f"  [环境校验] 引用校验通过")
+    else:
+        debug.log(f"\n[DEBUG] 未提供 environment_config_path，跳过环境引用校验")
 
     return build_graph_from_task_plan(
         plan,

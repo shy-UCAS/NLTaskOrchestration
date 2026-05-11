@@ -1,0 +1,78 @@
+{
+  "plan_id": "plan_003_facilities_demo",
+  "source_instruction": "fleet_1 前出至 hq_mark6 区域侦察敌方目标，fleet_2 前往 hq_mark7 区域待机；当 fleet_1 确认敌方主群位置后，由 fleet_2 对敌方主群执行拦截。",
+  "standard_task_plan_text": "fleet_1 前出至 hq_mark6 区域执行侦察任务，并输出敌方主群位置确认信息；fleet_2 进入 hq_mark7 区域待机，形成拦截准备状态；当 fleet_1 确认敌方主群位置后，fleet_2 对敌方主群执行拦截任务。",
+  "scenario_id": "scenario_facilities_utm",
+  "participants": [
+    {
+      "actor_id": "fleet_1",
+      "type": "fleet",
+      "role": "recon",
+      "capability_ref": "fleet_1"
+    },
+    {
+      "actor_id": "fleet_2",
+      "type": "fleet",
+      "role": "strike",
+      "capability_ref": "fleet_2"
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": "T1",
+      "actor": "fleet_1",
+      "action": "reconnaissance",
+      "target": "hq_mark6",
+      "condition": "mission_start",
+      "time_window": null,
+      "expected_output": "enemy_main_group_location_confirmed",
+      "is_coalition": false,
+      "coalition_members": null
+    },
+    {
+      "task_id": "T2",
+      "actor": "fleet_2",
+      "action": "standby",
+      "target": "hq_mark7",
+      "condition": "mission_start",
+      "time_window": null,
+      "expected_output": "fleet_2_ready_at_hq_mark7",
+      "is_coalition": false,
+      "coalition_members": null
+    },
+    {
+      "task_id": "T3",
+      "actor": "fleet_2",
+      "action": "intercept",
+      "target": "enemy_main_group",
+      "condition": "enemy_main_group_location_confirmed",
+      "time_window": null,
+      "expected_output": "enemy_main_group_intercepted",
+      "is_coalition": false,
+      "coalition_members": null
+    }
+  ],
+  "relations": [
+    {
+      "source": "T1",
+      "target": "T3",
+      "type": "condition_trigger",
+      "sync_tolerance": null,
+      "condition": "enemy_main_group_location_confirmed"
+    },
+    {
+      "source": "T2",
+      "target": "T3",
+      "type": "sequence",
+      "sync_tolerance": null,
+      "condition": "fleet_2_ready_at_hq_mark7"
+    }
+  ],
+  "global_constraints": {
+    "total_time_budget": null,
+    "rendezvous_points": []
+  },
+  "ambiguities": [],
+  "missing_fields": [],
+  "parse_confidence": 0.95
+}
