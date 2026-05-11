@@ -43,13 +43,19 @@ class Z3ConstraintBuilder:
 
     def _init_variables(self):
         """为每个任务节点创建 start / end / duration Z3 变量"""
+        print("\n" + "-" * 60)
+        print("[DEBUG][Z3] 初始化 Z3 变量")
+        print("-" * 60)
         for tid in self.graph.task_ids:
             self.start[tid] = Real(f"start_{tid}")
             self.end[tid] = Real(f"end_{tid}")
             self.duration[tid] = Real(f"dur_{tid}")
 
-            # 基础约束：start >= 0, duration >= lb, end = start + duration
             node = self.graph.nodes[tid]
+            print(f"  变量: start_{tid}, end_{tid}, dur_{tid}  "
+                  f"(dur_lb={node.duration_lb}, dur_ub={node.duration_ub})")
+
+            # 基础约束：start >= 0, duration >= lb, end = start + duration
             self._assert(
                 self.start[tid] >= 0,
                 label=f"start_nonneg_{tid}"
@@ -83,8 +89,12 @@ class Z3ConstraintBuilder:
 
     def build_all(self):
         """将 graph.constraints 中的所有约束转化为 Z3 表达式"""
-        for c in self.graph.constraints:
+        print(f"\n[DEBUG][Z3] build_all — 共 {len(self.graph.constraints)} 条约束待转化")
+        for i, c in enumerate(self.graph.constraints):
+            print(f"  [{i+1:3d}] 分发约束: type={c.constraint_type:25s} "
+                  f"label={c.source_label}")
             self._dispatch(c)
+        print(f"[DEBUG][Z3] build_all 完成 — solver 中共 {len(self.track_vars)} 条追踪约束")
         return self
 
     def _dispatch(self, c: Constraint):
@@ -110,10 +120,9 @@ class Z3ConstraintBuilder:
         after = c.params["after"]
         if before not in self.end or after not in self.start:
             raise ValueError(f"time_order: 任务 '{before}' 或 '{after}' 未在图中")
-        self._assert(
-            self.end[before] <= self.start[after],
-            label=c.source_label,
-        )
+        expr = self.end[before] <= self.start[after]
+        print(f"        Z3 公式: {expr}")
+        self._assert(expr, label=c.source_label)
 
     def _handle_duration(self, c: Constraint):
         """duration 约束（已在 _init_variables 中处理，此处为显式追加）"""
@@ -133,20 +142,17 @@ class Z3ConstraintBuilder:
         deadline = c.params.get("deadline")
 
         if earliest is not None:
-            self._assert(
-                self.start[tid] >= earliest,
-                label=f"{c.source_label}_earliest",
-            )
+            expr = self.start[tid] >= earliest
+            print(f"        Z3 公式 (earliest): {expr}")
+            self._assert(expr, label=f"{c.source_label}_earliest")
         if latest is not None:
-            self._assert(
-                self.start[tid] <= latest,
-                label=f"{c.source_label}_latest",
-            )
+            expr = self.start[tid] <= latest
+            print(f"        Z3 公式 (latest): {expr}")
+            self._assert(expr, label=f"{c.source_label}_latest")
         if deadline is not None:
-            self._assert(
-                self.end[tid] <= deadline,
-                label=f"{c.source_label}_deadline",
-            )
+            expr = self.end[tid] <= deadline
+            print(f"        Z3 公式 (deadline): {expr}")
+            self._assert(expr, label=f"{c.source_label}_deadline")
 
     def _handle_sync(self, c: Constraint):
         """sync 约束: |start_i - start_j| <= tolerance"""
@@ -154,10 +160,9 @@ class Z3ConstraintBuilder:
         tj = c.params["task_j"]
         tol = c.params.get("tolerance", 1.0)
         diff = self.start[ti] - self.start[tj]
-        self._assert(
-            And(diff <= tol, diff >= -tol),
-            label=c.source_label,
-        )
+        expr = And(diff <= tol, diff >= -tol)
+        print(f"        Z3 公式 (sync): {expr}")
+        self._assert(expr, label=c.source_label)
 
     def _handle_resource(self, c: Constraint):
         """
@@ -171,12 +176,17 @@ class Z3ConstraintBuilder:
 
         actor_tasks = self.graph.get_tasks_by_actor(actor)
         if not actor_tasks:
-            return  # 该 actor 在本段无任务，跳过
+            print(f"        资源检查: actor={actor} 无任务，跳过")
+            return
 
         total_cost = sum(
             getattr(t, cost_key) for t in actor_tasks
             if getattr(t, cost_key, 0) is not None
         )
+
+        print(f"        资源检查: actor={actor}, {resource_type}: "
+              f"total_cost={total_cost} vs max={max_value} → "
+              f"{'超限!' if total_cost > max_value else '通过'}")
 
         # 资源约束是确定性的（不涉及时间变量），直接用 Python 检查
         if total_cost > max_value:
@@ -204,10 +214,11 @@ class Z3ConstraintBuilder:
         """physical_feasibility 约束: duration >= min_duration_units"""
         tid = c.params["task_id"]
         min_dur = c.params["min_duration_units"]
-        self._assert(
-            self.duration[tid] >= min_dur,
-            label=c.source_label,
-        )
+        expr = self.duration[tid] >= min_dur
+        print(f"        Z3 公式 (phys): {expr}  "
+              f"(distance={c.params.get('distance_km')}km, "
+              f"speed={c.params.get('speed_kmh')}km/h)")
+        self._assert(expr, label=c.source_label)
 
     # ─────────────────────────────────────────────────────────────────────────
     # 求解
@@ -226,7 +237,15 @@ class Z3ConstraintBuilder:
             }
         """
         self.solver.set("timeout", timeout_ms)
+
+        print(f"\n[DEBUG][Z3] === 开始求解 (timeout={timeout_ms}ms) ===")
+        print(f"  追踪变量数: {len(self.track_vars)}")
+        print(f"  Solver 断言列表:")
+        for i, a in enumerate(self.solver.assertions()):
+            print(f"    [{i+1:3d}] {a}")
+
         result = self.solver.check()
+        print(f"\n[DEBUG][Z3] 求解结果: {result}")
 
         if result == sat:
             model = self.solver.model()
@@ -242,6 +261,12 @@ class Z3ConstraintBuilder:
                     "end":      _val(self.end[tid]),
                     "duration": _val(self.duration[tid]),
                 }
+
+            print(f"\n[DEBUG][Z3] SAT — 可行调度方案:")
+            for tid, sched in schedule.items():
+                print(f"  {tid:30s} | start={sched['start']:8.2f} | "
+                      f"end={sched['end']:8.2f} | dur={sched['duration']:8.2f}")
+
             return {"result": "sat", "schedule": schedule,
                     "unsat_core": [], "error": None}
 
@@ -252,9 +277,15 @@ class Z3ConstraintBuilder:
                 # 反查 Bool 变量 → label
                 rev_map = {str(v): label for label, v in self.track_vars.items()}
                 core_labels = [rev_map.get(str(b), str(b)) for b in core]
+
+            print(f"\n[DEBUG][Z3] UNSAT — 不可满足的约束核心 ({len(core_labels)} 条):")
+            for label in core_labels:
+                print(f"  - {label}")
+
             return {"result": "unsat", "schedule": {},
                     "unsat_core": core_labels, "error": None}
 
         else:  # unknown（超时等）
+            print(f"\n[DEBUG][Z3] UNKNOWN — 求解超时或未知错误")
             return {"result": "unknown", "schedule": {},
                     "unsat_core": [], "error": "Z3 求解超时或未知错误"}

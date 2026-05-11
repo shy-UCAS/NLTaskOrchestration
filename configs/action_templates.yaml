@@ -1,0 +1,140 @@
+# action_templates.yaml
+# 动作模板库 —— 定义所有合法的无人机动作及其参数约束
+# GCJP 代码中 add_task() 的 action 参数必须来自此白名单
+
+actions:
+
+  reconnaissance:
+    display_name: "侦察"
+    description: "对指定目标点或区域执行侦察，获取目标信息"
+    required_capabilities: ["recon_capable"]
+    min_duration: 2.0             # 最短持续时间（时间单位）
+    resource_cost:
+      energy_kwh: 3.0
+      ammo: 0
+    parallelizable: true          # 同一集群是否可对多目标并行侦察
+    output_type: "recon_report"   # 任务完成后产出的信息类型
+    z3_constraints:
+      - "duration >= min_duration"
+      - "actor.recon_capable == True"
+
+  strike:
+    display_name: "打击"
+    description: "对指定目标点执行精确打击"
+    required_capabilities: ["strike_capable"]
+    min_duration: 1.5
+    resource_cost:
+      energy_kwh: 5.0
+      ammo: 1                     # 每次打击消耗1枚弹药
+    parallelizable: false         # 同一集群同一时刻只能执行一次打击
+    output_type: "strike_result"
+    z3_constraints:
+      - "duration >= min_duration"
+      - "actor.strike_capable == True"
+      - "actor.remaining_ammo >= 1"
+
+  breakthrough:
+    display_name: "强行突破"
+    description: "强行突破目标防御阵地，需消耗弹药且有时间要求"
+    required_capabilities: ["strike_capable"]
+    min_duration: 2.0
+    resource_cost:
+      energy_kwh: 8.0
+      ammo: 1
+    parallelizable: false
+    output_type: "breakthrough_result"
+    z3_constraints:
+      - "duration >= min_duration"
+      - "actor.strike_capable == True"
+      - "actor.remaining_ammo >= 1"
+      - "duration >= dist(actor.current_pos, target) / actor.max_speed + min_duration"
+
+  fly_to:
+    display_name: "飞行转移"
+    description: "从当前位置飞行至指定目标点"
+    required_capabilities: []    # 所有集群均可执行
+    min_duration: null            # 由距离和速度动态计算
+    resource_cost:
+      energy_kwh: null            # 由距离动态计算: dist * energy_per_km
+      ammo: 0
+    parallelizable: true
+    output_type: "position_update"
+    z3_constraints:
+      - "duration >= dist(actor.current_pos, target) / actor.cruise_speed"
+      - "actor.remaining_range >= dist(actor.current_pos, target)"
+
+  rendezvous:
+    display_name: "会合"
+    description: "多集群在指定会合点完成汇集，需同步"
+    required_capabilities: []
+    min_duration: 0.5             # 会合本身的最短等待时间
+    resource_cost:
+      energy_kwh: 1.0
+      ammo: 0
+    parallelizable: false
+    output_type: "sync_achieved"
+    z3_constraints:
+      - "abs(start_time_i - start_time_j) <= sync_tolerance for all actors i,j"
+      - "all actors arrive before deadline"
+
+  standby:
+    display_name: "待命"
+    description: "在当前位置或指定位置待命等待"
+    required_capabilities: []
+    min_duration: 0.5
+    resource_cost:
+      energy_kwh: 0.5
+      ammo: 0
+    parallelizable: true
+    output_type: null
+    z3_constraints:
+      - "duration >= min_duration"
+
+  jam:
+    display_name: "电子干扰"
+    description: "对指定区域实施电子干扰，压制敌方通信/雷达"
+    required_capabilities: ["jamming_capable"]
+    min_duration: 3.0
+    resource_cost:
+      energy_kwh: 10.0
+      ammo: 0
+    parallelizable: false
+    output_type: "jam_report"
+    z3_constraints:
+      - "duration >= min_duration"
+      - "actor.jamming_capable == True"
+
+  intercept:
+    display_name: "拦截"
+    description: "对移动目标实施拦截"
+    required_capabilities: ["strike_capable"]
+    min_duration: 1.0
+    resource_cost:
+      energy_kwh: 6.0
+      ammo: 1
+    parallelizable: false
+    output_type: "intercept_result"
+    z3_constraints:
+      - "duration >= min_duration"
+      - "actor.strike_capable == True"
+      - "actor.remaining_ammo >= 1"
+
+  track:
+    display_name: "跟踪"
+    description: "持续跟踪移动目标"
+    required_capabilities: ["recon_capable"]
+    min_duration: 2.0
+    resource_cost:
+      energy_kwh: 4.0
+      ammo: 0
+    parallelizable: true
+    output_type: "track_report"
+    z3_constraints:
+      - "duration >= min_duration"
+      - "actor.recon_capable == True"
+
+# 全局约束参数
+global_action_params:
+  energy_per_km: 0.2              # 飞行能耗系数（kWh/km）
+  default_sync_tolerance: 1.0     # 默认同步容忍时间窗
+  max_repair_attempts: 3          # 验证失败后最大修复尝试次数

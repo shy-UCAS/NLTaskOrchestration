@@ -1,0 +1,108 @@
+{
+  "plan_id": "plan_002_resource_unsat",
+  "source_instruction": "fleet_1 对 5 个目标依次执行打击任务（弹药超限测试）",
+  "standard_task_plan_text": "fleet_1 依次打击 target_A、target_B、target_C、target_D、target_E 共 5 个目标，每次消耗 1 发弹药，总需 5 发，但 fleet_1 弹药上限为 4。",
+  "scenario_id": "scenario_resource_unsat",
+  "participants": [
+    {
+      "actor_id": "fleet_1",
+      "type": "fleet",
+      "role": "strike",
+      "capability_ref": "fleet_1"
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": "T1",
+      "actor": "fleet_1",
+      "action": "strike",
+      "target": "target_A",
+      "condition": "mission_start",
+      "time_window": null,
+      "expected_output": "target_A_destroyed",
+      "is_coalition": false,
+      "coalition_members": null
+    },
+    {
+      "task_id": "T2",
+      "actor": "fleet_1",
+      "action": "strike",
+      "target": "target_B",
+      "condition": "target_A_destroyed",
+      "time_window": null,
+      "expected_output": "target_B_destroyed",
+      "is_coalition": false,
+      "coalition_members": null
+    },
+    {
+      "task_id": "T3",
+      "actor": "fleet_1",
+      "action": "strike",
+      "target": "target_C",
+      "condition": "target_B_destroyed",
+      "time_window": null,
+      "expected_output": "target_C_destroyed",
+      "is_coalition": false,
+      "coalition_members": null
+    },
+    {
+      "task_id": "T4",
+      "actor": "fleet_1",
+      "action": "strike",
+      "target": "target_D",
+      "condition": "target_C_destroyed",
+      "time_window": null,
+      "expected_output": "target_D_destroyed",
+      "is_coalition": false,
+      "coalition_members": null
+    },
+    {
+      "task_id": "T5",
+      "actor": "fleet_1",
+      "action": "strike",
+      "target": "target_E",
+      "condition": "target_D_destroyed",
+      "time_window": null,
+      "expected_output": "target_E_destroyed",
+      "is_coalition": false,
+      "coalition_members": null
+    }
+  ],
+  "relations": [
+    {
+      "source": "T1",
+      "target": "T2",
+      "type": "sequence",
+      "sync_tolerance": null,
+      "condition": "target_A_destroyed"
+    },
+    {
+      "source": "T2",
+      "target": "T3",
+      "type": "sequence",
+      "sync_tolerance": null,
+      "condition": "target_B_destroyed"
+    },
+    {
+      "source": "T3",
+      "target": "T4",
+      "type": "sequence",
+      "sync_tolerance": null,
+      "condition": "target_C_destroyed"
+    },
+    {
+      "source": "T4",
+      "target": "T5",
+      "type": "sequence",
+      "sync_tolerance": null,
+      "condition": "target_D_destroyed"
+    }
+  ],
+  "global_constraints": {
+    "total_time_budget": null,
+    "rendezvous_points": []
+  },
+  "ambiguities": [],
+  "missing_fields": [],
+  "parse_confidence": 1.0
+}

@@ -37,8 +37,8 @@ class LayerResult:
     elapsed_ms: float = 0.0
 
     def summary_line(self) -> str:
-        icon = "✅" if self.passed else "❌"
-        return f"{icon} Layer {self.layer} [{self.name}]: {'通过' if self.passed else '失败'}"
+        icon = "[PASS]" if self.passed else "[FAIL]"
+        return f"{icon} Layer {self.layer} [{self.name}]: {'Pass' if self.passed else 'Fail'}"
 
 
 @dataclass
@@ -55,12 +55,12 @@ class VerificationReport:
         print(f"\n{'='*60}")
         print(f"验证报告 — 段: {self.segment_id}")
         print(f"{'='*60}")
-        print(f"总体结果: {'✅ 通过' if self.overall_passed else '❌ 失败'}")
+        print(f"总体结果: {'PASS' if self.overall_passed else 'FAIL'}")
         print(f"总耗时: {self.total_elapsed_ms:.1f} ms\n")
         for lr in self.layers:
             print(lr.summary_line())
             if not lr.passed and lr.error_msg:
-                print(f"   → {lr.error_msg}")
+                print(f"   ->{lr.error_msg}")
             if lr.details:
                 for k, v in lr.details.items():
                     print(f"   {k}: {v}")
@@ -182,8 +182,26 @@ class Layer2GraphVerifier:
         g = graph.graph
         issues = []
 
+        print("\n" + "=" * 60)
+        print("[DEBUG][Layer2] 图结构验证 — 开始")
+        print("=" * 60)
+        print(f"  节点列表 ({len(g.nodes)}):")
+        for n in g.nodes:
+            node = graph.nodes[n]
+            in_d = g.in_degree(n)
+            out_d = g.out_degree(n)
+            preds = list(g.predecessors(n))
+            succs = list(g.successors(n))
+            print(f"    {n:30s} | in_degree={in_d} | out_degree={out_d} | "
+                  f"preds={preds} | succs={succs}")
+        print(f"\n  边列表 ({len(g.edges)}):")
+        for u, v, data in g.edges(data=True):
+            print(f"    {u:30s} -- {v:30s} | {data}")
+
         # 1. DAG 合法性
-        if not nx.is_directed_acyclic_graph(g):
+        is_dag = nx.is_directed_acyclic_graph(g)
+        print(f"\n  DAG 合法性: {'是' if is_dag else '否 (存在环路!)'}")
+        if not is_dag:
             cycles = list(nx.simple_cycles(g))
             issues.append(f"图中存在环路: {cycles}")
 
@@ -199,22 +217,36 @@ class Layer2GraphVerifier:
         if missing:
             issues.append(f"任务节点未加入图中: {missing}")
 
-        # 4. 关键路径（简单计算：最长路径，以 duration_lb 为权重）
+        # 4. 关键路径（以节点 duration_lb 为权重的最长路径）
         critical_path = []
         critical_path_len = 0.0
         if nx.is_directed_acyclic_graph(g) and len(g.nodes) > 0:
             try:
-                # 为每个节点设置 duration_lb 作为路径长度
-                for tid, node in graph.nodes.items():
-                    g.nodes[tid]["path_weight"] = node.duration_lb
-                    cp = nx.dag_longest_path(g)
-                    critical_path = cp
-                    critical_path_len = sum(graph.nodes[tid].duration_lb for tid in cp)
+                for u, v in g.edges():
+                    g.edges[u, v]["_node_weight"] = graph.nodes[u].duration_lb
+                cp = nx.dag_longest_path(g, weight="_node_weight")
+                cp_edge_len = nx.dag_longest_path_length(g, weight="_node_weight")
+                if cp:
+                    cp_edge_len += graph.nodes[cp[-1]].duration_lb
+                critical_path = cp
+                critical_path_len = cp_edge_len
             except Exception as e:
                 issues.append(f"关键路径计算失败: {e}")
 
+        print(f"\n  关键路径: {' -> '.join(critical_path) if critical_path else '(无)'}")
+        print(f"  关键路径长度 (duration_lb 之和): {critical_path_len:.1f}")
+
+        # 拓扑排序
+        if nx.is_directed_acyclic_graph(g):
+            topo_order = list(nx.topological_sort(g))
+            print(f"  拓扑排序: {topo_order}")
+
         elapsed = (time.time() - t0) * 1000
         passed = len(issues) == 0
+        print(f"\n[DEBUG][Layer2] 图结构验证 — {'通过' if passed else '失败'} ({elapsed:.1f}ms)")
+        if issues:
+            for iss in issues:
+                print(f"  问题: {iss}")
 
         return LayerResult(
             layer=2, name="图结构验证", passed=passed,
@@ -246,6 +278,12 @@ class Layer3Z3Verifier:
         """
         返回: (LayerResult, schedule_dict, unsat_core_labels)
         """
+        print("\n" + "=" * 60)
+        print("[DEBUG][Layer3] Z3 约束验证 — 开始")
+        print("=" * 60)
+        print(f"  图中约束数: {len(graph.constraints)}")
+        print(f"  timeout: {self.timeout_ms}ms")
+
         t0 = time.time()
         try:
             builder = Z3ConstraintBuilder(graph, use_tracking=True)
@@ -375,13 +413,22 @@ class VerificationPipeline:
         对已构建的 BuiltGraph 对象运行 Layer 2-4 验证。
         （Layer 1 代码验证需要原始代码字符串，此方法跳过）
         """
+        print("\n" + "#" * 60)
+        print("[DEBUG] VerificationPipeline.verify_graph — 开始验证")
+        print("#" * 60)
+        print(f"  segment_id: {graph.segment_id}")
+        print(f"  节点数: {len(graph.nodes)}, 边数: {len(graph.edges)}, "
+              f"约束数: {len(graph.constraints)}")
+
         t0 = time.time()
         layers: list[LayerResult] = []
 
         # Layer 2
+        print(f"\n{'>'*20} 进入 Layer 2: 图结构验证 {'<'*20}")
         l2_result = self.l2.verify(graph)
         layers.append(l2_result)
         if not l2_result.passed:
+            print(f"[DEBUG] Layer 2 失败，终止后续验证")
             return VerificationReport(
                 segment_id=graph.segment_id,
                 overall_passed=False,
@@ -390,10 +437,12 @@ class VerificationPipeline:
             )
 
         # Layer 3
+        print(f"\n{'>'*20} 进入 Layer 3: Z3 约束验证 {'<'*20}")
         l3_result, schedule, unsat_core = self.l3.verify(graph)
         layers.append(l3_result)
         attribution = l3_result.details.get("attribution", [])
         if not l3_result.passed:
+            print(f"[DEBUG] Layer 3 失败，终止后续验证")
             return VerificationReport(
                 segment_id=graph.segment_id,
                 overall_passed=False,
@@ -405,8 +454,12 @@ class VerificationPipeline:
             )
 
         # Layer 4
+        print(f"\n{'>'*20} 进入 Layer 4: 语义反向校验 {'<'*20}")
         l4_result = self.l4.verify(graph, schedule)
         layers.append(l4_result)
+
+        print(f"\n[DEBUG] VerificationPipeline — 全部验证完成")
+        print(f"  各层结果: {[f'L{lr.layer}:{'Pass' if lr.passed else 'Fail'}' for lr in layers]}")
 
         return VerificationReport(
             segment_id=graph.segment_id,

@@ -1,0 +1,124 @@
+# environment_config.yaml
+# 场景环境配置 —— 目标点坐标、威胁区、会合点、禁飞区
+# 坐标系：相对坐标（km），以基地为原点
+
+scenarios:
+
+  scenario_demo:
+    description: "演示场景 —— 4集群多目标协同作战"
+    time_unit: "分钟"
+    coordinate_unit: "km"
+
+    # 各集群初始位置
+    initial_positions:
+      fleet_1: {x: 0.0, y: 0.0}
+      fleet_2: {x: 2.0, y: -1.0}
+      fleet_3: {x: -1.0, y: 1.0}
+      fleet_4: {x: 1.0, y: 2.0}
+
+    # 目标点
+    target_points:
+      hq_mark2:
+        x: 15.0
+        y: 20.0
+        description: "敌方前沿阵地2号"
+        threat_level: 2
+        defense_type: "light"
+      hq_mark4:
+        x: 25.0
+        y: 15.0
+        description: "敌方前沿阵地4号"
+        threat_level: 3
+        defense_type: "medium"
+      hq_mark6:
+        x: 30.0
+        y: 25.0
+        description: "敌方中继站6号"
+        threat_level: 2
+        defense_type: "light"
+      hq_mark7:
+        x: 35.0
+        y: 30.0
+        description: "敌方指挥部7号"
+        threat_level: 4
+        defense_type: "heavy"
+      hq_mark8:
+        x: 20.0
+        y: 35.0
+        description: "敌方补给站8号"
+        threat_level: 2
+        defense_type: "light"
+      hq_mark9:
+        x: 10.0
+        y: 30.0
+        description: "敌方前沿观察站9号"
+        threat_level: 1
+        defense_type: "minimal"
+
+    # 会合点
+    rendezvous_points:
+      rv_alpha:
+        x: 20.0
+        y: 25.0
+        description: "会合点Alpha —— 联合突击前集结"
+      rv_beta:
+        x: 30.0
+        y: 10.0
+        description: "会合点Beta —— 撤离集结点"
+
+    # 禁飞区（圆形）
+    no_fly_zones:
+      - id: nfz_1
+        center: {x: 12.0, y: 18.0}
+        radius_km: 3.0
+        description: "民用设施保护区"
+      - id: nfz_2
+        center: {x: 28.0, y: 20.0}
+        radius_km: 2.0
+        description: "己方通信中继保护区"
+
+    # 威胁区（圆形，进入会增加能耗/时间）
+    threat_zones:
+      - id: tz_1
+        center: {x: 22.0, y: 28.0}
+        radius_km: 5.0
+        threat_level: 3
+        description: "敌方防空覆盖区"
+        speed_penalty: 0.7        # 进入区域内速度降低为正常的70%
+
+    # 全局时间参数
+    time_constraints:
+      mission_start: 0
+      hard_deadline: 60           # 整体任务必须在60分钟内完成
+      global_rendezvous_time: 45  # 全局会合的最晚时间
+
+  scenario_simple:
+    description: "简单验证场景 —— 2集群线性"
+    time_unit: "分钟"
+    coordinate_unit: "km"
+    initial_positions:
+      fleet_1: {x: 0.0, y: 0.0}
+      fleet_2: {x: 1.0, y: 0.0}
+    target_points:
+      target_A:
+        x: 10.0
+        y: 10.0
+        description: "目标A"
+        threat_level: 1
+        defense_type: "minimal"
+      target_B:
+        x: 20.0
+        y: 10.0
+        description: "目标B"
+        threat_level: 2
+        defense_type: "light"
+    rendezvous_points:
+      rv_1:
+        x: 15.0
+        y: 15.0
+        description: "简单场景会合点"
+    no_fly_zones: []
+    threat_zones: []
+    time_constraints:
+      mission_start: 0
+      hard_deadline: 30

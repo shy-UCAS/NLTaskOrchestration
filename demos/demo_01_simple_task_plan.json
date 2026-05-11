@@ -1,28 +1,28 @@
 {
   "plan_id": "plan_001",
-  "source_instruction": "侦察组A前出至R1区域搜索敌方目标，打击组B在Z1区域待机，发现敌方主群后执行拦截。",
-  "standard_task_plan_text": "侦察组A前出至R1区域执行侦察任务，确认敌方主群位置；打击组B进入Z1区域待机；当侦察组A发现并确认敌方主群后，打击组B对敌方主群执行拦截任务。",
-  "scenario_id": "scenario_demo_001",
+  "source_instruction": "fleet_1 前出至 target_A 区域侦察敌方目标，fleet_2 前往 target_B 区域待机，发现敌方主群后由 fleet_2 执行拦截。",
+  "standard_task_plan_text": "fleet_1 前出至 target_A 区域执行侦察任务，确认敌方主群位置；fleet_2 进入 target_B 区域待机；当 fleet_1 发现并确认敌方主群后，fleet_2 对敌方主群执行拦截任务。",
+  "scenario_id": "scenario_simple",
   "participants": [
     {
-      "actor_id": "scout_team_A",
+      "actor_id": "fleet_1",
       "type": "fleet",
       "role": "recon",
-      "capability_ref": "scout_team_A"
+      "capability_ref": "fleet_1"
     },
     {
-      "actor_id": "strike_team_B",
+      "actor_id": "fleet_2",
       "type": "fleet",
       "role": "strike",
-      "capability_ref": "strike_team_B"
+      "capability_ref": "fleet_2"
     }
   ],
   "tasks": [
     {
       "task_id": "T1",
-      "actor": "scout_team_A",
+      "actor": "fleet_1",
       "action": "reconnaissance",
-      "target": "R1",
+      "target": "target_A",
       "condition": "mission_start",
       "time_window": null,
       "expected_output": "enemy_main_group_location_confirmed",
@@ -31,18 +31,18 @@
     },
     {
       "task_id": "T2",
-      "actor": "strike_team_B",
+      "actor": "fleet_2",
       "action": "standby",
-      "target": "Z1",
+      "target": "target_B",
       "condition": "mission_start",
       "time_window": null,
-      "expected_output": "strike_team_B_ready_at_Z1",
+      "expected_output": "fleet_2_ready_at_target_B",
       "is_coalition": false,
       "coalition_members": null
     },
     {
       "task_id": "T3",
-      "actor": "strike_team_B",
+      "actor": "fleet_2",
       "action": "intercept",
       "target": "enemy_main_group",
       "condition": "enemy_main_group_location_confirmed",
@@ -65,7 +65,7 @@
       "target": "T3",
       "type": "sequence",
       "sync_tolerance": null,
-      "condition": "strike_team_B_ready_at_Z1"
+      "condition": "fleet_2_ready_at_target_B"
     }
   ],
   "global_constraints": {

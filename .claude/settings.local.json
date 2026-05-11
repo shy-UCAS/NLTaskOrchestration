@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m demos.demo_01_build_graph_from_json)",
+      "Bash(pip install *)",
+      "Bash(C:\\\\Users\\\\shy\\\\anaconda3\\\\envs\\\\llm\\\\python.exe -m demos.demo_01_build_graph_from_json)",
+      "PowerShell(& \"C:\\\\Users\\\\shy\\\\anaconda3\\\\envs\\\\llm\\\\python.exe\" -m demos.demo_01_build_graph_from_json)",
+      "PowerShell(& \"C:\\\\Users\\\\shy\\\\anaconda3\\\\envs\\\\llm\\\\python.exe\" -m demos.demo_01_build_graph_from_json 2>&1)",
+      "PowerShell(& \"C:\\\\Users\\\\shy\\\\anaconda3\\\\envs\\\\llm\\\\python.exe\" -m demos.demo_02_build_resource_unsat_from_json)"
+    ]
+  }
+}

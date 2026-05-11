@@ -1,0 +1,136 @@
+# capability_model.yaml
+# 集群能力模型 —— 描述各集群的异构组成与资源约束
+# 每个 fleet 的参数供 Z3 物理可行性约束使用
+
+fleets:
+
+  fleet_1:
+    description: "第1集群 —— 侦察打击混合型"
+    composition:
+      - uav_type: "recon_uav"
+        count: 2
+        role: "reconnaissance"
+      - uav_type: "strike_uav"
+        count: 2
+        role: "strike"
+    # 集群综合性能（取最保守值用于约束估算）
+    fleet_constraints:
+      max_speed_kmh: 120          # 最大巡航速度（km/h）
+      cruise_speed_kmh: 80        # 典型巡航速度
+      max_range_km: 200           # 最大作战半径
+      max_ammo: 4                 # 总弹药量（攻击次数上限）
+      max_energy_kwh: 50.0        # 总能量预算
+      jamming_capable: false      # 是否具备电子干扰能力
+      recon_capable: true         # 是否具备侦察能力
+      strike_capable: true        # 是否具备打击能力
+      min_task_duration:          # 各动作最短持续时间（时间单位）
+        reconnaissance: 2.0
+        strike: 1.5
+        fly_to: null              # 由距离/速度推导
+        standby: 0.5
+        breakthrough: 2.0
+
+  fleet_2:
+    description: "第2集群 —— 纯打击型"
+    composition:
+      - uav_type: "strike_uav"
+        count: 4
+        role: "strike"
+    fleet_constraints:
+      max_speed_kmh: 150
+      cruise_speed_kmh: 100
+      max_range_km: 180
+      max_ammo: 6
+      max_energy_kwh: 60.0
+      jamming_capable: false
+      recon_capable: false
+      strike_capable: true
+      min_task_duration:
+        reconnaissance: null      # 不具备该能力
+        strike: 1.0
+        fly_to: null
+        standby: 0.5
+        breakthrough: 1.5
+
+  fleet_3:
+    description: "第3集群 —— 电子战支援型"
+    composition:
+      - uav_type: "ew_uav"
+        count: 2
+        role: "electronic_warfare"
+      - uav_type: "recon_uav"
+        count: 1
+        role: "reconnaissance"
+    fleet_constraints:
+      max_speed_kmh: 100
+      cruise_speed_kmh: 70
+      max_range_km: 250
+      max_ammo: 1                 # 仅少量自卫弹药
+      max_energy_kwh: 80.0        # 电子战设备耗能大
+      jamming_capable: true
+      recon_capable: true
+      strike_capable: false
+      min_task_duration:
+        reconnaissance: 2.5
+        jam: 3.0
+        fly_to: null
+        standby: 0.5
+        breakthrough: null        # 不具备突破能力
+
+  fleet_4:
+    description: "第4集群 —— 快速突击型"
+    composition:
+      - uav_type: "strike_uav"
+        count: 3
+        role: "strike"
+      - uav_type: "recon_uav"
+        count: 1
+        role: "reconnaissance"
+    fleet_constraints:
+      max_speed_kmh: 180
+      cruise_speed_kmh: 130
+      max_range_km: 150           # 速度快但航程短
+      max_ammo: 5
+      max_energy_kwh: 45.0
+      jamming_capable: false
+      recon_capable: true
+      strike_capable: true
+      min_task_duration:
+        reconnaissance: 1.5
+        strike: 1.0
+        fly_to: null
+        standby: 0.5
+        breakthrough: 1.0
+
+# UAV 类型定义（供参考，集群约束以 fleet_constraints 为准）
+uav_types:
+  recon_uav:
+    description: "侦察型无人机"
+    capabilities: ["reconnaissance", "fly_to", "standby"]
+    max_speed_kmh: 120
+    range_km: 250
+    ammo: 0
+    energy_kwh: 15.0
+
+  strike_uav:
+    description: "打击型无人机"
+    capabilities: ["strike", "breakthrough", "fly_to", "standby"]
+    max_speed_kmh: 160
+    range_km: 180
+    ammo: 2
+    energy_kwh: 18.0
+
+  ew_uav:
+    description: "电子战型无人机"
+    capabilities: ["jam", "reconnaissance", "fly_to", "standby"]
+    max_speed_kmh: 100
+    range_km: 260
+    ammo: 0
+    energy_kwh: 30.0
+
+# 联合能力规则：当多个集群联合执行时的能力合并逻辑
+coalition_rules:
+  # 联合段中，各集群贡献各自的能力子集
+  capability_union: true          # 联合能力取并集
+  resource_pooling: false         # 资源不共享（各集群维护独立资源账本）
+  sync_tolerance_default: 1.0     # 默认同步容忍时间窗（时间单位）
