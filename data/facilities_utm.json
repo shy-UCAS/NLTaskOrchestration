@@ -1,5 +1,5 @@
 {
-  "facilities_utm": {
+  "facilities_str": {
     "hq_1": [
       419663.89,
       4155459.18
@@ -93,7 +93,7 @@
       4153203.4
     ]
   },
-  "defence_rings_utm": {
+  "defence_rings_str": {
     "RING1": {
       "xs": [
         419107.35,

@@ -1,0 +1,262 @@
+scenarios:
+  scenario_facilities_utm:
+    description: Converted from facilities UTM JSON
+    time_unit: 分钟
+    coordinate_unit: km
+    coordinate_system:
+      type: utm_relative
+      source_crs: UTM
+      source_unit: m
+      output_unit: km
+      origin_ref: hq_1
+      origin_utm_m:
+        x: 419663.89
+        y: 4155459.18
+      x_axis: east
+      y_axis: north
+    initial_positions:
+      fleet_1:
+        x: 0.00046
+        y: 0.68696
+        source_ref: ua_1
+        source_utm_m:
+          x: 419664.35
+          y: 4156146.14
+        description: Initial position converted from ua_1
+      fleet_2:
+        x: -0.17677
+        y: 0.34752
+        source_ref: ua_2
+        source_utm_m:
+          x: 419487.12
+          y: 4155806.7
+        description: Initial position converted from ua_2
+      fleet_3:
+        x: -0.85246
+        y: 0.77339
+        source_ref: ua_3
+        source_utm_m:
+          x: 418811.43
+          y: 4156232.57
+        description: Initial position converted from ua_3
+      fleet_4:
+        x: 0.91562
+        y: -0.15966
+        source_ref: ua_4
+        source_utm_m:
+          x: 420579.51
+          y: 4155299.52
+        description: Initial position converted from ua_4
+      fleet_5:
+        x: 1.54444
+        y: 0.15884
+        source_ref: ua_5
+        source_utm_m:
+          x: 421208.33
+          y: 4155618.02
+        description: Initial position converted from ua_5
+    target_points:
+      hq_1:
+        x: 0.0
+        y: 0.0
+        source_ref: hq_1
+        source_utm_m:
+          x: 419663.89
+          y: 4155459.18
+        description: Facility converted from hq_1
+        source_type: facility
+        threat_level: null
+        defense_type: null
+      hq_2:
+        x: -0.34314
+        y: 0.14423
+        source_ref: hq_2
+        source_utm_m:
+          x: 419320.75
+          y: 4155603.41
+        description: Facility converted from hq_2
+        source_type: facility
+        threat_level: null
+        defense_type: null
+      radar_1:
+        x: 0.34282
+        y: 0.69045
+        source_ref: radar_1
+        source_utm_m:
+          x: 420006.71
+          y: 4156149.63
+        description: Facility converted from radar_1
+        source_type: facility
+        threat_level: null
+        defense_type: null
+      hq_mark1:
+        x: 0.61281
+        y: 1.19658
+        source_ref: hq_mark1
+        source_utm_m:
+          x: 420276.7
+          y: 4156655.76
+        description: Facility converted from hq_mark1
+        source_type: facility
+        threat_level: null
+        defense_type: null
+      hq_mark2:
+        x: 2.0502
+        y: 1.00425
+        source_ref: hq_mark2
+        source_utm_m:
+          x: 421714.09
+          y: 4156463.43
+        description: Facility converted from hq_mark2
+        source_type: facility
+        threat_level: null
+        defense_type: null
+      hq_mark3:
+        x: -0.61201
+        y: -0.15983
+        source_ref: hq_mark3
+        source_utm_m:
+          x: 419051.88
+          y: 4155299.35
+        description: Facility converted from hq_mark3
+        source_type: facility
+        threat_level: null
+        defense_type: null
+      hq_mark4:
+        x: 0.43061
+        y: 0.26531
+        source_ref: hq_mark4
+        source_utm_m:
+          x: 420094.5
+          y: 4155724.49
+        description: Facility converted from hq_mark4
+        source_type: facility
+        threat_level: null
+        defense_type: null
+      hq_mark5:
+        x: -0.3709
+        y: 1.43849
+        source_ref: hq_mark5
+        source_utm_m:
+          x: 419292.99
+          y: 4156897.67
+        description: Facility converted from hq_mark5
+        source_type: facility
+        threat_level: null
+        defense_type: null
+      hq_mark6:
+        x: -0.76671
+        y: 2.31345
+        source_ref: hq_mark6
+        source_utm_m:
+          x: 418897.18
+          y: 4157772.63
+        description: Facility converted from hq_mark6
+        source_type: facility
+        threat_level: null
+        defense_type: null
+      hq_mark7:
+        x: 1.49013
+        y: 2.32734
+        source_ref: hq_mark7
+        source_utm_m:
+          x: 421154.02
+          y: 4157786.52
+        description: Facility converted from hq_mark7
+        source_type: facility
+        threat_level: null
+        defense_type: null
+      hq_mark8:
+        x: 2.5248
+        y: -0.52669
+        source_ref: hq_mark8
+        source_utm_m:
+          x: 422188.69
+          y: 4154932.49
+        description: Facility converted from hq_mark8
+        source_type: facility
+        threat_level: null
+        defense_type: null
+      hq_mark9:
+        x: 0.37212
+        y: -1.26971
+        source_ref: hq_mark9
+        source_utm_m:
+          x: 420036.01
+          y: 4154189.47
+        description: Facility converted from hq_mark9
+        source_type: facility
+        threat_level: null
+        defense_type: null
+      hq_mark10:
+        x: -1.53056
+        y: -0.66558
+        source_ref: hq_mark10
+        source_utm_m:
+          x: 418133.33
+          y: 4154793.6
+        description: Facility converted from hq_mark10
+        source_type: facility
+        threat_level: null
+        defense_type: null
+      hq_mark11:
+        x: -2.03748
+        y: 3.88282
+        source_ref: hq_mark11
+        source_utm_m:
+          x: 417626.41
+          y: 4159342.0
+        description: Facility converted from hq_mark11
+        source_type: facility
+        threat_level: null
+        defense_type: null
+      hq_mark12:
+        x: 0.42768
+        y: 3.91754
+        source_ref: hq_mark12
+        source_utm_m:
+          x: 420091.57
+          y: 4159376.72
+        description: Facility converted from hq_mark12
+        source_type: facility
+        threat_level: null
+        defense_type: null
+      hq_mark13:
+        x: 2.58035
+        y: 3.38979
+        source_ref: hq_mark13
+        source_utm_m:
+          x: 422244.24
+          y: 4158848.97
+        description: Facility converted from hq_mark13
+        source_type: facility
+        threat_level: null
+        defense_type: null
+      hq_mark14:
+        x: 3.13588
+        y: -1.7558
+        source_ref: hq_mark14
+        source_utm_m:
+          x: 422799.77
+          y: 4153703.38
+        description: Facility converted from hq_mark14
+        source_type: facility
+        threat_level: null
+        defense_type: null
+      hq_mark15:
+        x: -1.80833
+        y: -2.25578
+        source_ref: hq_mark15
+        source_utm_m:
+          x: 417855.56
+          y: 4153203.4
+        description: Facility converted from hq_mark15
+        source_type: facility
+        threat_level: null
+        defense_type: null
+    rendezvous_points: {}
+    no_fly_zones: []
+    threat_zones: []
+    time_constraints:
+      mission_start: 0
+      hard_deadline: null
