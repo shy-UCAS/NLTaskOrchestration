@@ -186,6 +186,26 @@ class _ASTVisitor(ast.NodeVisitor):
         self.forbidden_nodes.append(("class", node.lineno))
         self.generic_visit(node)
 
+    def visit_For(self, node: ast.For):
+        self.forbidden_nodes.append(("for loop", node.lineno))
+        self.generic_visit(node)
+
+    def visit_While(self, node: ast.While):
+        self.forbidden_nodes.append(("while loop", node.lineno))
+        self.generic_visit(node)
+
+    def visit_With(self, node: ast.With):
+        self.forbidden_nodes.append(("with block", node.lineno))
+        self.generic_visit(node)
+
+    def visit_Try(self, node: ast.Try):
+        self.forbidden_nodes.append(("try block", node.lineno))
+        self.generic_visit(node)
+
+    def visit_Lambda(self, node: ast.Lambda):
+        self.forbidden_nodes.append(("lambda", getattr(node, "lineno", -1)))
+        self.generic_visit(node)
+
     def _is_builder_constructor_call(self, node: ast.AST) -> bool:
         if not isinstance(node, ast.Call):
             return False

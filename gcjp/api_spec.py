@@ -54,7 +54,6 @@ VALID_CONSTRAINT_TYPES = {
 VALID_RESOURCE_TYPES = {
     "ammo",
     "energy_kwh",
-    "range_km",
 }
 
 VALID_TASK_METADATA_KEYS = {

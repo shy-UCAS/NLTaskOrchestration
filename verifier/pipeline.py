@@ -19,6 +19,7 @@ from typing import Optional
 import networkx as nx
 
 from gcjp.debug_logger import debug
+from gcjp.code_executor import execute_gcjp_code
 from gcjp.mission_graph import BuiltGraph
 from gcjp.constraint_templates import Z3ConstraintBuilder
 from gcjp.safety_checker import check_gcjp_code
@@ -396,7 +397,7 @@ class VerificationPipeline:
         report.print_report()
 
         # 如果只有 GCJP 代码字符串（LLM 生成的情况）：
-        report = pipeline.verify_code(code_str, built_graph)
+        report = pipeline.verify_gcjp_code(code_str)
     """
 
     def __init__(self, z3_timeout_ms: int = 10_000):
@@ -470,9 +471,44 @@ class VerificationPipeline:
             total_elapsed_ms=(time.time() - t0) * 1000,
         )
 
+    def verify_gcjp_code(self, code: str) -> VerificationReport:
+        """
+        对 GCJP 代码字符串运行完整验证流程：
+        L1 安全检查与受限执行 -> 提取 BuiltGraph -> L2/L3/L4 验证。
+        """
+        t0 = time.time()
+        exec_result = execute_gcjp_code(code)
+        elapsed = (time.time() - t0) * 1000
+
+        l1_result = LayerResult(
+            layer=1,
+            name="GCJP代码执行验证",
+            passed=exec_result.passed,
+            details={
+                "warnings": exec_result.safety.warnings if exec_result.safety else [],
+            },
+            error_msg=exec_result.error_msg,
+            elapsed_ms=elapsed,
+        )
+
+        if not exec_result.passed or exec_result.graph is None:
+            return VerificationReport(
+                segment_id="unknown",
+                overall_passed=False,
+                layers=[l1_result],
+                total_elapsed_ms=(time.time() - t0) * 1000,
+            )
+
+        rest = self.verify_graph(exec_result.graph)
+        rest.layers = [l1_result] + rest.layers
+        rest.total_elapsed_ms = (time.time() - t0) * 1000
+        rest.overall_passed = l1_result.passed and rest.overall_passed
+        return rest
+
     def verify_code(self, code: str, graph: BuiltGraph) -> VerificationReport:
         """
-        对 LLM 生成的代码字符串 + 对应 BuiltGraph 运行全四层验证。
+        兼容旧接口：对代码做 L1 检查，对外部传入 graph 做 L2-L4。
+        新代码应优先使用 verify_gcjp_code(code)。
         """
         t0 = time.time()
         layers: list[LayerResult] = []

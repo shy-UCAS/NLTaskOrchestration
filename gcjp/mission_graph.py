@@ -466,7 +466,7 @@ class TaskGraphBuilder:
 
         参数:
             actor:         执行主体ID
-            resource_type: 资源类型 —— 'ammo' | 'energy_kwh' | 'range_km'
+            resource_type: 资源类型 —— 'ammo' | 'energy_kwh'
             max_value:     资源上限值
         """
         if resource_type not in VALID_RESOURCE_TYPES:

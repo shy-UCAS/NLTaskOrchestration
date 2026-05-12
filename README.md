@@ -58,6 +58,7 @@ NLTaskOrchestration/
 │   ├── __init__.py
 │   ├── api_spec.py                   # GCJP v1 受限 API 统一规范
 │   ├── mission_graph.py               # TaskGraphBuilder 与 BuiltGraph
+│   ├── code_executor.py               # GCJP 代码字符串 → BuiltGraph 执行入口
 │   ├── constraint_templates.py        # Z3 约束构建与求解
 │   ├── safety_checker.py              # GCJP 代码白名单检查
 │   ├── task_plan_loader.py            # 标准化 JSON → BuiltGraph
@@ -77,7 +78,7 @@ NLTaskOrchestration/
 │   ├── demo_03_build_facilities_from_json.py
 │   ├── demo_01_simple_solo.py         # 手写 GCJP SAT 正例
 │   ├── demo_05_unsat_example.py       # 手写 GCJP UNSAT 反例
-│   └── demo_06_fixed_gcjp_api.py      # GCJP v1 受限 API 白名单检查
+│   └── demo_06_fixed_gcjp_api.py      # GCJP v1 代码字符串端到端验证
 │
 ├── tools/
 │   ├── validate_task_plan.py          # JSON Schema 格式校验
@@ -262,22 +263,34 @@ UNSAT 时使用 `assert_and_track` 提取冲突约束标签，供归因分析使
 
 ---
 
-### 3.7 `verifier/pipeline.py`
+### 3.7 `gcjp/code_executor.py`
+
+执行经过安全检查的 GCJP v1 代码字符串，并提取 `built = g.build()` 得到 `BuiltGraph`。
+
+```text
+GCJP 代码字符串 → safety_checker → 受限执行 → BuiltGraph
+```
+
+执行器只允许导入 `gcjp.mission_graph.TaskGraphBuilder`，并要求最终变量 `built` 是 `BuiltGraph`。
+
+---
+
+### 3.8 `verifier/pipeline.py`
 
 四层递进验证管道统一入口：
 
 ```text
-Layer 1: 代码执行验证（语法检查 + 沙箱运行，LLM 生成代码场景使用）
+Layer 1: GCJP代码执行验证（安全检查 + 受限执行 + BuiltGraph 提取）
 Layer 2: 图结构验证（DAG 合法性、连通性、节点覆盖、关键路径）
 Layer 3: Z3 约束验证（SAT 输出调度方案 / UNSAT 输出冲突归因）
 Layer 4: 语义反向校验（预留接口）
 ```
 
-`verify_graph()` 对已有 BuiltGraph 运行 Layer 2-4，`verify_code()` 对 LLM 生成代码运行全四层。
+`verify_graph()` 对已有 BuiltGraph 运行 Layer 2-4；`verify_gcjp_code()` 对 GCJP 代码字符串运行完整闭环；`verify_code()` 保留为兼容旧接口。
 
 ---
 
-### 3.8 `gcjp/debug_logger.py`
+### 3.9 `gcjp/debug_logger.py`
 
 全局可控调试日志器。`VERBOSE=False`（默认）时日志只写入内部缓存不输出控制台，`VERBOSE=True` 时同步打印。所有模块通过 `from gcjp.debug_logger import debug` 共享同一实例。
 
@@ -322,7 +335,7 @@ python -m demos.demo_03_build_facilities_from_json
 ```powershell
 python -m demos.demo_01_simple_solo      # SAT 正例
 python -m demos.demo_05_unsat_example     # UNSAT 反例
-python -m demos.demo_06_fixed_gcjp_api    # GCJP v1 API 白名单检查
+python -m demos.demo_06_fixed_gcjp_api    # GCJP v1 代码字符串端到端验证
 ```
 
 ### 4.6 工具脚本
@@ -374,21 +387,25 @@ python tools/validate_configs.py
 
 ## 7. 下一步开发方向
 
-### Step 1：接入坐标距离 → 物理可行性约束
+### Step 1：实现 GCJP 代码执行器
 
-目标：在 `task_plan_loader.py` 中，当 `environment_config_path` 不为 None 时，根据 actor 初始位置和目标点坐标自动计算飞行距离，添加 `physical_feasibility` 约束。
+新增 `gcjp/code_executor.py`，输入 GCJP 代码字符串，完成安全检查、受限执行，并提取 `built = g.build()` 得到 `BuiltGraph`。
 
-### Step 2：优化 UNSAT 归因输出
+### Step 2：新增 `verify_gcjp_code()`
 
-过滤 `start_nonneg_*`、`end_def_*` 等底层约束，输出更适合人机交互的高层冲突说明。
+在 `VerificationPipeline` 中新增 `verify_gcjp_code(code: str)`，实现 L1 安全检查与执行、L2 图结构验证、L3 Z3 验证、L4 语义反向校验的完整闭环。
 
-### Step 3：实现语义反向校验最小版
+### Step 3：跑通手写 GCJP 代码字符串闭环
 
-从 `BuiltGraph` 反向生成任务摘要，与原始 JSON 中的 tasks/relations 对齐检查。
+使用手写 GCJP v1 代码字符串验证 `code → BuiltGraph → NetworkX/Z3` 流程，确认代码执行器和验证管道之间的接口稳定。
 
-### Step 4：接入 NL → 标准化任务计划 JSON
+### Step 4：构建 JSON → LLM → GCJP 实验
 
-当前确定性底座已稳定，可新增 `agents/instruction_parser.py`，使用 LLM 或规则模板将自然语言指令转为标准化 JSON，完成完整闭环。
+使用现有 demo JSON 作为输入，让强模型生成 GCJP v1 代码，并统计代码安全通过率、执行成功率、DAG 合法率和 Z3 结果一致率。
+
+### Step 5：构建 NL → LLM → GCJP 最小闭环
+
+使用简单自然语言指令直接生成 GCJP v1 代码，验证端到端 Code-as-Plan 主线。
 
 ---
 
