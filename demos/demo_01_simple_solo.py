@@ -20,7 +20,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from gcjp.mission_graph import TaskGraphBuilder
+from gcjp.mission_graph import BuiltGraph, TaskGraphBuilder
 from verifier.pipeline import VerificationPipeline
 
 
@@ -45,7 +45,7 @@ def build_fleet1_segment() -> "BuiltGraph":
 
     g.declare_segment_meta(
         assumed_conditions=["fleet_1 at initial position (0,0)"],
-        contract_ids_to_fulfill=["contract_fleet1_done"],
+        interface_ids_to_fulfill=["interface_fleet1_done"],
     )
 
     # 任务1：侦察 target_A
@@ -101,8 +101,8 @@ def build_fleet1_segment() -> "BuiltGraph":
     )
 
     # 契约履行声明
-    g.declare_contract_fulfillment(
-        interface_id="contract_fleet1_done",
+    g.declare_interface_fulfillment(
+        interface_id="interface_fleet1_done",
         exit_node="t2_fly_to_targetB",
         resource_state={"fleet_1": {"ammo": 4, "energy_kwh": 45.0}},
         guaranteed_conditions=[
@@ -126,7 +126,7 @@ def build_fleet2_segment() -> "BuiltGraph":
 
     g.declare_segment_meta(
         assumed_conditions=["fleet_2 at initial position (2,0)"],
-        contract_ids_to_fulfill=["contract_fleet2_done"],
+        interface_ids_to_fulfill=["interface_fleet2_done"],
     )
 
     # 任务1：飞往 target_B
@@ -181,8 +181,8 @@ def build_fleet2_segment() -> "BuiltGraph":
         position="target_B",
     )
 
-    g.declare_contract_fulfillment(
-        interface_id="contract_fleet2_done",
+    g.declare_interface_fulfillment(
+        interface_id="interface_fleet2_done",
         exit_node="t2_fleet2_strike_targetB",
         resource_state={"fleet_2": {"ammo": 5, "energy_kwh": 51.0}},
         guaranteed_conditions=[
@@ -221,7 +221,7 @@ def main():
     # 汇总
     all_passed = report1.overall_passed and report2.overall_passed
     print("=" * 60)
-    print(f"Demo 01 总体结果: {'✅ 全部通过' if all_passed else '❌ 存在失败'}")
+    print(f"Demo 01 总体结果: {'PASS 全部通过' if all_passed else 'FAIL 存在失败'}")
     if report1.schedule:
         print("\nfleet_1 时间调度:")
         for tid, sched in report1.schedule.items():

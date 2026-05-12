@@ -30,7 +30,7 @@ def build_infeasible_segment():
 
     g.declare_segment_meta(
         assumed_conditions=["fleet_3 at initial position"],
-        contract_ids_to_fulfill=[],
+        interface_ids_to_fulfill=[],
     )
 
     # 飞往 hq_mark6（30km，70km/h → 最短需25.7分钟）
@@ -71,9 +71,9 @@ def build_infeasible_segment():
 
     # ← 冲突点：要求整个任务链在30分钟内完成（end of t3 <= 30）
     # 但物理最短路径：25.7 + 3.0 + 8.6 = 37.3 分钟 > 30 → UNSAT
-    g.add_constraint(
-        constraint_type="time_window",
-        params={"task_id": "t3_fly_to_mark7", "deadline": 30.0},
+    g.add_time_window_constraint(
+        task_id="t3_fly_to_mark7",
+        deadline=30.0,
         source_label="hard_deadline_30min_t3",
     )
 
@@ -108,7 +108,7 @@ def main():
     # 验证 UNSAT 被正确检测
     assert not report.overall_passed, "应该检测到 UNSAT！"
     assert len(report.unsat_core) > 0, "应该有 unsat core！"
-    print("✅ UNSAT 路径验证成功：约束冲突被正确检测并归因")
+    print("PASS UNSAT 路径验证成功：约束冲突被正确检测并归因")
     return True
 
 

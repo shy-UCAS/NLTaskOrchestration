@@ -357,7 +357,7 @@ def build_graph_from_task_plan(
     # 第一版只声明最小段信息
     builder.declare_segment_meta(
         assumed_conditions=["mission_start"],
-        contract_ids_to_fulfill=[],
+        interface_ids_to_fulfill=[],
     )
 
     # -------------------------------------------------------------------------
@@ -395,20 +395,19 @@ def build_graph_from_task_plan(
             time_window_latest=time_window.get("latest"),
             is_coalition=bool(task.get("is_coalition", False)),
             coalition_members=task.get("coalition_members") or [],
-            condition=task.get("condition"),
-            expected_output=task.get("expected_output"),
-            source="task_plan_json",
+            metadata={
+                "condition": task.get("condition"),
+                "expected_output": task.get("expected_output"),
+                "source": "task_plan_json",
+            },
         )
 
         # 如果 schema 中给出了 deadline，需要额外注册 time_window 约束
         deadline = time_window.get("deadline")
         if deadline is not None:
-            builder.add_constraint(
-                constraint_type="time_window",
-                params={
-                    "task_id": task_id,
-                    "deadline": float(deadline),
-                },
+            builder.add_time_window_constraint(
+                task_id=task_id,
+                deadline=float(deadline),
                 source_label=f"time_window_{task_id}_deadline",
             )
 
@@ -446,12 +445,9 @@ def build_graph_from_task_plan(
         debug.log(f"  汇点任务 (sink nodes): {sink_nodes}")
         for tid in sink_nodes:
             debug.log(f"  [+] 为汇点 {tid} 添加 deadline={total_time_budget}")
-            builder.add_constraint(
-                constraint_type="time_window",
-                params={
-                    "task_id": tid,
-                    "deadline": float(total_time_budget),
-                },
+            builder.add_time_window_constraint(
+                task_id=tid,
+                deadline=float(total_time_budget),
                 source_label=f"global_deadline_{total_time_budget}_{tid}",
             )
     else:
@@ -510,13 +506,10 @@ def build_graph_from_task_plan(
             debug.log(f"  [{mark}] {task_id}: actor={actor} "
                       f"needs {required}, has {actor_caps} -> "
                       f"{'matched' if satisfied else 'MISMATCH!'}")
-            builder.add_constraint(
-                constraint_type="capability",
-                params={
-                    "task_id": task_id,
-                    "required": required,
-                    "actor_capabilities": actor_caps,
-                },
+            builder.add_capability_constraint(
+                task_id=task_id,
+                required=required,
+                actor_capabilities=actor_caps,
                 source_label=f"capability_{task_id}_{actor}",
             )
     else:
