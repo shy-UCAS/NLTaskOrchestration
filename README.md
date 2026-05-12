@@ -56,6 +56,7 @@ NLTaskOrchestration/
 │
 ├── gcjp/
 │   ├── __init__.py
+│   ├── api_spec.py                   # GCJP v1 受限 API 统一规范
 │   ├── mission_graph.py               # TaskGraphBuilder 与 BuiltGraph
 │   ├── constraint_templates.py        # Z3 约束构建与求解
 │   ├── safety_checker.py              # GCJP 代码白名单检查
@@ -75,7 +76,8 @@ NLTaskOrchestration/
 │   ├── demo_03_facilities_task_plan.json      # SAT 正例：设施 UTM 场景
 │   ├── demo_03_build_facilities_from_json.py
 │   ├── demo_01_simple_solo.py         # 手写 GCJP SAT 正例
-│   └── demo_05_unsat_example.py       # 手写 GCJP UNSAT 反例
+│   ├── demo_05_unsat_example.py       # 手写 GCJP UNSAT 反例
+│   └── demo_06_fixed_gcjp_api.py      # GCJP v1 受限 API 白名单检查
 │
 ├── tools/
 │   ├── validate_task_plan.py          # JSON Schema 格式校验
@@ -202,8 +204,25 @@ def build_graph_from_task_plan_file(
 
 - `TaskNode`：任务节点，含 duration_lb/ub、energy_cost、ammo_cost；
 - `Constraint`：约束对象，含 constraint_type 和 params；
-- `TaskGraphBuilder`：任务图构建器，支持 add_task / add_dependency / add_constraint；
+- `TaskGraphBuilder`：任务图构建器，支持 `add_task`、`add_dependency` 和结构化约束 API；
 - `BuiltGraph`：构建后的只读任务图对象，含 NetworkX 有向图和约束列表。
+
+GCJP v1 的 LLM 可调用白名单集中定义在 `gcjp/api_spec.py`。生成代码不允许直接调用 `add_constraint()`，应使用以下结构化接口：
+
+```text
+declare_segment_meta
+add_task
+add_dependency
+add_time_order_constraint
+add_time_window_constraint
+add_sync_constraint
+add_resource_constraint
+add_capability_constraint
+add_physical_feasibility_constraint
+declare_resource_state
+declare_interface_fulfillment
+build
+```
 
 示例用法：
 
@@ -217,6 +236,7 @@ g.add_task(
     energy_cost=3.0, ammo_cost=0,
 )
 g.add_dependency("T1", "T3", relation="condition_trigger")
+g.add_time_window_constraint("T3", deadline=30.0, source_label="deadline_T3")
 built = g.build()
 ```
 
@@ -302,6 +322,7 @@ python -m demos.demo_03_build_facilities_from_json
 ```powershell
 python -m demos.demo_01_simple_solo      # SAT 正例
 python -m demos.demo_05_unsat_example     # UNSAT 反例
+python -m demos.demo_06_fixed_gcjp_api    # GCJP v1 API 白名单检查
 ```
 
 ### 4.6 工具脚本
