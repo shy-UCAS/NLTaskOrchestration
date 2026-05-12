@@ -2,6 +2,9 @@
 demos/demo_08_parallel_tasks_gcjp.py
 python -m demos.demo_08_parallel_tasks_gcjp
 Handwritten GCJP demo: parallel tasks SAT case.
+
+Note: GCJP v1 treats `parallel` as a semantic graph edge. It does not
+generate a Z3 time_order constraint.
 """
 
 import os

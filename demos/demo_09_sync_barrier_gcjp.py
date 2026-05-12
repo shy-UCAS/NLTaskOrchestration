@@ -2,6 +2,10 @@
 demos/demo_09_sync_barrier_gcjp.py
 python -m demos.demo_09_sync_barrier_gcjp
 Handwritten GCJP demo: sync and barrier SAT case.
+
+Note: GCJP v1 sync constrains task start times:
+    abs(start_i - start_j) <= tolerance
+It is a start-sync approximation, not end/arrival synchronization.
 """
 
 import os

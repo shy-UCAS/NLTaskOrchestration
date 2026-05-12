@@ -1,6 +1,6 @@
 """
-demos/demo_10_condition_resource_capability_gcjp.py
-python -m demos.demo_10_condition_resource_capability_gcjp
+demos/demo_10_condition_resource_conflict_gcjp.py
+python -m demos.demo_10_condition_resource_conflict_gcjp
 Handwritten GCJP demo: condition-triggered resource conflict UNSAT case.
 """
 
