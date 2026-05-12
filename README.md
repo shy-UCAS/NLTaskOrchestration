@@ -78,7 +78,8 @@ NLTaskOrchestration/
 │   ├── demo_03_build_facilities_from_json.py
 │   ├── demo_01_simple_solo.py         # 手写 GCJP SAT 正例
 │   ├── demo_05_unsat_example.py       # 手写 GCJP UNSAT 反例
-│   └── demo_06_fixed_gcjp_api.py      # GCJP v1 代码字符串端到端验证
+│   ├── demo_06_fixed_gcjp_api.py      # GCJP v1 代码字符串端到端验证
+│   └── demo_07_gcjp_code_executor_failures.py  # L1失败路径诊断测试
 │
 ├── tools/
 │   ├── validate_task_plan.py          # JSON Schema 格式校验
@@ -273,6 +274,17 @@ GCJP 代码字符串 → safety_checker → 受限执行 → BuiltGraph
 
 执行器只允许导入 `gcjp.mission_graph.TaskGraphBuilder`，并要求最终变量 `built` 是 `BuiltGraph`。
 
+L1 执行诊断会输出稳定的 `error_type`，用于后续 LLM 生成实验统计：
+
+```text
+SUCCESS
+SAFETY_CHECK_FAILED
+COMPILE_FAILED
+EXECUTION_FAILED
+MISSING_BUILT
+INVALID_BUILT_TYPE
+```
+
 ---
 
 ### 3.8 `verifier/pipeline.py`
@@ -336,6 +348,7 @@ python -m demos.demo_03_build_facilities_from_json
 python -m demos.demo_01_simple_solo      # SAT 正例
 python -m demos.demo_05_unsat_example     # UNSAT 反例
 python -m demos.demo_06_fixed_gcjp_api    # GCJP v1 代码字符串端到端验证
+python -m demos.demo_07_gcjp_code_executor_failures  # L1失败路径诊断测试
 ```
 
 ### 4.6 工具脚本

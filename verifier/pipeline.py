@@ -485,7 +485,9 @@ class VerificationPipeline:
             name="GCJP代码执行验证",
             passed=exec_result.passed,
             details={
+                "error_type": exec_result.error_type,
                 "warnings": exec_result.safety.warnings if exec_result.safety else [],
+                "violations": exec_result.safety.violations if exec_result.safety else [],
             },
             error_msg=exec_result.error_msg,
             elapsed_ms=elapsed,

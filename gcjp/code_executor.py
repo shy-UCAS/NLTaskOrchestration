@@ -18,11 +18,20 @@ class GCJPExecutionError(RuntimeError):
     """Raised when GCJP code fails safety check or execution."""
 
 
+ERROR_SUCCESS = "SUCCESS"
+ERROR_SAFETY_CHECK_FAILED = "SAFETY_CHECK_FAILED"
+ERROR_COMPILE_FAILED = "COMPILE_FAILED"
+ERROR_EXECUTION_FAILED = "EXECUTION_FAILED"
+ERROR_MISSING_BUILT = "MISSING_BUILT"
+ERROR_INVALID_BUILT_TYPE = "INVALID_BUILT_TYPE"
+
+
 @dataclass
 class GCJPExecutionResult:
     passed: bool
     graph: BuiltGraph | None = None
     safety: SafetyCheckResult | None = None
+    error_type: str | None = None
     error_msg: str | None = None
     locals_snapshot: dict[str, Any] | None = None
 
@@ -74,6 +83,7 @@ def execute_gcjp_code(code: str) -> GCJPExecutionResult:
         return GCJPExecutionResult(
             passed=False,
             safety=safety,
+            error_type=ERROR_SAFETY_CHECK_FAILED,
             error_msg="Safety check failed:\n" + "\n".join(safety.violations),
         )
 
@@ -85,11 +95,22 @@ def execute_gcjp_code(code: str) -> GCJPExecutionResult:
 
     try:
         compiled = compile(code, filename="<gcjp_code>", mode="exec")
+    except Exception as exc:
+        return GCJPExecutionResult(
+            passed=False,
+            safety=safety,
+            error_type=ERROR_COMPILE_FAILED,
+            error_msg=f"GCJP compile failed: {type(exc).__name__}: {exc}",
+            locals_snapshot=exec_locals,
+        )
+
+    try:
         exec(compiled, exec_globals, exec_locals)
     except Exception as exc:
         return GCJPExecutionResult(
             passed=False,
             safety=safety,
+            error_type=ERROR_EXECUTION_FAILED,
             error_msg=f"GCJP execution failed: {type(exc).__name__}: {exc}",
             locals_snapshot=exec_locals,
         )
@@ -100,6 +121,7 @@ def execute_gcjp_code(code: str) -> GCJPExecutionResult:
         return GCJPExecutionResult(
             passed=False,
             safety=safety,
+            error_type=ERROR_MISSING_BUILT,
             error_msg="GCJP code must define `built = g.build()`.",
             locals_snapshot=exec_locals,
         )
@@ -108,6 +130,7 @@ def execute_gcjp_code(code: str) -> GCJPExecutionResult:
         return GCJPExecutionResult(
             passed=False,
             safety=safety,
+            error_type=ERROR_INVALID_BUILT_TYPE,
             error_msg=f"`built` must be BuiltGraph, got {type(built).__name__}.",
             locals_snapshot=exec_locals,
         )
@@ -116,5 +139,6 @@ def execute_gcjp_code(code: str) -> GCJPExecutionResult:
         passed=True,
         graph=built,
         safety=safety,
+        error_type=ERROR_SUCCESS,
         locals_snapshot=exec_locals,
     )
