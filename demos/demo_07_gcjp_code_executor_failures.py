@@ -70,6 +70,15 @@ g.add_task(
         "expected_error_type": ERROR_MISSING_BUILT,
     },
     {
+        "name": "syntax_error",
+        "code": """
+from gcjp.mission_graph import TaskGraphBuilder
+g = TaskGraphBuilder(segment_id="seg_syntax", assigned_actors=["fleet_1"])
+g.add_task(
+""",
+        "expected_error_type": ERROR_SAFETY_CHECK_FAILED,
+    },
+    {
         "name": "invalid_built_type",
         "code": """
 from gcjp.mission_graph import TaskGraphBuilder
@@ -105,6 +114,39 @@ from gcjp.mission_graph import TaskGraphBuilder
 g = TaskGraphBuilder(segment_id="seg_loop", assigned_actors=["fleet_1"])
 while True:
     pass
+built = g.build()
+""",
+        "expected_error_type": ERROR_SAFETY_CHECK_FAILED,
+    },
+    {
+        "name": "for_loop",
+        "code": """
+from gcjp.mission_graph import TaskGraphBuilder
+g = TaskGraphBuilder(segment_id="seg_for", assigned_actors=["fleet_1"])
+for i in range(2):
+    pass
+built = g.build()
+""",
+        "expected_error_type": ERROR_SAFETY_CHECK_FAILED,
+    },
+    {
+        "name": "try_block",
+        "code": """
+from gcjp.mission_graph import TaskGraphBuilder
+g = TaskGraphBuilder(segment_id="seg_try", assigned_actors=["fleet_1"])
+try:
+    built = g.build()
+except Exception:
+    built = "bad"
+""",
+        "expected_error_type": ERROR_SAFETY_CHECK_FAILED,
+    },
+    {
+        "name": "lambda_expr",
+        "code": """
+from gcjp.mission_graph import TaskGraphBuilder
+g = TaskGraphBuilder(segment_id="seg_lambda", assigned_actors=["fleet_1"])
+f = lambda x: x
 built = g.build()
 """,
         "expected_error_type": ERROR_SAFETY_CHECK_FAILED,

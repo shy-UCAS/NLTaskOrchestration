@@ -79,7 +79,10 @@ NLTaskOrchestration/
 │   ├── demo_01_simple_solo.py         # 手写 GCJP SAT 正例
 │   ├── demo_05_unsat_example.py       # 手写 GCJP UNSAT 反例
 │   ├── demo_06_fixed_gcjp_api.py      # GCJP v1 代码字符串端到端验证
-│   └── demo_07_gcjp_code_executor_failures.py  # L1失败路径诊断测试
+│   ├── demo_07_gcjp_code_executor_failures.py  # L1失败路径诊断测试
+│   ├── demo_08_parallel_tasks_gcjp.py          # 并行任务 SAT 正例
+│   ├── demo_09_sync_barrier_gcjp.py            # 同步/屏障 SAT 正例
+│   └── demo_10_condition_resource_capability_gcjp.py  # 条件触发资源冲突 UNSAT
 │
 ├── tools/
 │   ├── validate_task_plan.py          # JSON Schema 格式校验
@@ -349,7 +352,12 @@ python -m demos.demo_01_simple_solo      # SAT 正例
 python -m demos.demo_05_unsat_example     # UNSAT 反例
 python -m demos.demo_06_fixed_gcjp_api    # GCJP v1 代码字符串端到端验证
 python -m demos.demo_07_gcjp_code_executor_failures  # L1失败路径诊断测试
+python -m demos.demo_08_parallel_tasks_gcjp           # 并行任务 SAT 正例
+python -m demos.demo_09_sync_barrier_gcjp             # 同步/屏障 SAT 正例
+python -m demos.demo_10_condition_resource_capability_gcjp  # 资源冲突 UNSAT
 ```
+
+`demo_08` 至 `demo_10` 是面向后续 `JSON → LLM → GCJP` 的手写 GCJP few-shot/基准样例，覆盖并行、同步/屏障、条件触发资源冲突三类典型任务模式。
 
 ### 4.6 工具脚本
 
