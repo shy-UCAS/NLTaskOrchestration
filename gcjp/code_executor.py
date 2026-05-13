@@ -44,6 +44,15 @@ class GCJPExecutionResult:
 
 
 _GCJP_TB_LINE_RE = re.compile(r'File "<gcjp_code>", line (\d+)')
+_BUILT_ASSIGNMENT_RE = re.compile(r'^\s*built\s*=')
+
+
+def _find_built_assignment_line(code: str) -> int | None:
+    """定位 GCJP 代码中第一处 `built = ...` 赋值所在行号（1-based），未找到返回 None。"""
+    for idx, line in enumerate(code.splitlines(), start=1):
+        if _BUILT_ASSIGNMENT_RE.match(line):
+            return idx
+    return None
 
 
 def _extract_gcjp_source_context(
@@ -179,17 +188,29 @@ def execute_gcjp_code(code: str) -> GCJPExecutionResult:
             passed=False,
             safety=safety,
             error_type=ERROR_MISSING_BUILT,
-            error_msg="GCJP code must define `built = g.build()`.",
+            error_msg=(
+                "GCJP 代码未定义 `built` 变量。"
+                "请在代码末尾追加 `built = g.build()` 以导出任务图。"
+            ),
             locals_snapshot=exec_locals,
         )
 
     if not isinstance(built, BuiltGraph):
+        built_lineno = _find_built_assignment_line(code)
+        _, built_context = _extract_gcjp_source_context(
+            code, f'File "<gcjp_code>", line {built_lineno}'
+        ) if built_lineno else (None, None)
         return GCJPExecutionResult(
             passed=False,
             safety=safety,
             error_type=ERROR_INVALID_BUILT_TYPE,
-            error_msg=f"`built` must be BuiltGraph, got {type(built).__name__}.",
+            error_msg=(
+                f"`built` 必须是 BuiltGraph 实例，实际类型: {type(built).__name__}。"
+                "请将 `built` 赋值改为 `built = g.build()`。"
+            ),
             locals_snapshot=exec_locals,
+            gcjp_lineno=built_lineno,
+            source_context=built_context,
         )
 
     return GCJPExecutionResult(

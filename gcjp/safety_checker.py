@@ -37,6 +37,10 @@ FORBIDDEN_PATTERNS = [
 ]
 
 
+# 从 ALLOWED_BUILDER_METHODS 派生的白名单文案，避免在建议中 hardcode 出现漂移。
+_ALLOWED_BUILDER_METHODS_DISPLAY = "、".join(sorted(ALLOWED_BUILDER_METHODS))
+
+
 # 违规建议文案（按 violation code 分类）
 _SUGGESTIONS: dict[str, str] = {
     "FORBIDDEN_PATTERN": "该字符串模式被文本扫描禁止，请删除相关代码。",
@@ -49,10 +53,7 @@ _SUGGESTIONS: dict[str, str] = {
         "仅允许从 gcjp.mission_graph 导入 TaskGraphBuilder。"
     ),
     "DISALLOWED_BUILDER_METHOD": (
-        "请改用受支持的结构化 API，例如 add_task、add_dependency、"
-        "add_time_window_constraint、add_time_order_constraint、"
-        "add_resource_constraint、add_capability_constraint、"
-        "add_physical_feasibility_constraint、set_exit_node、build。"
+        f"请改用 GCJP v1 受支持的结构化 API：{_ALLOWED_BUILDER_METHODS_DISPLAY}。"
     ),
     "INVALID_METHOD_CALLER": (
         "方法应作用于 TaskGraphBuilder 实例（通常命名为 g），"
