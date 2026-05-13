@@ -7,6 +7,7 @@ This module is the runtime bridge from GCJP code string to BuiltGraph.
 from __future__ import annotations
 
 import builtins
+import traceback
 from dataclasses import dataclass
 from typing import Any
 
@@ -96,22 +97,30 @@ def execute_gcjp_code(code: str) -> GCJPExecutionResult:
     try:
         compiled = compile(code, filename="<gcjp_code>", mode="exec")
     except Exception as exc:
+        tb = traceback.format_exc()
         return GCJPExecutionResult(
             passed=False,
             safety=safety,
             error_type=ERROR_COMPILE_FAILED,
-            error_msg=f"GCJP compile failed: {type(exc).__name__}: {exc}",
+            error_msg=(
+                f"GCJP compile failed: {type(exc).__name__}: {exc}\n"
+                f"Traceback:\n{tb}"
+            ),
             locals_snapshot=exec_locals,
         )
 
     try:
         exec(compiled, exec_globals, exec_locals)
     except Exception as exc:
+        tb = traceback.format_exc()
         return GCJPExecutionResult(
             passed=False,
             safety=safety,
             error_type=ERROR_EXECUTION_FAILED,
-            error_msg=f"GCJP execution failed: {type(exc).__name__}: {exc}",
+            error_msg=(
+                f"GCJP execution failed: {type(exc).__name__}: {exc}\n"
+                f"Traceback:\n{tb}"
+            ),
             locals_snapshot=exec_locals,
         )
 
