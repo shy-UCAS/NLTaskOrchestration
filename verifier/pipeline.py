@@ -519,7 +519,11 @@ class VerificationPipeline:
     def verify_code(self, code: str, graph: BuiltGraph) -> VerificationReport:
         """
         兼容旧接口：对代码做 L1 检查，对外部传入 graph 做 L2-L4。
-        新代码应优先使用 verify_gcjp_code(code)。
+
+        注意：此路径走 Layer1CodeVerifier（subprocess 沙箱），仅产出
+        旧式字符串错误，**不会填充 structured_violations / api_error /
+        source_context / traceback_text 等结构化反馈字段**。如需 LLM
+        修复闭环所依赖的结构化诊断，请改用 verify_gcjp_code(code)。
         """
         t0 = time.time()
         layers: list[LayerResult] = []
