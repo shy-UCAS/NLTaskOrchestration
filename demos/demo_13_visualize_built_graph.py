@@ -26,7 +26,11 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from gcjp.code_executor import execute_gcjp_code
-from gcjp.graph_visualizer import visualize_built_graph, visualize_built_graph_html
+from gcjp.graph_visualizer import (
+    visualize_built_graph,
+    visualize_built_graph_html,
+    visualize_from_file,
+)
 
 
 CASES = [
@@ -50,7 +54,7 @@ def _load_built(case_name: str) -> tuple[str, "BuiltGraph"]:  # type: ignore[nam
     raise SystemExit(f"未知 case: {case_name}（可选：{[c[0] for c in CASES]}）")
 
 
-def batch_render() -> bool:
+def batch_render(save_dir: Path | None = None) -> bool:
     out_dir = Path("out") / "visualizations"
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -78,10 +82,18 @@ def batch_render() -> bool:
             print(f"  [FAIL] {name}: {type(exc).__name__}: {exc}")
             continue
 
+        suffix = ""
+        if save_dir is not None:
+            save_dir.mkdir(parents=True, exist_ok=True)
+            json_path = save_dir / f"{name}.json"
+            built.save(json_path)
+            suffix = f"  saved -> {json_path}"
+
         print(
             f"  [OK] {name}: "
             f"nodes={len(built.nodes):2d}  edges={len(built.edges):2d}  "
             f"constraints={len(built.constraints):2d}  -> {png_path.name} + {html_path.name}"
+            f"{suffix}"
         )
         passed += 1
 
@@ -105,12 +117,28 @@ def main() -> int:
         choices=[c[0] for c in CASES],
         help="弹出 matplotlib 交互窗口而非批量出图（指定一个 case，如 demo_09）",
     )
+    parser.add_argument(
+        "--save",
+        metavar="DIR",
+        type=Path,
+        help="批量渲染时同时将每个 BuiltGraph 保存为 JSON（如 out/graphs）",
+    )
+    parser.add_argument(
+        "--from-file",
+        metavar="JSON",
+        type=Path,
+        help="从已保存的 .json 加载并渲染 pyvis HTML（离线可视化）",
+    )
     args = parser.parse_args()
 
+    if args.from_file:
+        html = visualize_from_file(args.from_file)
+        print(f"Rendered: {html}")
+        return 0
     if args.show:
         open_interactive(args.show)
         return 0
-    return 0 if batch_render() else 1
+    return 0 if batch_render(save_dir=args.save) else 1
 
 
 if __name__ == "__main__":

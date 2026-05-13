@@ -628,3 +628,37 @@ def _try_register_hover(node_collection, nodelist: list[str],
                 _format_node_tooltip_text(graph, nodelist[idx])
             )
             sel.annotation.get_bbox_patch().set(fc="lightyellow", alpha=0.95)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 离线可视化：从 JSON 文件加载并渲染 pyvis HTML
+# ─────────────────────────────────────────────────────────────────────────────
+
+def visualize_from_file(
+    json_path: str | Path,
+    output_html_path: str | Path | None = None,
+    *,
+    open_in_browser: bool = True,
+    height: str = "900px",
+    width: str = "100%",
+) -> Path:
+    """
+    从保存的 JSON 加载 BuiltGraph 并渲染 pyvis 交互式 HTML。
+
+    Args:
+        json_path:        BuiltGraph.save() 产出的 .json 文件路径
+        output_html_path: 输出 HTML 路径（默认与 json 同目录同名 .html）
+        open_in_browser:  完成后自动用默认浏览器打开
+        height/width:     嵌入页面的尺寸
+
+    Returns:
+        生成的 HTML 文件 Path。
+    """
+    json_path = Path(json_path)
+    graph = BuiltGraph.load(json_path)
+    if output_html_path is None:
+        output_html_path = json_path.with_suffix(".html")
+    return visualize_built_graph_html(
+        graph, output_html_path,
+        open_in_browser=open_in_browser, height=height, width=width,
+    )

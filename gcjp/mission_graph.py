@@ -5,8 +5,11 @@ LLM 生成的代码只能调用此文件中定义的白名单方法
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import json
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
 from typing import Optional
+
 import networkx as nx
 
 from gcjp.api_spec import (
@@ -875,3 +878,67 @@ class BuiltGraph:
     def __repr__(self) -> str:
         return (f"BuiltGraph(segment_id={self.segment_id!r}, "
                 f"nodes={len(self.nodes)}, constraints={len(self.constraints)})")
+
+    # ── 序列化 / 反序列化 ──────────────────────────────────────────────────
+
+    def to_dict(self) -> dict:
+        """序列化为 JSON 兼容 dict。"""
+        return {
+            "version": "1.0",
+            "segment_id": self.segment_id,
+            "assigned_actors": self.assigned_actors,
+            "nodes": {tid: asdict(node) for tid, node in self.nodes.items()},
+            "edges": [asdict(e) for e in self.edges],
+            "constraints": [asdict(c) for c in self.constraints],
+            "interface_fulfillments": [
+                asdict(f) for f in self.interface_fulfillments
+            ],
+            "resource_states": self.resource_states,
+            "segment_meta": (
+                asdict(self.segment_meta) if self.segment_meta else None
+            ),
+            "nx_graph": nx.node_link_data(self.graph),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "BuiltGraph":
+        """从 to_dict() 产出的 dict 重建 BuiltGraph。"""
+        nodes = {tid: TaskNode(**d) for tid, d in data["nodes"].items()}
+        edges = [DependencyEdge(**e) for e in data["edges"]]
+        constraints = [Constraint(**c) for c in data["constraints"]]
+        interface_fulfillments = [
+            InterfaceFulfillment(**f) for f in data["interface_fulfillments"]
+        ]
+        segment_meta = (
+            SegmentMeta(**data["segment_meta"])
+            if data.get("segment_meta") else None
+        )
+        graph = nx.node_link_graph(data["nx_graph"])
+
+        return cls(
+            segment_id=data["segment_id"],
+            assigned_actors=data["assigned_actors"],
+            graph=graph,
+            nodes=nodes,
+            edges=edges,
+            constraints=constraints,
+            interface_fulfillments=interface_fulfillments,
+            resource_states=data.get("resource_states", {}),
+            segment_meta=segment_meta,
+        )
+
+    def save(self, path: str | Path) -> Path:
+        """序列化并写入 JSON 文件。"""
+        out = Path(path)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(
+            json.dumps(self.to_dict(), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        return out
+
+    @classmethod
+    def load(cls, path: str | Path) -> "BuiltGraph":
+        """从 save() 产出的 JSON 文件加载 BuiltGraph。"""
+        text = Path(path).read_text(encoding="utf-8")
+        return cls.from_dict(json.loads(text))
