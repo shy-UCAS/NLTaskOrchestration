@@ -7,6 +7,7 @@ This module is the runtime bridge from GCJP code string to BuiltGraph.
 from __future__ import annotations
 
 import builtins
+import re
 import traceback
 from dataclasses import dataclass
 from typing import Any
@@ -35,6 +36,41 @@ class GCJPExecutionResult:
     error_type: str | None = None
     error_msg: str | None = None
     locals_snapshot: dict[str, Any] | None = None
+    traceback_text: str | None = None
+    gcjp_lineno: int | None = None
+    source_context: str | None = None
+
+
+_GCJP_TB_LINE_RE = re.compile(r'File "<gcjp_code>", line (\d+)')
+
+
+def _extract_gcjp_source_context(
+    code: str, tb_text: str, radius: int = 2
+) -> tuple[int | None, str | None]:
+    """
+    从 traceback 文本中解析 <gcjp_code> 出错行号，并返回该行附近 ±radius 行的源码片段。
+    返回 (lineno, context_str)；任一解析失败时对应位置为 None。
+    """
+    matches = _GCJP_TB_LINE_RE.findall(tb_text)
+    if not matches:
+        return None, None
+    try:
+        lineno = int(matches[-1])  # 取最深一层 frame
+    except ValueError:
+        return None, None
+
+    code_lines = code.splitlines()
+    if not (1 <= lineno <= len(code_lines)):
+        return lineno, None
+
+    start = max(1, lineno - radius)
+    end = min(len(code_lines), lineno + radius)
+    width = len(str(end))
+    parts: list[str] = []
+    for ln in range(start, end + 1):
+        marker = ">" if ln == lineno else " "
+        parts.append(f"{marker} {ln:>{width}} | {code_lines[ln - 1]}")
+    return lineno, "\n".join(parts)
 
 
 def _restricted_import(name, globals=None, locals=None, fromlist=(), level=0):
@@ -98,30 +134,38 @@ def execute_gcjp_code(code: str) -> GCJPExecutionResult:
         compiled = compile(code, filename="<gcjp_code>", mode="exec")
     except Exception as exc:
         tb = traceback.format_exc()
+        lineno, context = _extract_gcjp_source_context(code, tb)
+        # SyntaxError 在 compile 阶段不会进 <gcjp_code> traceback frame，
+        # 但异常对象自身带 lineno，单独兜底一次。
+        if lineno is None and isinstance(exc, SyntaxError) and exc.lineno is not None:
+            lineno, context = _extract_gcjp_source_context(
+                code, f'File "<gcjp_code>", line {exc.lineno}'
+            )
         return GCJPExecutionResult(
             passed=False,
             safety=safety,
             error_type=ERROR_COMPILE_FAILED,
-            error_msg=(
-                f"GCJP compile failed: {type(exc).__name__}: {exc}\n"
-                f"Traceback:\n{tb}"
-            ),
+            error_msg=f"GCJP compile failed: {type(exc).__name__}: {exc}",
             locals_snapshot=exec_locals,
+            traceback_text=tb,
+            gcjp_lineno=lineno,
+            source_context=context,
         )
 
     try:
         exec(compiled, exec_globals, exec_locals)
     except Exception as exc:
         tb = traceback.format_exc()
+        lineno, context = _extract_gcjp_source_context(code, tb)
         return GCJPExecutionResult(
             passed=False,
             safety=safety,
             error_type=ERROR_EXECUTION_FAILED,
-            error_msg=(
-                f"GCJP execution failed: {type(exc).__name__}: {exc}\n"
-                f"Traceback:\n{tb}"
-            ),
+            error_msg=f"GCJP execution failed: {type(exc).__name__}: {exc}",
             locals_snapshot=exec_locals,
+            traceback_text=tb,
+            gcjp_lineno=lineno,
+            source_context=context,
         )
 
     built = exec_locals.get("built", exec_globals.get("built"))
