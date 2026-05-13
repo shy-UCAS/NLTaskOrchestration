@@ -17,6 +17,7 @@ from gcjp.api_spec import (
     VALID_RESOURCE_TYPES,
     VALID_TASK_METADATA_KEYS,
 )
+from gcjp.errors import GCJPAPIError
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -220,15 +221,46 @@ class TaskGraphBuilder:
             coalition_members:     联合执行的所有主体ID列表
         """
         if task_id in self._nodes:
-            raise ValueError(f"task_id '{task_id}' 已存在，请使用唯一ID")
+            raise GCJPAPIError(
+                code="DUPLICATE_TASK_ID",
+                message=f"task_id '{task_id}' 已存在，请使用唯一ID",
+                api="add_task",
+                actual=task_id,
+                expected={"existing_task_ids": list(self._nodes.keys())},
+                hint="task_id 必须唯一；改用不同标识，或检查是否漏调 add_dependency 而重复 add_task。",
+            )
         if duration_lb <= 0:
-            raise ValueError(f"duration_lb 必须大于0，当前值: {duration_lb}")
+            raise GCJPAPIError(
+                code="INVALID_DURATION_LB",
+                message=f"duration_lb 必须大于0，当前值: {duration_lb}",
+                api="add_task",
+                actual=duration_lb,
+                expected="duration_lb > 0",
+                hint="duration_lb 表示任务最短持续时间，必须为正浮点数，如 1.0。",
+            )
         if actor not in self.assigned_actors and not is_coalition:
-            raise ValueError(f"actor '{actor}' 不在本段的 assigned_actors {self.assigned_actors} 中")
+            raise GCJPAPIError(
+                code="ACTOR_NOT_ASSIGNED",
+                message=f"actor '{actor}' 不在本段的 assigned_actors {self.assigned_actors} 中",
+                api="add_task",
+                actual=actor,
+                expected={"assigned_actors": list(self.assigned_actors)},
+                hint=(
+                    "将 actor 改为 assigned_actors 中已有的值；"
+                    "若确需新增执行主体，请在 TaskGraphBuilder(...) 的 assigned_actors 中包含它。"
+                ),
+            )
         metadata = metadata or {}
         unknown_metadata = set(metadata) - VALID_TASK_METADATA_KEYS
         if unknown_metadata:
-            raise ValueError(f"metadata 中存在非法字段: {sorted(unknown_metadata)}")
+            raise GCJPAPIError(
+                code="ILLEGAL_METADATA_KEY",
+                message=f"metadata 中存在非法字段: {sorted(unknown_metadata)}",
+                api="add_task",
+                actual=sorted(unknown_metadata),
+                expected={"allowed_metadata_keys": sorted(VALID_TASK_METADATA_KEYS)},
+                hint="metadata 仅允许 condition / expected_output / source / priority 等字段；删除或重命名非法键。",
+            )
 
         node = TaskNode(
             task_id=task_id,
@@ -288,11 +320,35 @@ class TaskGraphBuilder:
         relation = RELATION_ALIASES.get(relation, relation)
         if relation not in VALID_RELATION_TYPES:
             valid = sorted(VALID_RELATION_TYPES | set(RELATION_ALIASES))
-            raise ValueError(f"relation 必须是 {valid} 之一，当前: '{relation}'")
+            raise GCJPAPIError(
+                code="INVALID_RELATION",
+                message=f"relation 必须是 {valid} 之一，当前: '{relation}'",
+                api="add_dependency",
+                actual=relation,
+                expected={"valid_relations": valid},
+                hint=(
+                    "relation 必须是 sequence / sync / fork / join / conditional 之一；"
+                    "表达\"先后顺序\"用 sequence，\"同时发生\"用 sync。"
+                ),
+            )
         if source not in self._nodes:
-            raise ValueError(f"源任务 '{source}' 未在图中，请先调用 add_task()")
+            raise GCJPAPIError(
+                code="MISSING_SOURCE_TASK",
+                message=f"源任务 '{source}' 未在图中，请先调用 add_task()",
+                api="add_dependency",
+                actual=source,
+                expected={"available_task_ids": list(self._nodes.keys())},
+                hint="先用 add_task() 注册该 task_id，或将 source 改为已注册的任务名。",
+            )
         if target not in self._nodes:
-            raise ValueError(f"目标任务 '{target}' 未在图中，请先调用 add_task()")
+            raise GCJPAPIError(
+                code="MISSING_TARGET_TASK",
+                message=f"目标任务 '{target}' 未在图中，请先调用 add_task()",
+                api="add_dependency",
+                actual=target,
+                expected={"available_task_ids": list(self._nodes.keys())},
+                hint="先用 add_task() 注册该 task_id，或将 target 改为已注册的任务名。",
+            )
         if relation == "sync" and sync_tolerance is None:
             sync_tolerance = 1.0  # 使用默认同步容忍
 
@@ -334,11 +390,35 @@ class TaskGraphBuilder:
         LLM 生成代码不允许直接调用，应使用 add_xxx_constraint() 结构化接口。
         """
         if constraint_type not in VALID_CONSTRAINT_TYPES:
-            raise ValueError(f"constraint_type 必须是 {VALID_CONSTRAINT_TYPES} 之一")
+            raise GCJPAPIError(
+                code="INVALID_CONSTRAINT_TYPE",
+                message=f"constraint_type 必须是 {VALID_CONSTRAINT_TYPES} 之一",
+                api="_add_constraint",
+                actual=constraint_type,
+                expected={"valid_constraint_types": sorted(VALID_CONSTRAINT_TYPES)},
+                hint=(
+                    "请改用结构化 API（add_time_window_constraint / add_time_order_constraint / "
+                    "add_resource_constraint / ...）而非直接调用 add_constraint。"
+                ),
+            )
         if not source_label:
-            raise ValueError("source_label 不能为空")
+            raise GCJPAPIError(
+                code="EMPTY_SOURCE_LABEL",
+                message="source_label 不能为空",
+                api="_add_constraint",
+                actual=source_label,
+                expected="非空字符串",
+                hint="为约束提供唯一的 source_label 字符串，便于 unsat core 归因。",
+            )
         if source_label in self._constraint_source_labels:
-            raise ValueError(f"source_label '{source_label}' 已存在，请保持约束来源唯一")
+            raise GCJPAPIError(
+                code="DUPLICATE_SOURCE_LABEL",
+                message=f"source_label '{source_label}' 已存在，请保持约束来源唯一",
+                api="_add_constraint",
+                actual=source_label,
+                expected="unique within graph",
+                hint="约束的 source_label 必须全局唯一；为不同约束分配不同标签，或检查是否重复添加。",
+            )
         self._constraint_source_labels.add(source_label)
 
         self._constraint_counter += 1
@@ -384,9 +464,23 @@ class TaskGraphBuilder:
         source_label: Optional[str] = None,
     ) -> str:
         if before not in self._nodes:
-            raise ValueError(f"before task '{before}' 未在图中")
+            raise GCJPAPIError(
+                code="TIME_ORDER_BEFORE_NOT_FOUND",
+                message=f"before task '{before}' 未在图中",
+                api="add_time_order_constraint",
+                actual=before,
+                expected={"available_task_ids": list(self._nodes.keys())},
+                hint="先用 add_task() 注册该任务，或将 before 改为已注册的 task_id。",
+            )
         if after not in self._nodes:
-            raise ValueError(f"after task '{after}' 未在图中")
+            raise GCJPAPIError(
+                code="TIME_ORDER_AFTER_NOT_FOUND",
+                message=f"after task '{after}' 未在图中",
+                api="add_time_order_constraint",
+                actual=after,
+                expected={"available_task_ids": list(self._nodes.keys())},
+                hint="先用 add_task() 注册该任务，或将 after 改为已注册的 task_id。",
+            )
         return self._add_constraint(
             constraint_type="time_order",
             params={"before": before, "after": after},
@@ -402,9 +496,23 @@ class TaskGraphBuilder:
         source_label: Optional[str] = None,
     ) -> str:
         if task_id not in self._nodes:
-            raise ValueError(f"task_id '{task_id}' 未在图中")
+            raise GCJPAPIError(
+                code="TIME_WINDOW_TASK_NOT_FOUND",
+                message=f"task_id '{task_id}' 未在图中",
+                api="add_time_window_constraint",
+                actual=task_id,
+                expected={"available_task_ids": list(self._nodes.keys())},
+                hint="先用 add_task() 注册该任务，或将 task_id 改为已注册的任务名。",
+            )
         if earliest is None and latest is None and deadline is None:
-            raise ValueError("time_window 至少需要 earliest/latest/deadline 中的一个")
+            raise GCJPAPIError(
+                code="EMPTY_TIME_WINDOW",
+                message="time_window 至少需要 earliest/latest/deadline 中的一个",
+                api="add_time_window_constraint",
+                actual={"earliest": earliest, "latest": latest, "deadline": deadline},
+                expected="至少一个浮点值",
+                hint="为时间窗约束至少指定 earliest、latest、deadline 中的一个浮点数。",
+            )
         return self._add_constraint(
             constraint_type="time_window",
             params={
@@ -424,11 +532,32 @@ class TaskGraphBuilder:
         source_label: Optional[str] = None,
     ) -> str:
         if task_i not in self._nodes:
-            raise ValueError(f"task_i '{task_i}' 未在图中")
+            raise GCJPAPIError(
+                code="SYNC_TASK_I_NOT_FOUND",
+                message=f"task_i '{task_i}' 未在图中",
+                api="add_sync_constraint",
+                actual=task_i,
+                expected={"available_task_ids": list(self._nodes.keys())},
+                hint="先用 add_task() 注册该任务，或将 task_i 改为已注册的 task_id。",
+            )
         if task_j not in self._nodes:
-            raise ValueError(f"task_j '{task_j}' 未在图中")
+            raise GCJPAPIError(
+                code="SYNC_TASK_J_NOT_FOUND",
+                message=f"task_j '{task_j}' 未在图中",
+                api="add_sync_constraint",
+                actual=task_j,
+                expected={"available_task_ids": list(self._nodes.keys())},
+                hint="先用 add_task() 注册该任务，或将 task_j 改为已注册的 task_id。",
+            )
         if tolerance < 0:
-            raise ValueError("sync tolerance 不能为负数")
+            raise GCJPAPIError(
+                code="INVALID_SYNC_TOLERANCE",
+                message="sync tolerance 不能为负数",
+                api="add_sync_constraint",
+                actual=tolerance,
+                expected="tolerance >= 0",
+                hint="tolerance 表示同步时间窗（分钟），必须为非负浮点数，如 5.0。",
+            )
         return self._add_constraint(
             constraint_type="sync",
             params={"task_i": task_i, "task_j": task_j, "tolerance": tolerance},
@@ -443,7 +572,14 @@ class TaskGraphBuilder:
         source_label: Optional[str] = None,
     ) -> str:
         if task_id not in self._nodes:
-            raise ValueError(f"task_id '{task_id}' 未在图中")
+            raise GCJPAPIError(
+                code="CAPABILITY_TASK_NOT_FOUND",
+                message=f"task_id '{task_id}' 未在图中",
+                api="add_capability_constraint",
+                actual=task_id,
+                expected={"available_task_ids": list(self._nodes.keys())},
+                hint="先用 add_task() 注册该任务，或将 task_id 改为已注册的任务名。",
+            )
         return self._add_constraint(
             constraint_type="capability",
             params={
@@ -470,7 +606,14 @@ class TaskGraphBuilder:
             max_value:     资源上限值
         """
         if resource_type not in VALID_RESOURCE_TYPES:
-            raise ValueError(f"resource_type 必须是 {VALID_RESOURCE_TYPES} 之一")
+            raise GCJPAPIError(
+                code="INVALID_RESOURCE_TYPE",
+                message=f"resource_type 必须是 {VALID_RESOURCE_TYPES} 之一",
+                api="add_resource_constraint",
+                actual=resource_type,
+                expected={"valid_resource_types": sorted(VALID_RESOURCE_TYPES)},
+                hint="resource_type 只能是 'ammo' 或 'energy_kwh'。",
+            )
 
         # 计算该 actor 在本段所有任务中的总消耗
         total_cost_key = "ammo_cost" if resource_type == "ammo" else "energy_cost"
@@ -512,13 +655,41 @@ class TaskGraphBuilder:
             time_unit_minutes:  时间单位换算（默认1时间单位=1分钟）
         """
         if task_id not in self._nodes:
-            raise ValueError(f"task_id '{task_id}' 未在图中")
+            raise GCJPAPIError(
+                code="PHYSICAL_FEASIBILITY_TASK_NOT_FOUND",
+                message=f"task_id '{task_id}' 未在图中",
+                api="add_physical_feasibility_constraint",
+                actual=task_id,
+                expected={"available_task_ids": list(self._nodes.keys())},
+                hint="先用 add_task() 注册该任务，或将 task_id 改为已注册的任务名。",
+            )
         if distance_km < 0:
-            raise ValueError("distance_km 不能为负数")
+            raise GCJPAPIError(
+                code="INVALID_DISTANCE",
+                message="distance_km 不能为负数",
+                api="add_physical_feasibility_constraint",
+                actual=distance_km,
+                expected="distance_km >= 0",
+                hint="distance_km 表示两点间飞行距离（公里），必须为非负浮点数。",
+            )
         if actor_speed_kmh <= 0:
-            raise ValueError("actor_speed_kmh 必须大于0")
+            raise GCJPAPIError(
+                code="INVALID_ACTOR_SPEED",
+                message="actor_speed_kmh 必须大于0",
+                api="add_physical_feasibility_constraint",
+                actual=actor_speed_kmh,
+                expected="actor_speed_kmh > 0",
+                hint="actor_speed_kmh 表示执行主体巡航速度（km/h），必须为正浮点数，如 60.0。",
+            )
         if time_unit_minutes <= 0:
-            raise ValueError("time_unit_minutes 必须大于0")
+            raise GCJPAPIError(
+                code="INVALID_TIME_UNIT",
+                message="time_unit_minutes 必须大于0",
+                api="add_physical_feasibility_constraint",
+                actual=time_unit_minutes,
+                expected="time_unit_minutes > 0",
+                hint="time_unit_minutes 表示 1 时间单位 = 多少分钟，必须为正浮点数；默认 1.0。",
+            )
 
         min_flight_minutes = (distance_km / actor_speed_kmh) * 60
         min_duration_units = min_flight_minutes / time_unit_minutes
@@ -583,7 +754,14 @@ class TaskGraphBuilder:
             guaranteed_conditions:  本段保证提供给下游的条件列表（自然语言）
         """
         if exit_node not in self._nodes:
-            raise ValueError(f"出口节点 '{exit_node}' 未在图中")
+            raise GCJPAPIError(
+                code="MISSING_EXIT_NODE",
+                message=f"出口节点 '{exit_node}' 未在图中",
+                api="declare_interface_fulfillment",
+                actual=exit_node,
+                expected={"available_task_ids": list(self._nodes.keys())},
+                hint="将 exit_node 设为本段实际出口任务的 task_id；该任务必须先通过 add_task() 注册。",
+            )
 
         fulfillment = InterfaceFulfillment(
             interface_id=interface_id,
@@ -620,7 +798,14 @@ class TaskGraphBuilder:
         调用前需至少已添加一个任务节点。
         """
         if not self._nodes:
-            raise RuntimeError("图中没有任务节点，无法 build()")
+            raise GCJPAPIError(
+                code="EMPTY_GRAPH",
+                message="图中没有任务节点，无法 build()",
+                api="build",
+                actual="no tasks added",
+                expected=">= 1 task node",
+                hint="调用 build() 前至少 add_task() 一次；GCJP 段不能为空。",
+            )
 
         return BuiltGraph(
             segment_id=self.segment_id,

@@ -496,6 +496,7 @@ class VerificationPipeline:
                 "gcjp_lineno": exec_result.gcjp_lineno,
                 "source_context": exec_result.source_context,
                 "traceback_text": exec_result.traceback_text,
+                "api_error": exec_result.api_error,
             },
             error_msg=exec_result.error_msg,
             elapsed_ms=elapsed,

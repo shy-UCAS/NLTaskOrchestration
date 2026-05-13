@@ -12,6 +12,7 @@ import traceback
 from dataclasses import dataclass
 from typing import Any
 
+from gcjp.errors import GCJPAPIError
 from gcjp.mission_graph import BuiltGraph, TaskGraphBuilder
 from gcjp.safety_checker import SafetyCheckResult, check_gcjp_code
 
@@ -39,6 +40,7 @@ class GCJPExecutionResult:
     traceback_text: str | None = None
     gcjp_lineno: int | None = None
     source_context: str | None = None
+    api_error: dict | None = None
 
 
 _GCJP_TB_LINE_RE = re.compile(r'File "<gcjp_code>", line (\d+)')
@@ -157,6 +159,7 @@ def execute_gcjp_code(code: str) -> GCJPExecutionResult:
     except Exception as exc:
         tb = traceback.format_exc()
         lineno, context = _extract_gcjp_source_context(code, tb)
+        api_error = exc.to_dict() if isinstance(exc, GCJPAPIError) else None
         return GCJPExecutionResult(
             passed=False,
             safety=safety,
@@ -166,6 +169,7 @@ def execute_gcjp_code(code: str) -> GCJPExecutionResult:
             traceback_text=tb,
             gcjp_lineno=lineno,
             source_context=context,
+            api_error=api_error,
         )
 
     built = exec_locals.get("built", exec_globals.get("built"))
