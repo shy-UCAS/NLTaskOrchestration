@@ -206,11 +206,20 @@ class Layer2GraphVerifier:
             issues.append(f"图中存在环路: {cycles}")
 
         # 2. 孤立节点检测（无入边且无出边的节点，除非图只有1个节点）
+        # group_sync 是多任务关系约束，不写入二元图边，但应避免被误判为孤立。
         if len(g.nodes) > 1:
+            group_sync_linked = {
+                tid
+                for c in graph.constraints
+                if c.constraint_type == "group_sync"
+                for tid in c.applies_to
+            }
             isolated = [n for n in g.nodes
-                        if g.in_degree(n) == 0 and g.out_degree(n) == 0]
+                        if (g.in_degree(n) == 0
+                            and g.out_degree(n) == 0
+                            and n not in group_sync_linked)]
             if isolated:
-                issues.append(f"存在孤立节点（无依赖边）: {isolated}")
+                issues.append(f"存在孤立节点（无依赖边或组同步约束）: {isolated}")
 
         # 3. 节点覆盖：检查所有任务是否都在图中
         missing = set(graph.task_ids) - set(g.nodes)
@@ -351,7 +360,32 @@ def _attribute_unsat_core(core_labels: list[str], graph: BuiltGraph) -> list[str
     """将 unsat core 中的约束标签翻译为人类可读的归因说明"""
     attribution = []
     for label in core_labels:
-        if label.startswith("seq_"):
+        if label.startswith("group_sync_pair_"):
+            matched = False
+            for c in graph.constraints:
+                if c.constraint_type != "group_sync":
+                    continue
+                prefix = f"group_sync_pair_{c.source_label}_"
+                if not label.startswith(prefix):
+                    continue
+                rest = label[len(prefix):]
+                for mode in ("start", "end"):
+                    mode_prefix = f"{mode}_"
+                    if rest.startswith(mode_prefix):
+                        pair = rest[len(mode_prefix):].split("__")
+                        if len(pair) == 2:
+                            when = "开始时间" if mode == "start" else "结束时间"
+                            attribution.append(
+                                f"组同步冲突: 任务组 {c.params.get('task_ids')} 中 "
+                                f"'{pair[0]}' 与 '{pair[1]}' 的{when}无法满足 "
+                                f"tolerance={c.params.get('tolerance')}"
+                            )
+                            matched = True
+                        break
+                break
+            if not matched:
+                attribution.append(f"组同步冲突: {label}")
+        elif label.startswith("seq_"):
             parts = label[4:].split("__")
             if len(parts) == 2:
                 attribution.append(

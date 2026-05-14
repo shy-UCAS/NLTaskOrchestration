@@ -62,7 +62,8 @@ class Constraint:
     """挂载在图上的额外约束"""
     constraint_id: str
     constraint_type: str            # time_order / duration / time_window / sync /
-                                    # resource / capability / physical_feasibility
+                                    # group_sync / resource / capability /
+                                    # physical_feasibility
     params: dict
     source_label: str               # 来源标注（用于 unsat core 归因）
     applies_to: list[str]           # 涉及的 task_id 列表
@@ -434,6 +435,12 @@ class TaskGraphBuilder:
                 val = params[key]
                 if isinstance(val, str) and val in self._nodes:
                     applies_to.append(val)
+        if "task_ids" in params:
+            for tid in params["task_ids"]:
+                if (isinstance(tid, str)
+                        and tid in self._nodes
+                        and tid not in applies_to):
+                    applies_to.append(tid)
 
         constraint = Constraint(
             constraint_id=cid,
@@ -565,6 +572,104 @@ class TaskGraphBuilder:
             constraint_type="sync",
             params={"task_i": task_i, "task_j": task_j, "tolerance": tolerance},
             source_label=source_label or f"sync_{task_i}__{task_j}",
+        )
+
+    def add_group_sync_constraint(
+        self,
+        task_ids: list[str],
+        tolerance: float = 1.0,
+        mode: str = "start",
+        source_label: Optional[str] = None,
+    ) -> str:
+        """
+        添加多任务同步约束。
+
+        采用两两同步语义：组内任意两个任务的 start/end 时间差
+        不超过 tolerance。mode 可选 start / end / both。
+        """
+        if not isinstance(task_ids, list):
+            raise GCJPAPIError(
+                code="INVALID_GROUP_SYNC_TASK_IDS",
+                message="group sync 的 task_ids 必须是任务ID列表",
+                api="add_group_sync_constraint",
+                actual=task_ids,
+                expected="list[str]",
+                hint="请传入形如 ['T1', 'T2', 'T3'] 的任务ID列表。",
+            )
+        if len(task_ids) < 2:
+            raise GCJPAPIError(
+                code="GROUP_SYNC_TOO_FEW_TASKS",
+                message="group sync 至少需要两个任务",
+                api="add_group_sync_constraint",
+                actual=task_ids,
+                expected="len(task_ids) >= 2",
+                hint="如果只有两个任务，可使用 add_sync_constraint；多任务同步请提供至少两个 task_id。",
+            )
+
+        invalid_items = [tid for tid in task_ids if not isinstance(tid, str)]
+        if invalid_items:
+            raise GCJPAPIError(
+                code="INVALID_GROUP_SYNC_TASK_ID",
+                message=f"group sync 中存在非法 task_id: {invalid_items}",
+                api="add_group_sync_constraint",
+                actual=invalid_items,
+                expected="task_ids 中的每一项都是字符串",
+                hint="请传入已注册任务的 task_id 字符串列表。",
+            )
+
+        seen = set()
+        duplicates = []
+        for tid in task_ids:
+            if tid in seen and tid not in duplicates:
+                duplicates.append(tid)
+            seen.add(tid)
+        if duplicates:
+            raise GCJPAPIError(
+                code="GROUP_SYNC_DUPLICATE_TASKS",
+                message=f"group sync 中存在重复任务: {duplicates}",
+                api="add_group_sync_constraint",
+                actual=task_ids,
+                expected="task_ids 中每个任务最多出现一次",
+                hint="请移除重复的 task_id，保证每个参与同步的任务只出现一次。",
+            )
+
+        missing = [tid for tid in task_ids if tid not in self._nodes]
+        if missing:
+            raise GCJPAPIError(
+                code="GROUP_SYNC_TASK_NOT_FOUND",
+                message=f"group sync 中存在未注册任务: {missing}",
+                api="add_group_sync_constraint",
+                actual=missing,
+                expected={"available_task_ids": list(self._nodes.keys())},
+                hint="请先用 add_task() 注册所有参与同步的任务。",
+            )
+        if tolerance < 0:
+            raise GCJPAPIError(
+                code="INVALID_GROUP_SYNC_TOLERANCE",
+                message="group sync tolerance 不能为负数",
+                api="add_group_sync_constraint",
+                actual=tolerance,
+                expected="tolerance >= 0",
+                hint="tolerance 表示多任务同步时间窗，必须为非负浮点数，如 5.0。",
+            )
+        if mode not in {"start", "end", "both"}:
+            raise GCJPAPIError(
+                code="INVALID_GROUP_SYNC_MODE",
+                message=f"group sync mode 不合法: {mode}",
+                api="add_group_sync_constraint",
+                actual=mode,
+                expected=["start", "end", "both"],
+                hint="mode 可选 start / end / both。",
+            )
+
+        return self._add_constraint(
+            constraint_type="group_sync",
+            params={
+                "task_ids": task_ids,
+                "tolerance": tolerance,
+                "mode": mode,
+            },
+            source_label=source_label or f"group_sync_{mode}_{'_'.join(task_ids)}",
         )
 
     def add_capability_constraint(

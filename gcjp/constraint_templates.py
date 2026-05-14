@@ -103,6 +103,7 @@ class Z3ConstraintBuilder:
             "duration":             self._handle_duration,
             "time_window":          self._handle_time_window,
             "sync":                 self._handle_sync,
+            "group_sync":           self._handle_group_sync,
             "resource":             self._handle_resource,
             "capability":           self._handle_capability,
             "physical_feasibility": self._handle_physical_feasibility,
@@ -162,6 +163,43 @@ class Z3ConstraintBuilder:
         expr = And(diff <= tol, diff >= -tol)
         debug.log(f"        Z3 公式 (sync): {expr}")
         self._assert(expr, label=c.source_label)
+
+    def _handle_group_sync(self, c: Constraint):
+        """group_sync 约束: 组内任意两个任务的 start/end 差值不超过 tolerance"""
+        task_ids = c.params["task_ids"]
+        tol = c.params.get("tolerance", 1.0)
+        mode = c.params.get("mode", "start")
+
+        if len(task_ids) < 2:
+            raise ValueError("group_sync: 至少需要两个任务")
+        missing = [tid for tid in task_ids if tid not in self.start]
+        if missing:
+            raise ValueError(f"group_sync: 任务 {missing} 未在图中")
+        if mode not in {"start", "end", "both"}:
+            raise ValueError(f"group_sync: 未知 mode={mode}")
+
+        def _pairwise_sync(var_map: dict[str, ArithRef], suffix: str):
+            for i in range(len(task_ids)):
+                for j in range(i + 1, len(task_ids)):
+                    ti = task_ids[i]
+                    tj = task_ids[j]
+                    diff = var_map[ti] - var_map[tj]
+                    expr = And(diff <= tol, diff >= -tol)
+                    debug.log(
+                        f"        Z3 公式 (group_sync/{suffix}): {expr}"
+                    )
+                    self._assert(
+                        expr,
+                        label=(
+                            f"group_sync_pair_{c.source_label}_"
+                            f"{suffix}_{ti}__{tj}"
+                        ),
+                    )
+
+        if mode in {"start", "both"}:
+            _pairwise_sync(self.start, "start")
+        if mode in {"end", "both"}:
+            _pairwise_sync(self.end, "end")
 
     def _handle_resource(self, c: Constraint):
         """

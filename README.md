@@ -164,15 +164,16 @@ JSON 路径入口。核心函数：
 - `TaskGraphBuilder` —— LLM 可调用的白名单方法（见 `api_spec.ALLOWED_BUILDER_METHODS`）；
 - `BuiltGraph` —— 只读任务图，含 NetworkX DAG 与约束列表。
 
-GCJP v1 白名单（共 12 个，集中在 `gcjp/api_spec.py`）：
+GCJP v1 白名单（共 13 个，集中在 `gcjp/api_spec.py`）：
 
 ```text
 declare_segment_meta              add_time_order_constraint
 add_task                          add_time_window_constraint
 add_dependency                    add_sync_constraint
-declare_resource_state            add_resource_constraint
-declare_interface_fulfillment     add_capability_constraint
-build                             add_physical_feasibility_constraint
+declare_resource_state            add_group_sync_constraint
+declare_interface_fulfillment     add_resource_constraint
+build                             add_capability_constraint
+add_physical_feasibility_constraint
 ```
 
 GCJP v1 关系语义边界：
@@ -197,6 +198,7 @@ GCJP v1 关系语义边界：
 | `duration` | `lb <= dur <= ub` |
 | `time_window` | 时间窗与截止时间 |
 | `sync` | `\|start_i - start_j\| <= tolerance` |
+| `group_sync` | 组内任意两个任务 start/end 时间差不超过 `tolerance` |
 | `resource` | `sum(cost) <= max` |
 | `capability` | `required ⊆ actor_caps` |
 | `physical_feasibility` | `dur >= dist / speed × 60` |

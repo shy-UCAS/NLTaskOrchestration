@@ -119,9 +119,9 @@ def _wrap_task_id(task_id: str, soft_limit: int = 14) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 
 _INTEREST_KEYS = (
-    "task_id", "before", "after", "task_i", "task_j", "actor",
+    "task_id", "task_ids", "before", "after", "task_i", "task_j", "actor",
     "earliest", "latest", "deadline", "tolerance",
-    "max_value", "resource_type", "min_duration_units",
+    "mode", "max_value", "resource_type", "min_duration_units",
 )
 
 
