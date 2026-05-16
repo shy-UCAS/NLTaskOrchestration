@@ -1,16 +1,19 @@
 """
 demos/demo_03_build_facilities_from_json.py
+python -m demos.demo_03_build_facilities_from_json
 
-Run:
-    python -m demos.demo_03_build_facilities_from_json
+SAT 正例：设施 UTM 地图场景 + 环境配置引用校验。
 
-Purpose:
-    从 facilities UTM 地图转换得到的 environment_facilities.yaml 中读取场景引用，
-    验证 demo_03_facilities_task_plan.json 中的 scenario_id / actor / target
-    能够与环境配置对齐，并继续接入现有 TaskGraphBuilder + VerificationPipeline。
+场景：
+  从 facilities UTM 坐标转换得到的 environment_facilities.yaml 中读取场景引用，
+  校验 demo_03_facilities_task_plan.json 中的 scenario_id / actor / target
+  与环境配置对齐，并接入 TaskGraphBuilder + VerificationPipeline。
 
-Note:
-    当前阶段环境模型只建议做引用校验，不做复杂轨迹可行性分析。
+说明：
+  当前阶段环境模型仅做引用校验，不做复杂轨迹可行性分析。
+
+预期结果：
+  总体 PASS，环境引用校验通过（scenario_facilities_utm 场景，坐标来自真实 UTM 数据）。
 """
 
 from pathlib import Path

@@ -1,6 +1,18 @@
 """
 demos/demo_06_fixed_gcjp_api.py
-Validate the frozen GCJP v1 restricted API surface.
+python -m demos.demo_06_fixed_gcjp_api
+
+验证 GCJP v1 受限 API 接口契约的完整性。
+
+场景：
+  通过 4 组代码样本验证受限 API 在各种情况下的行为：
+    1. 合法 GCJP 代码（sequence + time_window + resource）→ 完整验证通过
+    2. 直接调用 add_constraint()（绕过结构化接口）→ 安全检查拒绝
+    3. 导入 Z3 构建器 → 安全检查拒绝
+    4. 缺少 built = g.build() → 验证失败
+
+预期结果：
+  合法的 GCJP 代码全部通过，非法的全部被拦截。
 """
 
 import os
@@ -94,18 +106,18 @@ def main():
 
     report = pipeline.verify_gcjp_code(VALID_GCJP_CODE)
     report.print_report()
-    assert report.overall_passed, "VALID_GCJP_CODE should pass full verification"
+    assert report.overall_passed, "合法 GCJP 代码应通过完整验证"
 
     bad_constraint = check_gcjp_code(INVALID_DIRECT_CONSTRAINT_CODE)
-    assert not bad_constraint.passed, "direct add_constraint() should be rejected"
+    assert not bad_constraint.passed, "直接调用 add_constraint() 应被拒绝"
 
     bad_import = check_gcjp_code(INVALID_Z3_IMPORT_CODE)
-    assert not bad_import.passed, "Z3 template import should be rejected"
+    assert not bad_import.passed, "导入 Z3 构建器应被拒绝"
 
     no_built_report = pipeline.verify_gcjp_code(INVALID_NO_BUILT_CODE)
-    assert not no_built_report.overall_passed, "code without built should fail"
+    assert not no_built_report.overall_passed, "缺少 built 应导致验证失败"
 
-    print("PASS Fixed GCJP API checks passed")
+    print("Demo 06 通过：GCJP v1 受限 API 接口验证")
     return True
 
 

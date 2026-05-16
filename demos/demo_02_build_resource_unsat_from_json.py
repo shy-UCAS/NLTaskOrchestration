@@ -25,7 +25,7 @@ def main():
 
     graph = build_graph_from_task_plan_file(
         task_plan_path=task_plan_path,
-        schema_path=schema_path,
+        schema_path=schema_path,    
         action_templates_path=root / "configs" / "action_templates.yaml",
         capability_model_path=root / "configs" / "capability_model.yaml",
         segment_id="seg_demo_02_resource_unsat",

@@ -1,7 +1,24 @@
 """
 demos/demo_07_gcjp_code_executor_failures.py
 python -m demos.demo_07_gcjp_code_executor_failures
-Validate failure diagnostics of the GCJP code executor.
+
+GCJP 代码执行器失败诊断全覆盖测试。
+
+场景：
+  构造 14 种失败 GCJP 代码样本，覆盖 6 种 error_type 及所有禁止语法模式，
+  验证 execute_gcjp_code() 对每种失败场景都能给出精确的诊断结果。
+
+覆盖的失败类型：
+  ✓ SAFETY_CHECK_FAILED：直接调用 add_constraint、非法 import os、
+                          非法 import Z3 模板、语法错误、while 循环、
+                          for 循环、try 块、lambda、调用不存在的 API
+  ✓ COMPILE_FAILED：（由语法错误覆盖）
+  ✓ EXECUTION_FAILED：metadata 字段非法、重复 task_id、依赖缺失节点、空图 build
+  ✓ MISSING_BUILT：代码中缺少 built = g.build()
+  ✓ INVALID_BUILT_TYPE：built 变量类型不是 BuiltGraph
+
+预期结果：
+  所有 14 个 case 的 error_type 与预期一致，pipeline 透传结果一致。
 """
 
 import os
@@ -232,17 +249,17 @@ def main():
         report_error_type = report.layers[0].details.get("error_type")
 
         print(
-            f"[{case['name']}] expected={case['expected_error_type']}, "
+            f"[{case['name']}] 预期={case['expected_error_type']}, "
             f"executor={result.error_type}, pipeline={report_error_type}"
         )
 
-        assert not result.passed, f"{case['name']} should fail executor"
+        assert not result.passed, f"{case['name']} 执行器应判定失败"
         assert result.error_type == case["expected_error_type"], result.error_msg
-        assert not report.overall_passed, f"{case['name']} should fail pipeline"
+        assert not report.overall_passed, f"{case['name']} 管道应判定失败"
         assert report_error_type == case["expected_error_type"], report.layers[0].error_msg
         passed += 1
 
-    print(f"PASS {passed}/{len(CASES)} GCJP executor failure cases passed")
+    print(f"Demo 07 通过：{passed}/{len(CASES)} GCJP 执行器失败诊断用例全部符合预期")
     return True
 
 

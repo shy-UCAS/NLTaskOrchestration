@@ -1,7 +1,7 @@
 """
 demos/demo_10_condition_resource_conflict_gcjp.py
 python -m demos.demo_10_condition_resource_conflict_gcjp
-Handwritten GCJP demo: condition-triggered resource conflict UNSAT case.
+手写 GCJP demo：条件触发链 + 资源超限 UNSAT 反例。
 """
 
 import os
@@ -90,11 +90,11 @@ built = g.build()
 def main():
     report = VerificationPipeline(z3_timeout_ms=15_000).verify_gcjp_code(GCJP_CODE)
     report.print_report()
-    assert not report.overall_passed, "resource conflict GCJP demo should be UNSAT"
+    assert not report.overall_passed, "资源冲突 GCJP demo 预期 UNSAT"
     assert any("resource_fleet_1_ammo" in label for label in report.unsat_core), (
-        "resource conflict should be attributed to fleet_1 ammo"
+        "资源冲突应归因于 fleet_1 弹药超限"
     )
-    print("PASS Demo 10 resource conflict UNSAT")
+    print("Demo 10 通过：资源冲突 UNSAT 验证")
     return True
 
 

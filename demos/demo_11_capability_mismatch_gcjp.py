@@ -1,7 +1,7 @@
 """
 demos/demo_11_capability_mismatch_gcjp.py
 python -m demos.demo_11_capability_mismatch_gcjp
-Handwritten GCJP demo: capability mismatch UNSAT case.
+手写 GCJP demo：能力不匹配 UNSAT 反例。
 """
 
 import os
@@ -50,11 +50,11 @@ built = g.build()
 def main():
     report = VerificationPipeline(z3_timeout_ms=15_000).verify_gcjp_code(GCJP_CODE)
     report.print_report()
-    assert not report.overall_passed, "capability mismatch GCJP demo should be UNSAT"
+    assert not report.overall_passed, "能力不匹配 GCJP demo 预期 UNSAT"
     assert any("capability_t1_fleet2_jam_area_a" in label for label in report.unsat_core), (
-        "capability mismatch should be attributed to fleet_2 missing jamming_capable"
+        "能力不匹配应归因于 fleet_2 缺少 jamming_capable"
     )
-    print("PASS Demo 11 capability mismatch UNSAT")
+    print("Demo 11 通过：能力不匹配 UNSAT 验证")
     return True
 
 

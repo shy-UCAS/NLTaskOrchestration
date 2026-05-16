@@ -1,5 +1,6 @@
 """
 demos/demo_05_unsat_example.py
+python -m demos.demo_05_unsat_example
 演示样例 5：含不可行约束的反例 —— UNSAT 路径验证
 
 场景：
@@ -108,7 +109,7 @@ def main():
     # 验证 UNSAT 被正确检测
     assert not report.overall_passed, "应该检测到 UNSAT！"
     assert len(report.unsat_core) > 0, "应该有 unsat core！"
-    print("PASS UNSAT 路径验证成功：约束冲突被正确检测并归因")
+    print("Demo 05 通过：UNSAT 路径验证成功，约束冲突被正确检测并归因")
     return True
 
 

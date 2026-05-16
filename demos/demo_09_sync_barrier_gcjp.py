@@ -1,11 +1,26 @@
 """
 demos/demo_09_sync_barrier_gcjp.py
 python -m demos.demo_09_sync_barrier_gcjp
-Handwritten GCJP demo: sync and barrier SAT case.
 
-Note: GCJP v1 sync constrains task start times:
-    abs(start_i - start_j) <= tolerance
-It is a start-sync approximation, not end/arrival synchronization.
+SAT 正例：同步 barrier 协同汇聚验证。
+
+场景：
+  fleet_1 和 fleet_2 各自飞往集结点（rendezvous_point），要求两方同时出发（sync），
+  到达后通过 barrier 汇聚，联合执行 t3 会合任务（is_coalition=True）。
+
+说明：
+  GCJP v1 中 sync 约束的是任务开始时间：abs(start_i - start_j) <= tolerance，
+  不是到达时间同步。barrier 约束要求所有前驱任务完成后后继才能开始。
+
+验证覆盖：
+  ✓ sync 约束（开始时间差在容忍范围内）
+  ✓ barrier 约束（多前驱汇聚为单后继）
+  ✓ is_coalition 联合任务声明
+  ✓ 多 actor 资源约束独立验证
+  ✓ GCJP 代码字符串路径（L1 → L2 → L3 → L4）
+
+预期结果：
+  总体 PASS，sync + barrier 组合可满足。
 """
 
 import os
@@ -88,8 +103,8 @@ built = g.build()
 def main():
     report = VerificationPipeline(z3_timeout_ms=15_000).verify_gcjp_code(GCJP_CODE)
     report.print_report()
-    assert report.overall_passed, "sync/barrier GCJP demo should be SAT"
-    print("PASS Demo 09 sync barrier SAT")
+    assert report.overall_passed, "sync/barrier GCJP demo 预期 SAT"
+    print("Demo 09 通过：sync/barrier SAT 验证")
     return True
 
 

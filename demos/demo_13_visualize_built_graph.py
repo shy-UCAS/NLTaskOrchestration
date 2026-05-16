@@ -63,12 +63,12 @@ def batch_render(save_dir: Path | None = None) -> bool:
         mod = importlib.import_module(module_name)
         code = getattr(mod, attr_name, None)
         if code is None:
-            print(f"  [SKIP] {name}: missing {attr_name} in {module_name}")
+            print(f"  [跳过] {name}: {module_name} 中缺少 {attr_name}")
             continue
 
         res = execute_gcjp_code(code)
         if not res.passed or res.graph is None:
-            print(f"  [SKIP] {name}: GCJP 代码执行失败 ({res.error_type})")
+            print(f"  [跳过] {name}: GCJP 代码执行失败 ({res.error_type})")
             continue
 
         built = res.graph
@@ -79,7 +79,7 @@ def batch_render(save_dir: Path | None = None) -> bool:
             visualize_built_graph(built, png_path)
             visualize_built_graph_html(built, html_path)
         except Exception as exc:  # pragma: no cover — smoke layer
-            print(f"  [FAIL] {name}: {type(exc).__name__}: {exc}")
+            print(f"  [失败] {name}: {type(exc).__name__}: {exc}")
             continue
 
         suffix = ""
@@ -87,17 +87,17 @@ def batch_render(save_dir: Path | None = None) -> bool:
             save_dir.mkdir(parents=True, exist_ok=True)
             json_path = save_dir / f"{name}.json"
             built.save(json_path)
-            suffix = f"  saved -> {json_path}"
+            suffix = f"  已保存 -> {json_path}"
 
         print(
-            f"  [OK] {name}: "
-            f"nodes={len(built.nodes):2d}  edges={len(built.edges):2d}  "
-            f"constraints={len(built.constraints):2d}  -> {png_path.name} + {html_path.name}"
+            f"  [完成] {name}: "
+            f"节点={len(built.nodes):2d}  边={len(built.edges):2d}  "
+            f"约束={len(built.constraints):2d}  -> {png_path.name} + {html_path.name}"
             f"{suffix}"
         )
         passed += 1
 
-    print(f"\nPASS {passed}/{len(CASES)} BuiltGraph 可视化已写入 {out_dir}")
+    print(f"\nDemo 13 结果：{passed}/{len(CASES)} BuiltGraph 可视化已写入 {out_dir}")
     return passed == len(CASES)
 
 
@@ -133,7 +133,7 @@ def main() -> int:
 
     if args.from_file:
         html = visualize_from_file(args.from_file)
-        print(f"Rendered: {html}")
+        print(f"已渲染: {html}")
         return 0
     if args.show:
         open_interactive(args.show)

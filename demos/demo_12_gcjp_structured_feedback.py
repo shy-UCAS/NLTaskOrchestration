@@ -165,11 +165,11 @@ def main() -> bool:
     for name, fn in CASES:
         try:
             fn()
-            print(f"  [PASS] {name}")
+            print(f"  [通过] {name}")
             passed += 1
         except AssertionError as exc:
-            print(f"  [FAIL] {name}: {exc!r}")
-    print(f"\nPASS {passed}/{len(CASES)} structured feedback contract checks")
+            print(f"  [失败] {name}: {exc!r}")
+    print(f"\nDemo 12 结果：{passed}/{len(CASES)} 结构化反馈契约检查通过")
     return passed == len(CASES)
 
 
