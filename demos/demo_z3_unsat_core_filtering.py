@@ -2,9 +2,28 @@
 demos/demo_z3_unsat_core_filtering.py
 python -m demos.demo_z3_unsat_core_filtering
 
-Regression demo for Phase 0 UNSAT core filtering.
-It verifies that reports expose raw / semantic / framework cores and that the
-legacy report.unsat_core field now points to the semantic core.
+回归测试：Z3 UNSAT core 三分类过滤验证。
+
+场景：
+  对 5 种典型 UNSAT 场景验证报告同时暴露 raw / semantic / framework 三层 core，
+  并确认 legacy report.unsat_core 指向 semantic core。
+
+覆盖的 UNSAT 场景：
+  1. JSON 路径资源超限（demo_02）
+  2. 物理不可行 + 时间窗冲突（demo_05）
+  3. GCJP 代码路径资源超限（demo_10）
+  4. GCJP 代码路径能力不匹配（demo_11）
+  5. group_sync 时间窗冲突（手写构造）
+
+验证契约：
+  ✓ raw_core = semantic_core + framework_core
+  ✓ semantic_core 不含框架标签（start_nonneg_/dur_lb_/dur_ub_/end_def_）
+  ✓ framework_core 只含框架标签
+  ✓ legacy unsat_core 与 semantic_core 一致
+  ✓ 归因文本非空
+
+预期结果：
+  5 个 UNSAT 场景全部通过三分类过滤契约检查。
 """
 
 from pathlib import Path
@@ -111,11 +130,11 @@ def _assert_core_contract(name: str, report, expected_label_part: str | None = N
             f"{name}: semantic core missing expected label part {expected_label_part!r}"
         )
 
-    print(f"[OK] {name}")
-    print(f"  RAW       : {report.unsat_core_raw}")
-    print(f"  SEMANTIC  : {report.unsat_core_semantic}")
-    print(f"  FRAMEWORK : {report.unsat_core_framework}")
-    print(f"  ATTR      : {report.attribution}")
+    print(f"  [通过] {name}")
+    print(f"  原始核心  : {report.unsat_core_raw}")
+    print(f"  语义核心  : {report.unsat_core_semantic}")
+    print(f"  框架核心  : {report.unsat_core_framework}")
+    print(f"  归因分析  : {report.attribution}")
 
 
 def main() -> bool:
@@ -159,7 +178,7 @@ def main() -> bool:
         expected_label_part="group_sync_pair_",
     )
 
-    print("Phase 0 UNSAT core filtering demo passed.")
+    print("Demo Z3 通过：UNSAT core 三分类过滤验证")
     return True
 
 
