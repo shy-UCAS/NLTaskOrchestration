@@ -50,6 +50,9 @@ class VerificationReport:
     layers: list[LayerResult] = field(default_factory=list)
     schedule: dict = field(default_factory=dict)      # Z3 求出的时间调度
     unsat_core: list[str] = field(default_factory=list)
+    unsat_core_raw: list[str] = field(default_factory=list)
+    unsat_core_semantic: list[str] = field(default_factory=list)
+    unsat_core_framework: list[str] = field(default_factory=list)
     attribution: list[str] = field(default_factory=list)  # unsat core 归因
     total_elapsed_ms: float = 0.0
 
@@ -67,8 +70,12 @@ class VerificationReport:
                 for k, v in lr.details.items():
                     print(f"   {k}: {v}")
         if self.unsat_core:
-            print(f"\nUNSAT Core 约束标签:")
+            print(f"\nUNSAT Core 语义约束标签:")
             for label in self.unsat_core:
+                print(f"  - {label}")
+        if self.unsat_core_framework:
+            print(f"\nUNSAT Core 框架约束标签（调试用）:")
+            for label in self.unsat_core_framework:
                 print(f"  - {label}")
         if self.attribution:
             print(f"\n归因分析:")
@@ -90,6 +97,9 @@ class VerificationReport:
             ],
             "schedule": self.schedule,
             "unsat_core": self.unsat_core,
+            "unsat_core_raw": self.unsat_core_raw,
+            "unsat_core_semantic": self.unsat_core_semantic,
+            "unsat_core_framework": self.unsat_core_framework,
             "attribution": self.attribution,
             "total_elapsed_ms": self.total_elapsed_ms,
         }
@@ -320,16 +330,30 @@ class Layer3Z3Verifier:
             return lr, result["schedule"], []
 
         elif res_str == "unsat":
-            core = result["unsat_core"]
-            attribution = _attribute_unsat_core(core, graph)
+            core_semantic = result.get("unsat_core_semantic",
+                                       result.get("unsat_core", []))
+            core_raw = result.get("unsat_core_raw", core_semantic)
+            core_framework = result.get("unsat_core_framework", [])
+            attribution = result.get("attribution")
+            if attribution is None:
+                attribution = _attribute_unsat_core(core_semantic, graph)
             lr = LayerResult(
                 layer=3, name="Z3 约束验证", passed=False,
-                error_msg=f"约束不可满足（UNSAT），{len(core)} 条冲突约束",
-                details={"z3_result": "unsat", "unsat_core": core,
-                         "attribution": attribution},
+                error_msg=(
+                    "约束不可满足（UNSAT），"
+                    f"{len(core_semantic)} 条语义冲突约束"
+                ),
+                details={
+                    "z3_result": "unsat",
+                    "unsat_core": core_semantic,
+                    "unsat_core_raw": core_raw,
+                    "unsat_core_semantic": core_semantic,
+                    "unsat_core_framework": core_framework,
+                    "attribution": attribution,
+                },
                 elapsed_ms=elapsed,
             )
-            return lr, {}, core
+            return lr, {}, core_semantic
 
         else:  # unknown
             lr = LayerResult(
@@ -470,7 +494,8 @@ class VerificationPipeline:
         debug.log(f"\n{'>'*20} 进入 Layer 3: Z3 约束验证 {'<'*20}")
         l3_result, schedule, unsat_core = self.l3.verify(graph)
         layers.append(l3_result)
-        attribution = l3_result.details.get("attribution", [])
+        details = l3_result.details
+        attribution = details.get("attribution", [])
         if not l3_result.passed:
             debug.log(f"[DEBUG] Layer 3 失败，终止后续验证")
             return VerificationReport(
@@ -478,7 +503,12 @@ class VerificationPipeline:
                 overall_passed=False,
                 layers=layers,
                 schedule={},
-                unsat_core=unsat_core,
+                unsat_core=details.get("unsat_core_semantic", unsat_core),
+                unsat_core_raw=details.get("unsat_core_raw", unsat_core),
+                unsat_core_semantic=details.get(
+                    "unsat_core_semantic", unsat_core
+                ),
+                unsat_core_framework=details.get("unsat_core_framework", []),
                 attribution=attribution,
                 total_elapsed_ms=(time.time() - t0) * 1000,
             )
@@ -501,6 +531,9 @@ class VerificationPipeline:
             layers=layers,
             schedule=schedule,
             unsat_core=[],
+            unsat_core_raw=[],
+            unsat_core_semantic=[],
+            unsat_core_framework=[],
             attribution=[],
             total_elapsed_ms=(time.time() - t0) * 1000,
         )

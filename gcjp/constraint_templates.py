@@ -17,6 +17,120 @@ from gcjp.debug_logger import debug
 from gcjp.mission_graph import BuiltGraph, Constraint, TaskNode
 
 
+_FRAMEWORK_CORE_PREFIXES = (
+    "start_nonneg_",
+    "dur_lb_",
+    "dur_ub_",
+    "end_def_",
+)
+
+
+def is_framework_core_label(label: str) -> bool:
+    """Return True for solver bookkeeping constraints."""
+    return label.startswith(_FRAMEWORK_CORE_PREFIXES)
+
+
+def split_unsat_core(
+    core_labels: list[str],
+    label_meta: Optional[dict[str, dict]] = None,
+) -> dict[str, list[str]]:
+    """Split raw Z3 unsat core labels into semantic and framework labels."""
+    semantic: list[str] = []
+    framework: list[str] = []
+    label_meta = label_meta or {}
+
+    for label in core_labels:
+        role = label_meta.get(label, {}).get("role")
+        if role == "framework" or (role is None and is_framework_core_label(label)):
+            framework.append(label)
+        else:
+            semantic.append(label)
+
+    return {
+        "unsat_core_raw": core_labels,
+        "unsat_core_semantic": semantic,
+        "unsat_core_framework": framework,
+    }
+
+
+def _fmt(value) -> str:
+    if isinstance(value, float):
+        return f"{value:.2f}".rstrip("0").rstrip(".")
+    return str(value)
+
+
+def explain_unsat_core(
+    core_labels: list[str],
+    graph: BuiltGraph,
+    label_meta: Optional[dict[str, dict]] = None,
+) -> list[str]:
+    """Translate semantic unsat core labels into readable attribution strings."""
+    explanations: list[str] = []
+    label_meta = label_meta or {}
+
+    for label in core_labels:
+        meta = label_meta.get(label, {})
+        ctype = meta.get("constraint_type")
+        params = meta.get("params", {}) or {}
+        extra = meta.get("meta", {}) or {}
+
+        if ctype == "time_window":
+            component = extra.get("component", "time_window")
+            explanations.append(
+                f"时间窗冲突: 任务 '{params.get('task_id')}' 的 {component} "
+                "约束参与冲突，建议放宽时间窗或调整前置任务。"
+            )
+        elif ctype == "time_order":
+            explanations.append(
+                f"顺序依赖冲突: 任务 '{params.get('before')}' 必须在 "
+                f"'{params.get('after')}' 之前完成。"
+            )
+        elif ctype == "duration":
+            explanations.append(
+                f"持续时间冲突: 任务 '{params.get('task_id')}' 的 duration "
+                f"约束参与冲突，lb={params.get('lb')}, ub={params.get('ub')}。"
+            )
+        elif ctype == "sync":
+            explanations.append(
+                f"同步冲突: 任务 '{params.get('task_i')}' 与 "
+                f"'{params.get('task_j')}' 无法满足 tolerance="
+                f"{params.get('tolerance')} 的开始时间同步。"
+            )
+        elif ctype == "group_sync":
+            mode = extra.get("mode", params.get("mode", "start"))
+            when = "开始时间" if mode == "start" else "结束时间"
+            explanations.append(
+                f"组同步冲突: 任务组 {params.get('task_ids')} 中 "
+                f"'{extra.get('task_i')}' 与 '{extra.get('task_j')}' 的{when}"
+                f"无法满足 tolerance={params.get('tolerance')}。"
+            )
+        elif ctype == "resource":
+            total = extra.get("total_cost")
+            total_text = f"，当前消耗={_fmt(total)}" if total is not None else ""
+            explanations.append(
+                f"资源超限: actor='{params.get('actor')}' 的 "
+                f"{params.get('resource_type')} 上限为 {_fmt(params.get('max_value'))}"
+                f"{total_text}。"
+            )
+        elif ctype == "capability":
+            explanations.append(
+                f"能力不匹配: 任务 '{params.get('task_id')}' 要求 "
+                f"{params.get('required')}，但执行主体能力为 "
+                f"{params.get('actor_capabilities')}。"
+            )
+        elif ctype == "physical_feasibility":
+            explanations.append(
+                f"物理不可行: 任务 '{params.get('task_id')}' 至少需要 "
+                f"{_fmt(params.get('min_duration_units'))} 个时间单位 "
+                f"(distance={_fmt(params.get('distance_km'))}km, "
+                f"speed={_fmt(params.get('speed_kmh'))}km/h)。"
+            )
+        else:
+            explanations.append(f"约束冲突: {label}")
+
+    return explanations
+
+
 class Z3ConstraintBuilder:
     """
     将 BuiltGraph 中的约束列表转化为 Z3 求解器表达式。
@@ -35,6 +149,7 @@ class Z3ConstraintBuilder:
 
         # 追踪布尔变量（用于 unsat core）
         self.track_vars: dict[str, BoolRef] = {}
+        self.label_meta: dict[str, dict] = {}
 
         self._init_variables()
 
@@ -57,24 +172,48 @@ class Z3ConstraintBuilder:
             # 基础约束：start >= 0, duration >= lb, end = start + duration
             self._assert(
                 self.start[tid] >= 0,
-                label=f"start_nonneg_{tid}"
+                label=f"start_nonneg_{tid}",
+                role="framework",
+                meta={"task_id": tid, "kind": "start_nonneg"},
             )
             self._assert(
                 self.duration[tid] >= node.duration_lb,
-                label=f"dur_lb_{tid}"
+                label=f"dur_lb_{tid}",
+                role="framework",
+                meta={"task_id": tid, "kind": "duration_lb"},
             )
             self._assert(
                 self.end[tid] == self.start[tid] + self.duration[tid],
-                label=f"end_def_{tid}"
+                label=f"end_def_{tid}",
+                role="framework",
+                meta={"task_id": tid, "kind": "end_definition"},
             )
             if node.duration_ub is not None:
                 self._assert(
                     self.duration[tid] <= node.duration_ub,
-                    label=f"dur_ub_{tid}"
+                    label=f"dur_ub_{tid}",
+                    role="framework",
+                    meta={"task_id": tid, "kind": "duration_ub"},
                 )
 
-    def _assert(self, expr: BoolRef, label: str):
+    def _assert(
+        self,
+        expr: BoolRef,
+        label: str,
+        *,
+        role: str = "semantic",
+        constraint: Optional[Constraint] = None,
+        meta: Optional[dict] = None,
+    ):
         """添加约束，如果开启追踪则使用 assert_and_track"""
+        self.label_meta[label] = {
+            "role": role,
+            "constraint_type": constraint.constraint_type if constraint else None,
+            "source_label": constraint.source_label if constraint else label,
+            "params": dict(constraint.params) if constraint else {},
+            "applies_to": list(constraint.applies_to) if constraint else [],
+            "meta": meta or {},
+        }
         if self.use_tracking:
             track_var = Bool(f"track_{label}")
             self.track_vars[label] = track_var
@@ -122,7 +261,7 @@ class Z3ConstraintBuilder:
             raise ValueError(f"time_order: 任务 '{before}' 或 '{after}' 未在图中")
         expr = self.end[before] <= self.start[after]
         debug.log(f"        Z3 公式: {expr}")
-        self._assert(expr, label=c.source_label)
+        self._assert(expr, label=c.source_label, constraint=c)
 
     def _handle_duration(self, c: Constraint):
         """duration 约束（已在 _init_variables 中处理，此处为显式追加）"""
@@ -130,9 +269,19 @@ class Z3ConstraintBuilder:
         lb = c.params.get("lb")
         ub = c.params.get("ub")
         if tid and lb is not None:
-            self._assert(self.duration[tid] >= lb, label=c.source_label + "_lb")
+            self._assert(
+                self.duration[tid] >= lb,
+                label=c.source_label + "_lb",
+                constraint=c,
+                meta={"component": "lb"},
+            )
         if tid and ub is not None:
-            self._assert(self.duration[tid] <= ub, label=c.source_label + "_ub")
+            self._assert(
+                self.duration[tid] <= ub,
+                label=c.source_label + "_ub",
+                constraint=c,
+                meta={"component": "ub"},
+            )
 
     def _handle_time_window(self, c: Constraint):
         """time_window 约束: earliest <= start <= latest"""
@@ -144,15 +293,30 @@ class Z3ConstraintBuilder:
         if earliest is not None:
             expr = self.start[tid] >= earliest
             debug.log(f"        Z3 公式 (earliest): {expr}")
-            self._assert(expr, label=f"{c.source_label}_earliest")
+            self._assert(
+                expr,
+                label=f"{c.source_label}_earliest",
+                constraint=c,
+                meta={"component": "earliest"},
+            )
         if latest is not None:
             expr = self.start[tid] <= latest
             debug.log(f"        Z3 公式 (latest): {expr}")
-            self._assert(expr, label=f"{c.source_label}_latest")
+            self._assert(
+                expr,
+                label=f"{c.source_label}_latest",
+                constraint=c,
+                meta={"component": "latest"},
+            )
         if deadline is not None:
             expr = self.end[tid] <= deadline
             debug.log(f"        Z3 公式 (deadline): {expr}")
-            self._assert(expr, label=f"{c.source_label}_deadline")
+            self._assert(
+                expr,
+                label=f"{c.source_label}_deadline",
+                constraint=c,
+                meta={"component": "deadline"},
+            )
 
     def _handle_sync(self, c: Constraint):
         """sync 约束: |start_i - start_j| <= tolerance"""
@@ -162,7 +326,7 @@ class Z3ConstraintBuilder:
         diff = self.start[ti] - self.start[tj]
         expr = And(diff <= tol, diff >= -tol)
         debug.log(f"        Z3 公式 (sync): {expr}")
-        self._assert(expr, label=c.source_label)
+        self._assert(expr, label=c.source_label, constraint=c)
 
     def _handle_group_sync(self, c: Constraint):
         """group_sync 约束: 组内任意两个任务的 start/end 差值不超过 tolerance"""
@@ -194,6 +358,8 @@ class Z3ConstraintBuilder:
                             f"group_sync_pair_{c.source_label}_"
                             f"{suffix}_{ti}__{tj}"
                         ),
+                        constraint=c,
+                        meta={"mode": suffix, "task_i": ti, "task_j": tj},
                     )
 
         if mode in {"start", "both"}:
@@ -232,6 +398,8 @@ class Z3ConstraintBuilder:
             self._assert(
                 BoolVal(False),  # 明确不可满足
                 label=c.source_label,
+                constraint=c,
+                meta={"total_cost": total_cost},
             )
         # else: 通过，无需额外 Z3 断言
 
@@ -245,7 +413,12 @@ class Z3ConstraintBuilder:
         required = set(c.params.get("required", []))
         actor_caps = set(c.params.get("actor_capabilities", []))
         satisfied = required.issubset(actor_caps)
-        self._assert(BoolVal(satisfied), label=c.source_label)
+        self._assert(
+            BoolVal(satisfied),
+            label=c.source_label,
+            constraint=c,
+            meta={"satisfied": satisfied},
+        )
 
     def _handle_physical_feasibility(self, c: Constraint):
         """physical_feasibility 约束: duration >= min_duration_units"""
@@ -255,7 +428,7 @@ class Z3ConstraintBuilder:
         debug.log(f"        Z3 公式 (phys): {expr}  "
                   f"(distance={c.params.get('distance_km')}km, "
                   f"speed={c.params.get('speed_kmh')}km/h)")
-        self._assert(expr, label=c.source_label)
+        self._assert(expr, label=c.source_label, constraint=c)
 
     # ─────────────────────────────────────────────────────────────────────────
     # 求解
@@ -304,8 +477,16 @@ class Z3ConstraintBuilder:
                 debug.log(f"  {tid:30s} | start={sched['start']:8.2f} | "
                           f"end={sched['end']:8.2f} | dur={sched['duration']:8.2f}")
 
-            return {"result": "sat", "schedule": schedule,
-                    "unsat_core": [], "error": None}
+            return {
+                "result": "sat",
+                "schedule": schedule,
+                "unsat_core": [],
+                "unsat_core_raw": [],
+                "unsat_core_semantic": [],
+                "unsat_core_framework": [],
+                "attribution": [],
+                "error": None,
+            }
 
         elif result == unsat:
             core_labels = []
@@ -319,10 +500,33 @@ class Z3ConstraintBuilder:
             for label in core_labels:
                 debug.log(f"  - {label}")
 
-            return {"result": "unsat", "schedule": {},
-                    "unsat_core": core_labels, "error": None}
+            core_split = split_unsat_core(core_labels, self.label_meta)
+            attribution = explain_unsat_core(
+                core_split["unsat_core_semantic"],
+                self.graph,
+                self.label_meta,
+            )
+
+            return {
+                "result": "unsat",
+                "schedule": {},
+                "unsat_core": core_split["unsat_core_semantic"],
+                "unsat_core_raw": core_split["unsat_core_raw"],
+                "unsat_core_semantic": core_split["unsat_core_semantic"],
+                "unsat_core_framework": core_split["unsat_core_framework"],
+                "attribution": attribution,
+                "error": None,
+            }
 
         else:  # unknown（超时等）
             debug.log(f"\n[DEBUG][Z3] UNKNOWN — 求解超时或未知错误")
-            return {"result": "unknown", "schedule": {},
-                    "unsat_core": [], "error": "Z3 求解超时或未知错误"}
+            return {
+                "result": "unknown",
+                "schedule": {},
+                "unsat_core": [],
+                "unsat_core_raw": [],
+                "unsat_core_semantic": [],
+                "unsat_core_framework": [],
+                "attribution": [],
+                "error": "Z3 求解超时或未知错误",
+            }
