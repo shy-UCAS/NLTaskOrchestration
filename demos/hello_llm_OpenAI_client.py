@@ -2,11 +2,11 @@ import re
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="https://api.guantou.space/v1",
-    api_key=""
+    base_url="https://www.packyapi.com/v1",
+    api_key="sk-a2ng1pUr3hoTWH0gMovetsXMgOYT5UbpS0oITbmGyx3Luiz3"
 )
 
-MODEL = "claude-opus-4-6"
+MODEL = "deepseek-v4-pro"
 
 # 初始系统提示
 messages = [{"role": "system", "content": "You are a helpful AI assistant"}]
