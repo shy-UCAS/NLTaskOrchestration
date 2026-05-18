@@ -1,0 +1,78 @@
+# Example Phase 1 LLM provider profiles.
+# Copy this file to configs/llm_providers.local.yaml and fill in local values.
+# Do not commit real API keys.
+
+profiles:
+  openai_default:
+    protocol: openai_chat
+    base_url: https://api.openai.com/v1
+    api_key_env: OPENAI_API_KEY
+    model: gpt-4.1
+    temperature: 0.1
+    max_tokens: 4096
+
+  qwen_via_dashscope:
+    protocol: openai_chat
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    api_key_env: DASHSCOPE_API_KEY
+    model: qwen-plus
+    temperature: 0.1
+    max_tokens: 4096
+
+  openai_proxy_via_cc_switch:
+    protocol: openai_chat
+    base_url: https://your-openai-compatible-proxy.example/v1
+    api_key_env: PHASE1_LLM_API_KEY
+    model: your-model-name
+    temperature: 0.1
+    max_tokens: 4096
+    extra_body:
+      enable_thinking: false
+
+  anthropic_default:
+    protocol: anthropic_messages
+    base_url: https://api.anthropic.com
+    api_key_env: ANTHROPIC_API_KEY
+    model: claude-3-5-sonnet-latest
+    temperature: 0.1
+    max_tokens: 4096
+    # Official Anthropic style normally uses x-api-key.
+    auth_header: x_api_key
+
+  anthropic_proxy_via_cc_switch:
+    protocol: anthropic_messages
+    base_url: https://your-anthropic-compatible-proxy.example
+    api_key_env: PHASE1_LLM_API_KEY
+    model: your-claude-compatible-model
+    temperature: 0.1
+    max_tokens: 4096
+    # Some Anthropic-style gateways require Authorization: Bearer <api_key>.
+    # If unsure, try bearer first when the provider manual says so; use both
+    # only when the gateway accepts either style.
+    auth_header: bearer
+    user_agent: "claude-cli/2.0.76 (external, cli)"
+    headers:
+      anthropic-version: "2023-06-01"
+    # 如果 base_url 已被内置兼容白名单覆盖，可以省略这些字段；
+    # 如需关闭自动补齐，设置 disable_compat_preset: true。
+
+  local_codex_from_cc_switch:
+    # Reads ~/.codex/config.toml or ~/.codex/config.json plus ~/.codex/auth.json.
+    # Useful when CC Switch has already activated a Codex provider locally.
+    local_provider: codex
+    # Optional override if your local Codex config does not record a model.
+    model: your-model-name
+    temperature: 0.1
+    max_tokens: 4096
+
+  local_claude_from_cc_switch:
+    # Reads ~/.claude/settings.json.
+    # Useful when CC Switch has already activated a Claude Code provider locally.
+    local_provider: claude
+    # Optional override if your local Claude settings do not record a model.
+    model: your-claude-compatible-model
+    # Optional for Anthropic-style proxy providers that require CLI-like headers.
+    auth_header: bearer
+    user_agent: "claude-cli/2.0.76 (external, cli)"
+    temperature: 0.1
+    max_tokens: 4096

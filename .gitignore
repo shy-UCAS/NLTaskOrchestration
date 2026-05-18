@@ -21,3 +21,6 @@ Thumbs.db
 
 # Generated artifacts
 out/
+
+# Local LLM provider secrets
+configs/llm_providers.local.yaml
