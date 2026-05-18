@@ -3,7 +3,7 @@ from openai import OpenAI
 
 client = OpenAI(
     base_url="https://api.guantou.space/v1",
-    api_key="sk-3IvFwJZjfDBZy5q9ZVzimftBSBSjCQfp2PL9y3rgCOeD0zFn"
+    api_key=""
 )
 
 MODEL = "claude-opus-4-6"
