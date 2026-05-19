@@ -4,21 +4,22 @@
 
 面向无人机集群任务规划场景，将自然语言作战指令转化为结构化任务图，并通过图结构检查与 SMT/Z3 约束验证提升任务编排的可靠性。
 
-当前阶段 **Layer 1 确定性底座** 已完成核心建设：标准化任务计划 JSON → 任务图构建 → 多维度约束编码 → SAT/UNSAT 检测 → 验证报告输出的完整闭环，并接入动作模板、能力模型与环境配置三个外部配置。最近一轮迭代完成了 **面向 LLM 修复闭环的结构化错误反馈链路**——safety 违规、GCJP API 错误、运行时异常均带行号、源码上下文与修复建议。
+当前已完成 **Layer 1 确定性底座** 与 **阶段 1 LLM 生成评测 baseline**：标准化任务计划 JSON / 标准无歧义自然语言 → LLM 生成 GCJP v1 代码 → 安全检查 → 受限执行构图 → 图结构与 Z3 约束验证 → 指标与报告输出。阶段 1 已接入 OpenAI-compatible Chat Completions 与 Anthropic Messages 两类 provider，并支持本地 Codex/Claude 配置、CC Switch 风格中转站参数、脱敏 headers 预览和实验输出归档。
 
 ---
 
 ## 1. 数据流
 
 ```text
-自然语言指令                  标准化任务计划 JSON
-    │ LLM                          │ schema 校验
-    ▼                              ▼
-GCJP v1 代码字符串            task_plan_loader.py
-    │ safety_checker               │
-    │ code_executor (沙箱)         │
-    ▼                              ▼
-TaskGraphBuilder ◄────────────────┘
+自然语言指令 / 结构化任务描述 JSON         标准化任务计划 JSON
+    │ LLMClient + PlannerAgent              │ schema 校验
+    │ code_extraction                       ▼
+    ▼                                  task_plan_loader.py
+GCJP v1 代码字符串                         │
+    │ safety_checker                        │
+    │ code_executor (沙箱)                  │
+    ▼                                      ▼
+TaskGraphBuilder ◄─────────────────────────┘
     ▼
 BuiltGraph
     ▼
@@ -37,6 +38,8 @@ VerificationReport
 | `demo_06` / `demo_08`-`11` | 手写 GCJP v1 代码字符串端到端验证（含并行、同步/屏障、条件触发 UNSAT、能力不匹配 UNSAT） |
 | `demo_07` | L1 失败路径诊断回归（15 个失败 case） |
 | `demo_12` | 结构化反馈契约 gate（5 个 case，含建议文案反向断言） |
+| `demo_llm_client_smoke` | LLM provider 配置读取与远程连通性 smoke test |
+| `demo_phase1_nonlive_regression` | 阶段 1 非 live 回归，不调用外部 LLM |
 
 ---
 
@@ -50,7 +53,28 @@ NLTaskOrchestration/
 │   ├── action_templates.yaml          # 9 种动作模板
 │   ├── capability_model.yaml          # 4 个异构集群能力与资源上限
 │   ├── environment_config.yaml        # scenario_demo / scenario_simple
-│   └── environment_facilities.yaml    # 设施地图 UTM 坐标场景
+│   ├── environment_facilities.yaml    # 设施地图 UTM 坐标场景
+│   └── llm_providers.example.yaml     # 阶段 1 LLM provider profile 示例
+│
+├── agents/
+│   ├── llm_client.py                  # OpenAI/Anthropic 多协议 LLM client
+│   ├── planner_agent.py               # prompt 渲染 + LLM 调用 + 代码提取
+│   └── code_extraction.py             # 从模型响应提取 GCJP Python 代码
+│
+├── prompts/
+│   ├── gcjp_generation_prompt.md
+│   ├── standard_nl_to_gcjp_prompt.md
+│   ├── gcjp_generation_prompt_fewshot.md
+│   └── standard_nl_to_gcjp_prompt_fewshot.md
+│
+├── datasets/
+│   ├── phase1_structured_cases.jsonl  # 1A 结构化输入评测集
+│   └── phase1_standard_nl_cases.jsonl # 1B 标准自然语言评测集
+│
+├── experiments/
+│   ├── phase1_common.py
+│   ├── exp_01a_structured_to_gcjp.py
+│   └── exp_01b_standard_nl_to_gcjp.py
 │
 ├── schemas/
 │   └── task_plan_schema.json          # 标准化任务计划 JSON Schema
@@ -79,9 +103,15 @@ NLTaskOrchestration/
 │   ├── demo_08_parallel_tasks_gcjp.py / demo_09_sync_barrier_gcjp.py
 │   ├── demo_10_condition_resource_conflict_gcjp.py
 │   ├── demo_11_capability_mismatch_gcjp.py
-│   └── demo_12_gcjp_structured_feedback.py
+│   ├── demo_12_gcjp_structured_feedback.py
+│   ├── demo_llm_client_smoke.py
+│   └── demo_phase1_nonlive_regression.py
 │
 ├── tools/                             # JSON / 配置校验 + UTM 坐标转换脚本
+│   └── get_local_api_config.py        # 读取本地 Codex/Claude provider 配置
+│
+├── docs/
+│   └── phase1_baseline_report.md      # 阶段 1A/1B 脱敏 baseline 摘要
 └── research/                          # 研究计划文档
 ```
 
@@ -280,12 +310,29 @@ Layer 4: 语义反向校验（预留接口）
 
 ---
 
+### 3.12 `agents/` 与 `experiments/` — 阶段 1 LLM 生成评测
+
+阶段 1 把 LLM 调用、GCJP 代码提取和验证评测拆成三个边界：
+
+| 模块 | 作用 |
+| --- | --- |
+| `agents/llm_client.py` | 统一 OpenAI-compatible Chat Completions 与 Anthropic Messages 调用；支持 profile/env/local provider、headers 脱敏预览、base_url 兼容 preset、502/503/504 与网络中断 retry |
+| `agents/planner_agent.py` | 渲染 prompt，调用 LLM，并返回 raw response、extracted code、provider 摘要 |
+| `agents/code_extraction.py` | 优先提取 fenced Python code block；无 fence 时从 `from gcjp.mission_graph import TaskGraphBuilder` 入口截取 |
+| `experiments/phase1_common.py` | 统一 CLI 参数、provider 加载、样本执行、指标聚合、失败摘要打印 |
+| `experiments/exp_01a_structured_to_gcjp.py` | 1A：结构化任务描述 JSON → GCJP |
+| `experiments/exp_01b_standard_nl_to_gcjp.py` | 1B：标准无歧义自然语言 → GCJP |
+
+当前 zero-shot prompt 是 baseline；`*_fewshot.md` 用作对照实验，不替代 baseline。
+
+---
+
 ## 4. 快速开始
 
 ### 4.1 安装
 
 ```powershell
-python -m pip install networkx z3-solver pyyaml jsonschema
+conda run -n llm --no-capture-output python -m pip install networkx z3-solver pyyaml jsonschema
 ```
 
 建议 Python 3.10+，推荐使用 conda 环境 `llm`。
@@ -293,31 +340,85 @@ python -m pip install networkx z3-solver pyyaml jsonschema
 ### 4.2 端到端验证
 
 ```powershell
-python -m demos.demo_01_build_graph_from_json          # JSON → SAT
-python -m demos.demo_02_build_resource_unsat_from_json # JSON → UNSAT（弹药超限）
-python -m demos.demo_03_build_facilities_from_json     # JSON → SAT（设施 UTM 场景）
+conda run -n llm --no-capture-output python -m demos.demo_01_build_graph_from_json          # JSON → SAT
+conda run -n llm --no-capture-output python -m demos.demo_02_build_resource_unsat_from_json # JSON → UNSAT（弹药超限）
+conda run -n llm --no-capture-output python -m demos.demo_03_build_facilities_from_json     # JSON → SAT（设施 UTM 场景）
 
-python -m demos.demo_06_fixed_gcjp_api                 # 手写 GCJP 代码字符串
-python -m demos.demo_08_parallel_tasks_gcjp            # 并行任务
-python -m demos.demo_09_sync_barrier_gcjp              # 同步 / 屏障
-python -m demos.demo_10_condition_resource_conflict_gcjp  # 条件触发资源冲突 UNSAT
-python -m demos.demo_11_capability_mismatch_gcjp       # 能力不匹配 UNSAT
+conda run -n llm --no-capture-output python -m demos.demo_06_fixed_gcjp_api                 # 手写 GCJP 代码字符串
+conda run -n llm --no-capture-output python -m demos.demo_08_parallel_tasks_gcjp            # 并行任务
+conda run -n llm --no-capture-output python -m demos.demo_09_sync_barrier_gcjp              # 同步 / 屏障
+conda run -n llm --no-capture-output python -m demos.demo_10_condition_resource_conflict_gcjp  # 条件触发资源冲突 UNSAT
+conda run -n llm --no-capture-output python -m demos.demo_11_capability_mismatch_gcjp       # 能力不匹配 UNSAT
 ```
 
 ### 4.3 失败路径与结构化反馈回归
 
 ```powershell
-python -m demos.demo_07_gcjp_code_executor_failures    # L1 失败路径诊断（15 case）
-python -m demos.demo_12_gcjp_structured_feedback       # 结构化反馈契约（5 case）
+conda run -n llm --no-capture-output python -m demos.demo_07_gcjp_code_executor_failures    # L1 失败路径诊断（15 case）
+conda run -n llm --no-capture-output python -m demos.demo_12_gcjp_structured_feedback       # 结构化反馈契约（5 case）
 ```
 
 `demo_12` 是"契约 gate"：任何后续回归导致 `structured_violations` / `api_error` / `source_context` 字段丢失，或 `DISALLOWED_BUILDER_METHOD` 建议文案重新出现虚构 API，都会立刻失败。
 
-### 4.4 工具脚本
+### 4.4 阶段 1 LLM 接入与实验
+
+LLM 配置有三类入口，优先级为 CLI 参数 > `PHASE1_LLM_CONFIG` profile > `PHASE1_LLM_*` 环境变量 > 协议原生环境变量。
+
+环境变量方式：
 
 ```powershell
-python tools/validate_task_plan.py schemas/task_plan_schema.json demos/demo_03_facilities_task_plan.json
-python tools/validate_configs.py
+$env:PHASE1_LLM_PROTOCOL="anthropic_messages"
+$env:PHASE1_LLM_BASE_URL="https://your-provider.example"
+$env:PHASE1_LLM_API_KEY="sk-..."
+$env:PHASE1_LLM_MODEL="your-model"
+$env:PHASE1_LLM_TEMPERATURE="0.1"
+$env:PHASE1_LLM_MAX_TOKENS="4096"
+```
+
+profile 方式：
+
+```powershell
+Copy-Item configs\llm_providers.example.yaml configs\llm_providers.local.yaml
+$env:PHASE1_LLM_CONFIG="configs/llm_providers.local.yaml"
+$env:PHASE1_LLM_PROFILE="your_profile"
+```
+
+本地 provider / CC Switch 兼容方式：
+
+```powershell
+conda run -n llm --no-capture-output python -m demos.demo_llm_client_smoke --local-provider claude
+conda run -n llm --no-capture-output python -m demos.demo_llm_client_smoke --local-provider codex
+```
+
+本项目不读取或修改 CC Switch GUI 内部配置；只复用用户已经写入本地 Codex/Claude 配置或环境变量中的 `protocol/base_url/api_key/model`。对于需要特殊 header 的 Anthropic-style 中转站，可通过 `BASE_URL_COMPAT_PRESETS` 自动补 `auth_header` 和 `User-Agent`，也可以用 `--auth-header`、`--user-agent` 显式覆盖。
+
+阶段 1 实验：
+
+```powershell
+conda run -n llm --no-capture-output python -m experiments.exp_01a_structured_to_gcjp --local-provider claude
+conda run -n llm --no-capture-output python -m experiments.exp_01b_standard_nl_to_gcjp --local-provider claude
+```
+
+few-shot 对照：
+
+```powershell
+conda run -n llm --no-capture-output python -m experiments.exp_01a_structured_to_gcjp --local-provider claude --prompt prompts/gcjp_generation_prompt_fewshot.md
+conda run -n llm --no-capture-output python -m experiments.exp_01b_standard_nl_to_gcjp --local-provider claude --prompt prompts/standard_nl_to_gcjp_prompt_fewshot.md
+```
+
+实验输出写入 `out/phase1_generation/`，包括 raw response、extracted code、report JSON 和 metrics；该目录是本地产物，不入库。
+
+非 live 回归：
+
+```powershell
+conda run -n llm --no-capture-output python -m demos.demo_phase1_nonlive_regression
+```
+
+### 4.5 工具脚本
+
+```powershell
+conda run -n llm --no-capture-output python tools/validate_task_plan.py schemas/task_plan_schema.json demos/demo_03_facilities_task_plan.json
+conda run -n llm --no-capture-output python tools/validate_configs.py
 ```
 
 ---
@@ -329,7 +430,9 @@ python tools/validate_configs.py
 3. `VerificationPipeline` 完成 SAT/UNSAT 检测：资源超限（demo_02：fleet_1 弹药 5 > 4）与能力不匹配（demo_11）均能被 Z3 检测并归因。
 4. `environment_model.py` 校验 scenario_id / actor / target 与环境配置的一致性；`environment_facilities.yaml` 提供 UTM 坐标转换后的真实设施地图。
 5. **结构化错误反馈链路**：safety 违规、GCJP API 错误、运行时异常均带行号、源码上下文与修复建议，可直接以 JSON 形式作为 LLM 修复 prompt 输入（`demo_12` 5/5 通过）。
-6. `DebugLogger` 实现全局可控调试输出，`VERBOSE=False` 时静默运行。
+6. **阶段 1A/1B LLM baseline**：2026-05-19 使用 Anthropic Messages 兼容 provider 复跑通过，1A structured JSON → GCJP 为 9/9，1B standard NL → GCJP 为 7/7，聚合指标均为 1.0；脱敏摘要见 `docs/phase1_baseline_report.md`。
+7. **多协议 provider 接入**：支持 OpenAI-compatible Chat Completions、Anthropic Messages、本地 Codex/Claude 配置读取、CC Switch 风格中转站参数复用、headers 脱敏预览和 retry。
+8. `DebugLogger` 实现全局可控调试输出，`VERBOSE=False` 时静默运行。
 
 ---
 
@@ -339,8 +442,10 @@ python tools/validate_configs.py
 | --- | --- | --- |
 | 6.1 | 环境模型 | 仅做引用校验，不做禁飞区绕行 / 威胁区惩罚 / 动态避让 |
 | 6.2 | 物理距离 | JSON 路径尚未根据 actor 初始位置自动计算飞行距离并注入 `physical_feasibility` 约束 |
-| 6.3 | UNSAT 归因 | unsat_core 中仍可能混入 `start_nonneg_*` / `end_def_*` 等框架约束，需进一步过滤 |
+| 6.3 | UNSAT 归因 | 已拆分 semantic/framework core 与 attribution，但还没有形成面向自然语言修复的完整解释模板 |
 | 6.4 | Layer 4 | 语义反向校验为预留接口，尚未将任务图反向还原为结构化摘要与原始计划比对 |
+| 6.5 | LLM 实验 | 当前 baseline 依赖外部 provider，结果会受模型版本、网关稳定性、采样和中转站兼容性影响 |
+| 6.6 | 协议覆盖 | 阶段 1 先覆盖 OpenAI Chat Completions 与 Anthropic Messages；OpenAI Responses、Anthropic tools/streaming、Gemini 原生协议尚未纳入默认协议 |
 
 ---
 
@@ -353,12 +458,15 @@ python tools/validate_configs.py
 - ✅ GCJP 代码字符串端到端闭环（`code_executor` + `verify_gcjp_code()`）
 - ✅ 结构化错误反馈链路（`SafetyViolation` + `GCJPAPIError` + `source_context` + pipeline 透传）
 - ✅ 失败路径与反馈契约 demo（`demo_07` 15 case + `demo_12` 5 case）
+- ✅ 阶段 0 UNSAT core 语义/框架拆分与归因输出
+- ✅ 阶段 1A/1B LLM 生成评测 baseline：多协议 provider、prompt/dataset/experiments、脱敏输出与本地 provider 读取
+- ✅ 阶段 1 数据集扩充、retry、非 live 回归与 few-shot 对照 prompt
 
 ### 下一阶段
 
-1. **LLM 修复闭环原型**：基于 `VerificationReport.to_dict()` 的结构化反馈构建 prompt，让 LLM 在 N 轮以内自我修复 GCJP 代码；统计收敛轮数、错误类型分布。
-2. **JSON → LLM → GCJP 实验**：以现有 demo JSON 作为输入，让强模型生成 GCJP v1 代码，统计代码安全通过率、执行成功率、DAG 合法率、Z3 一致率。
-3. **NL → LLM → GCJP 最小闭环**：从简单自然语言指令直接生成 GCJP v1 代码，验证端到端 Code-as-Plan 主线。
+1. **扩展 baseline 复跑**：用扩充后的 1A 15 条、1B 12 条数据集分别跑 zero-shot 与 few-shot，对比不同 provider/model 的稳定性。
+2. **LLM 修复闭环原型**：基于 `VerificationReport.to_dict()` 的结构化反馈构建 prompt，让 LLM 在 N 轮以内自我修复 GCJP 代码；统计收敛轮数、错误类型分布。
+3. **失败诊断数据化**：把 `_summary_line()` 的失败摘要进一步汇总到 metrics，形成按 `api_error.code` / `gcjp_lineno` / error type 的报告视图。
 4. **物理可行性自动注入**：JSON 路径根据 actor 初始位置与目标坐标自动计算飞行距离，调用 `add_physical_feasibility_constraint()`。
-5. **UNSAT 归因降噪**：过滤框架级辅助约束，仅输出语义层的冲突 label，使归因可直接呈现给人或修复 Agent。
+5. **UNSAT 归因解释模板**：基于 semantic/framework core 和 attribution 生成可读解释，供人工审查或修复 Agent 使用。
 6. **Layer 4 语义反向校验**：将 `BuiltGraph` 反向还原为结构化摘要，对比原始任务计划，捕获语义漂移。

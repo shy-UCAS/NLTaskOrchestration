@@ -5,6 +5,9 @@ from __future__ import annotations
 
 import json
 import os
+import socket
+import ssl
+import time
 import urllib.error
 import urllib.request
 from dataclasses import asdict, dataclass, field
@@ -66,6 +69,8 @@ class LLMProviderConfig:
     auth_header: str = AUTH_HEADER_DEFAULT
     user_agent: str | None = None
     compat_preset: str | None = None
+    retry_attempts: int = 2
+    retry_backoff_seconds: float = 1.0
 
     def validate(self) -> None:
         missing = []
@@ -89,6 +94,10 @@ class LLMProviderConfig:
                 f"auth_header {self.auth_header!r} 不支持；"
                 f"可选值: {sorted(SUPPORTED_AUTH_HEADERS)}"
             )
+        if self.retry_attempts < 0:
+            raise LLMConfigError("retry_attempts 不能小于 0")
+        if self.retry_backoff_seconds < 0:
+            raise LLMConfigError("retry_backoff_seconds 不能小于 0")
 
     def resolved_base_url(self) -> str:
         if self.base_url:
@@ -169,6 +178,8 @@ def load_provider_config(
         auth_header=_normalize_auth_header(data.get("auth_header")),
         user_agent=data.get("user_agent"),
         compat_preset=data.get("compat_preset"),
+        retry_attempts=int(data.get("retry_attempts", 2)),
+        retry_backoff_seconds=float(data.get("retry_backoff_seconds", 1.0)),
     )
     cfg.validate()
     return cfg
@@ -226,6 +237,8 @@ def _load_phase1_env() -> dict[str, Any]:
         "auth_header": "PHASE1_LLM_AUTH_HEADER",
         "user_agent": "PHASE1_LLM_USER_AGENT",
         "disable_compat_preset": "PHASE1_LLM_DISABLE_COMPAT_PRESET",
+        "retry_attempts": "PHASE1_LLM_RETRY_ATTEMPTS",
+        "retry_backoff_seconds": "PHASE1_LLM_RETRY_BACKOFF_SECONDS",
     }
     return {
         key: os.getenv(env_name)
@@ -340,6 +353,8 @@ def provider_summary_items(
         "auth_header",
         "user_agent",
         "compat_preset",
+        "retry_attempts",
+        "retry_backoff_seconds",
         "effective_headers_preview",
         "api_key_present",
     )
@@ -474,26 +489,39 @@ class LLMClient:
         payload: dict[str, Any],
         headers: dict[str, str],
     ) -> dict[str, Any]:
-        req = urllib.request.Request(
-            url=url,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={
-                "Content-Type": "application/json",
-                **headers,
-            },
-            method="POST",
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=120) as resp:
-                body = resp.read().decode("utf-8")
-                return json.loads(body)
-        except urllib.error.HTTPError as exc:
-            body = exc.read().decode("utf-8", errors="replace")
+        attempts = self.config.retry_attempts + 1
+        last_error: Exception | None = None
+        for attempt_index in range(attempts):
+            req = urllib.request.Request(
+                url=url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={
+                    "Content-Type": "application/json",
+                    **headers,
+                },
+                method="POST",
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=120) as resp:
+                    body = resp.read().decode("utf-8")
+                    return json.loads(body)
+            except urllib.error.HTTPError as exc:
+                body = exc.read().decode("utf-8", errors="replace")
+                last_error = LLMRequestError(
+                    f"LLM 请求失败 (HTTP {exc.code}): {body}"
+                )
+                if not _should_retry_http_status(exc.code, attempt_index, attempts):
+                    raise last_error from exc
+            except Exception as exc:
+                last_error = LLMRequestError(f"LLM 请求异常: {exc}")
+                if not _should_retry_exception(exc, attempt_index, attempts):
+                    raise last_error from exc
+            _sleep_before_retry(self.config.retry_backoff_seconds, attempt_index)
+        if last_error:
             raise LLMRequestError(
-                f"LLM 请求失败 (HTTP {exc.code}): {body}"
-            ) from exc
-        except Exception as exc:
-            raise LLMRequestError(f"LLM 请求异常: {exc}") from exc
+                f"{last_error}；已重试 {self.config.retry_attempts} 次仍失败"
+            )
+        raise LLMRequestError("LLM 请求异常: 未知错误")
 
 
 def _resolve_response_model(
@@ -585,3 +613,51 @@ def _redact_sensitive_headers(headers: dict[str, Any]) -> dict[str, Any]:
     for key, value in headers.items():
         redacted[key] = "***" if key.lower() in sensitive else value
     return redacted
+
+
+def _should_retry_http_status(
+    status_code: int,
+    attempt_index: int,
+    total_attempts: int,
+) -> bool:
+    return attempt_index < total_attempts - 1 and status_code in {502, 503, 504}
+
+
+def _should_retry_exception(
+    exc: Exception,
+    attempt_index: int,
+    total_attempts: int,
+) -> bool:
+    if attempt_index >= total_attempts - 1:
+        return False
+    if isinstance(exc, (TimeoutError, socket.timeout, ConnectionResetError)):
+        return True
+    if isinstance(exc, urllib.error.URLError):
+        reason = exc.reason
+        if isinstance(reason, (TimeoutError, socket.timeout, ssl.SSLError)):
+            return True
+        return _looks_retryable_network_error(reason)
+    if isinstance(exc, ssl.SSLError):
+        return True
+    return _looks_retryable_network_error(exc)
+
+
+def _looks_retryable_network_error(exc: Any) -> bool:
+    text = str(exc).lower()
+    retryable_fragments = (
+        "timed out",
+        "timeout",
+        "unexpected_eof",
+        "eof occurred",
+        "connection reset",
+        "connection aborted",
+        "remote end closed connection",
+        "temporarily unavailable",
+    )
+    return any(fragment in text for fragment in retryable_fragments)
+
+
+def _sleep_before_retry(backoff_seconds: float, attempt_index: int) -> None:
+    delay = backoff_seconds * (attempt_index + 1)
+    if delay > 0:
+        time.sleep(delay)

@@ -26,6 +26,8 @@ profiles:
     model: your-model-name
     temperature: 0.1
     max_tokens: 4096
+    retry_attempts: 2
+    retry_backoff_seconds: 1.0
     extra_body:
       enable_thinking: false
 
@@ -46,6 +48,8 @@ profiles:
     model: your-claude-compatible-model
     temperature: 0.1
     max_tokens: 4096
+    retry_attempts: 2
+    retry_backoff_seconds: 1.0
     # Some Anthropic-style gateways require Authorization: Bearer <api_key>.
     # If unsure, try bearer first when the provider manual says so; use both
     # only when the gateway accepts either style.

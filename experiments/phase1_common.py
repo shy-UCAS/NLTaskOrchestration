@@ -38,6 +38,8 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--model")
     parser.add_argument("--temperature", type=float)
     parser.add_argument("--max-tokens", type=int)
+    parser.add_argument("--retry-attempts", type=int)
+    parser.add_argument("--retry-backoff-seconds", type=float)
     parser.add_argument(
         "--auth-header",
         choices=["default", "x_api_key", "x-api-key", "bearer", "both"],
@@ -50,7 +52,8 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--disable-compat-preset",
         action="store_true",
-        help="Disable automatic base_url compatibility presets",    )
+        help="Disable automatic base_url compatibility presets",
+    )
     parser.add_argument("--limit", type=int, help="Limit number of cases")
     parser.add_argument(
         "--output-dir",
@@ -73,6 +76,8 @@ def load_config_from_args(args: argparse.Namespace):
         "model": args.model,
         "temperature": args.temperature,
         "max_tokens": args.max_tokens,
+        "retry_attempts": args.retry_attempts,
+        "retry_backoff_seconds": args.retry_backoff_seconds,
         "auth_header": args.auth_header,
         "user_agent": args.user_agent,
         "disable_compat_preset": args.disable_compat_preset or None,
@@ -374,13 +379,58 @@ def _write_case_outputs(
 def _summary_line(record: dict[str, Any]) -> str:
     ev = record["evaluation"]
     mark = "通过" if ev.get("first_pass") else "失败"
-    return (
+    line = (
         f"[{mark}] {record['sample_id']} "
         f"extract={ev.get('syntax_extract')} "
         f"safety={ev.get('safety_pass')} "
         f"exec={ev.get('execution_success')} "
         f"l3={ev.get('l3_expected_result')}"
     )
+    if ev.get("first_pass"):
+        return line
+    diagnostics = _failure_diagnostics(record)
+    return f"{line} {diagnostics}" if diagnostics else line
+
+
+def _failure_diagnostics(record: dict[str, Any]) -> str:
+    parts = []
+    err_type = record.get("execution_error_type")
+    if err_type:
+        parts.append(f"error_type={err_type}")
+    error = record.get("error")
+    if error:
+        parts.append(f"error={_compact_text(error, 120)}")
+
+    layer1 = _first_report_layer(record.get("report"), 1)
+    details = layer1.get("details", {}) if layer1 else {}
+    lineno = details.get("gcjp_lineno")
+    if lineno is not None:
+        parts.append(f"line={lineno}")
+    api_error = details.get("api_error") or {}
+    api_code = api_error.get("code")
+    if api_code:
+        parts.append(f"api_code={api_code}")
+    extraction = ((record.get("generation") or {}).get("extraction") or {})
+    extraction_error = extraction.get("error")
+    if extraction_error:
+        parts.append(f"extract_error={_compact_text(extraction_error, 80)}")
+    return " ".join(parts)
+
+
+def _first_report_layer(report: dict[str, Any] | None, layer_no: int) -> dict[str, Any] | None:
+    if not report:
+        return None
+    for layer in report.get("layers", []):
+        if layer.get("layer") == layer_no:
+            return layer
+    return None
+
+
+def _compact_text(text: str, max_len: int) -> str:
+    compact = " ".join(str(text).split())
+    if len(compact) <= max_len:
+        return compact
+    return compact[: max_len - 3] + "..."
 
 
 def handle_config_error(exc: LLMConfigError) -> int:

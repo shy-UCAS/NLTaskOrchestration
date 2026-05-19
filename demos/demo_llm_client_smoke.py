@@ -69,6 +69,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model")
     parser.add_argument("--temperature", type=float, default=None)
     parser.add_argument("--max-tokens", type=int, default=None)
+    parser.add_argument("--retry-attempts", type=int, default=None)
+    parser.add_argument("--retry-backoff-seconds", type=float, default=None)
     parser.add_argument(
         "--auth-header",
         choices=["default", "x_api_key", "x-api-key", "bearer", "both"],
@@ -155,6 +157,8 @@ def _overrides_from_args(args: argparse.Namespace) -> dict[str, Any]:
         "model": args.model,
         "temperature": args.temperature,
         "max_tokens": args.max_tokens,
+        "retry_attempts": args.retry_attempts,
+        "retry_backoff_seconds": args.retry_backoff_seconds,
         "auth_header": args.auth_header,
         "user_agent": args.user_agent,
         "disable_compat_preset": args.disable_compat_preset or None,
