@@ -9,7 +9,12 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from agents.llm_client import LLMClient, LLMConfigError, load_provider_config
+from agents.llm_client import (
+    LLMClient,
+    LLMConfigError,
+    load_provider_config,
+    provider_summary_items,
+)
 from agents.planner_agent import PlannerAgent, PlannerGeneration
 from gcjp.code_executor import execute_gcjp_code
 from gcjp.mission_graph import BuiltGraph
@@ -56,6 +61,11 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
 
 
 def build_agent_from_args(args: argparse.Namespace) -> PlannerAgent:
+    config = load_config_from_args(args)
+    return PlannerAgent(LLMClient(config))
+
+
+def load_config_from_args(args: argparse.Namespace):
     overrides = {
         "protocol": args.protocol,
         "base_url": args.base_url,
@@ -67,13 +77,21 @@ def build_agent_from_args(args: argparse.Namespace) -> PlannerAgent:
         "user_agent": args.user_agent,
         "disable_compat_preset": args.disable_compat_preset or None,
     }
-    config = load_provider_config(
+    return load_provider_config(
         config_path=args.config,
         profile=args.provider_profile,
         local_provider=args.local_provider,
         overrides=overrides,
     )
-    return PlannerAgent(LLMClient(config))
+
+
+def print_provider_summary_from_args(args: argparse.Namespace) -> None:
+    """打印脱敏后的 provider 配置摘要和最终请求 headers 预览。"""
+    config = load_config_from_args(args)
+    print("[配置读取成功]")
+    for key, value in provider_summary_items(config):
+        print(f"{key}: {value}")
+    print("-" * 40)
 
 
 def load_jsonl(path: Path, limit: int | None = None) -> list[dict[str, Any]]:

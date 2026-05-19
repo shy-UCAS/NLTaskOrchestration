@@ -38,6 +38,7 @@ from agents.llm_client import (
     LLMConfigError,
     LLMRequestError,
     load_provider_config,
+    provider_summary_items,
 )
     # 请具体介绍你是什么公司开发的什么模型，
     # 如果你类似ChatGPT你要回答你是具体的比如GPT5.5模型。
@@ -161,22 +162,8 @@ def _overrides_from_args(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def print_safe_summary(summary: dict[str, Any]) -> None:
-    for key in (
-        "provider_name",
-        "protocol",
-        "base_url",
-        "model",
-        "temperature",
-        "max_tokens",
-        "headers",
-        "extra_body",
-        "auth_header",
-        "user_agent",
-        "compat_preset",
-        "api_key_present",
-    ):
-        if key in summary:
-            print(f"{key}: {summary[key]}")
+    for key, value in provider_summary_items(summary):
+        print(f"{key}: {value}")
 
 
 def _strip_think(text: str) -> str:

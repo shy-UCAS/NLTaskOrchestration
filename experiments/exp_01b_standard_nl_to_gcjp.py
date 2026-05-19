@@ -25,6 +25,7 @@ from agents.llm_client import LLMConfigError
 from experiments.phase1_common import (
     add_common_args,
     handle_config_error,
+    print_provider_summary_from_args,
     run_generation_experiment,
 )
 
@@ -45,6 +46,7 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
+        print_provider_summary_from_args(args)
         run_generation_experiment(
             experiment_name="exp_01b_standard_nl_to_gcjp",
             dataset_path=args.dataset,
@@ -63,4 +65,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

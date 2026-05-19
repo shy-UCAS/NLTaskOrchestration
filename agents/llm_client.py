@@ -102,7 +102,9 @@ class LLMProviderConfig:
     def safe_summary(self) -> dict[str, Any]:
         data = asdict(self)
         data.pop("api_key", None)
-        data["headers"] = _redact_sensitive_headers(data.get("headers") or {})
+        pre_headers = data.pop("headers", {})
+        data["pre_headers"] = _redact_sensitive_headers(pre_headers)
+        data["effective_headers_preview"] = effective_headers_preview(self)
         data["api_key_present"] = bool(self.api_key)
         return data
 
@@ -317,6 +319,67 @@ def _truthy(value: Any) -> bool:
     return str(value or "").strip().lower() in {"1", "true", "yes", "y", "on"}
 
 
+def provider_summary_items(
+    config_or_summary: LLMProviderConfig | dict[str, Any],
+) -> list[tuple[str, Any]]:
+    """返回 provider 摘要的稳定打印顺序。"""
+    summary = (
+        config_or_summary.safe_summary()
+        if isinstance(config_or_summary, LLMProviderConfig)
+        else config_or_summary
+    )
+    keys = (
+        "provider_name",
+        "protocol",
+        "base_url",
+        "model",
+        "temperature",
+        "max_tokens",
+        "pre_headers",
+        "extra_body",
+        "auth_header",
+        "user_agent",
+        "compat_preset",
+        "effective_headers_preview",
+        "api_key_present",
+    )
+    return [(key, summary[key]) for key in keys if key in summary]
+
+
+def effective_headers_preview(config: LLMProviderConfig) -> dict[str, str]:
+    """返回最终请求 headers 的脱敏预览，不暴露 API key。"""
+    return _redact_sensitive_headers(_build_effective_headers(config))
+
+
+def _build_effective_headers(config: LLMProviderConfig) -> dict[str, str]:
+    headers = {"Content-Type": "application/json"}
+    if config.protocol == PROTOCOL_OPENAI_CHAT:
+        headers["Authorization"] = f"Bearer {config.api_key}"
+    elif config.protocol == PROTOCOL_ANTHROPIC_MESSAGES:
+        headers.update(_anthropic_auth_headers(config))
+        headers["anthropic-version"] = "2023-06-01"
+    if config.user_agent:
+        headers.setdefault("User-Agent", config.user_agent)
+    headers.update(config.headers)
+    return headers
+
+
+def _anthropic_auth_headers(config: LLMProviderConfig) -> dict[str, str]:
+    auth_header = _normalize_auth_header(config.auth_header)
+    if auth_header == AUTH_HEADER_DEFAULT:
+        auth_header = AUTH_HEADER_X_API_KEY
+    if auth_header == AUTH_HEADER_X_API_KEY:
+        return {"x-api-key": config.api_key}
+    if auth_header == AUTH_HEADER_BEARER:
+        return {"Authorization": f"Bearer {config.api_key}"}
+    if auth_header == AUTH_HEADER_BOTH:
+        return {
+            "x-api-key": config.api_key,
+            "Authorization": f"Bearer {config.api_key}",
+        }
+    raise LLMConfigError(f"auth_header 不支持: {config.auth_header}")
+
+
 class LLMClient:
     def __init__(self, config: LLMProviderConfig):
         config.validate()
@@ -340,9 +403,7 @@ class LLMClient:
         raw = self._post_json(
             self._openai_chat_url(),
             payload,
-            self._merge_headers({
-                "Authorization": f"Bearer {self.config.api_key}",
-            }),
+            _build_effective_headers(self.config),
         )
         text = (
             raw.get("choices", [{}])[0]
@@ -382,14 +443,10 @@ class LLMClient:
         if system_parts:
             payload["system"] = "\n\n".join(system_parts)
         payload.update(self.config.extra_body)
-        headers = self._merge_headers({
-            **self._anthropic_auth_headers(),
-            "anthropic-version": "2023-06-01",
-        })
         raw = self._post_json(
             self._anthropic_messages_url(),
             payload,
-            headers,
+            _build_effective_headers(self.config),
         )
         usage = raw.get("usage") or {}
         model, model_source = _resolve_response_model(raw, self.config.model)
@@ -410,28 +467,6 @@ class LLMClient:
         if base.endswith("/v1"):
             return base + "/messages"
         return base + "/v1/messages"
-
-    def _merge_headers(self, default_headers: dict[str, str]) -> dict[str, str]:
-        headers = dict(default_headers)
-        if self.config.user_agent:
-            headers.setdefault("User-Agent", self.config.user_agent)
-        headers.update(self.config.headers)
-        return headers
-
-    def _anthropic_auth_headers(self) -> dict[str, str]:
-        auth_header = self.config.auth_header
-        if auth_header == AUTH_HEADER_DEFAULT:
-            auth_header = AUTH_HEADER_X_API_KEY
-        if auth_header == AUTH_HEADER_X_API_KEY:
-            return {"x-api-key": self.config.api_key}
-        if auth_header == AUTH_HEADER_BEARER:
-            return {"Authorization": f"Bearer {self.config.api_key}"}
-        if auth_header == AUTH_HEADER_BOTH:
-            return {
-                "x-api-key": self.config.api_key,
-                "Authorization": f"Bearer {self.config.api_key}",
-            }
-        raise LLMConfigError(f"auth_header 不支持: {self.config.auth_header}")
 
     def _post_json(
         self,
@@ -544,6 +579,7 @@ def _redact_sensitive_headers(headers: dict[str, Any]) -> dict[str, Any]:
         "api-key",
         "apikey",
         "anthropic-api-key",
+        "proxy-authorization",
     }
     redacted = {}
     for key, value in headers.items():
