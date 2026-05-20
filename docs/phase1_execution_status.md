@@ -20,6 +20,9 @@
 - 修复后的 few-shot live 对照也已由用户手动跑通：
   - 1A：15/15，全指标 1.0
   - 1B：12/12，全指标 1.0
+- 阶段 1C 固定坏代码修复闭环已跑通：
+  - 5/5 修复成功
+  - 平均 1 轮修复
 
 ## 已完成部分
 
@@ -288,6 +291,34 @@ README 已更新：
 - 当前已知边界
 - 路线图
 
+### 11. 阶段 1C 修复闭环
+
+已完成文件：
+
+- `agents/repair_agent.py`
+- `prompts/gcjp_repair_prompt.md`
+- `experiments/exp_01c_repair_loop.py`
+- `datasets/phase1_repair_cases.jsonl`
+
+完成内容：
+
+- 从坏代码生成初始 `VerificationReport.to_dict()`。
+- 把坏代码、验证报告、case payload 和 prompt context 发送给 LLM。
+- 提取修复后的 GCJP Python 代码。
+- 最多执行 `max_repair_rounds=2` 轮修复。
+- 每轮修复后重新执行 `VerificationPipeline.verify_gcjp_code()`。
+- 输出 initial code、final code、repair attempts、per-case report 和 metrics。
+- 支持固定坏代码数据集。
+- 支持 `--source-report-dir` 从 1A/1B 已生成 report 目录中读取失败样本进行修复。
+
+首版固定坏代码样本覆盖：
+
+- `TaskGraphBuilder()` 缺少 `segment_id/assigned_actors`
+- `add_constraint(...)` 虚构 API
+- `add_task(condition=...)`
+- `add_physical_feasibility_constraint(speed_kmh=...)`
+- 漏写 `built = g.build()`
+
 ## 已跑通的测试
 
 ### 非 live 测试
@@ -354,6 +385,30 @@ python -m experiments.exp_01b_standard_nl_to_gcjp --local-provider claude --prom
 所有聚合指标均为 1.0
 ```
 
+### live repair-loop baseline
+
+阶段 1C 固定坏代码修复闭环已完整复跑通过：
+
+```powershell
+python -m experiments.exp_01c_repair_loop --local-provider claude --dataset datasets/phase1_repair_cases.jsonl
+```
+
+结果：
+
+```text
+repair cases: 5/5
+initial_pass_rate: 0.0
+repair_attempt_rate: 1.0
+repair_success_rate: 1.0
+final_pass_rate: 1.0
+avg_repair_rounds: 1.0
+```
+
+备注：
+
+- 默认沙箱中外部 LLM 请求会触发 WinError 10013 网络权限错误。
+- 授权外部 LLM 访问后，`--limit 2` smoke 和完整 5 条样本均通过。
+
 ## 对照原执行清单尚未完成或待补充的部分
 
 ### 1. OpenAI-compatible live provider 尚未验证
@@ -397,16 +452,11 @@ python -m demos.demo_llm_client_smoke --local-provider claude
 
 当前状态符合计划。
 
-### 4. LLM 自动修复闭环尚未实现
+### 4. 1A/1B 生成实验的实时联动修复尚未强制接入
 
-当前已经有结构化失败摘要和 `VerificationReport.to_dict()`，但尚未实现：
+当前 1C 已支持固定坏代码数据集，也支持 `--source-report-dir` 修复已有 1A/1B report 目录里的失败样本。
 
-- 失败后自动把 report 送回 LLM
-- 多轮修复
-- N 轮内收敛统计
-- 修复前后 diff/report 对比
-
-这是下一阶段重点。
+尚未做的是：在 1A/1B 实验运行过程中自动发现失败并立即触发修复。
 
 ### 5. metrics 中的失败详情尚未做二级聚合
 
@@ -423,7 +473,7 @@ python -m demos.demo_llm_client_smoke --local-provider claude
 
 1. 用一个 OpenAI-compatible provider 做 live smoke，确认另一条协议链路。
 2. 将当前 zero-shot / few-shot 结果作为阶段 1 baseline 固化进提交说明。
-3. 开始阶段 2 或阶段 1C：LLM 修复闭环。
+3. 把 1C 修复闭环接入 1A/1B 实验运行过程，支持失败后自动修复。
 4. 后续把 metrics 失败详情做二级聚合。
 
 ## 当前最常用命令
@@ -454,4 +504,10 @@ few-shot live 对照：
 ```powershell
 python -m experiments.exp_01a_structured_to_gcjp --local-provider claude --prompt prompts/gcjp_generation_prompt_fewshot.md
 python -m experiments.exp_01b_standard_nl_to_gcjp --local-provider claude --prompt prompts/standard_nl_to_gcjp_prompt_fewshot.md
+```
+
+repair-loop live baseline：
+
+```powershell
+python -m experiments.exp_01c_repair_loop --local-provider claude --dataset datasets/phase1_repair_cases.jsonl
 ```

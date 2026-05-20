@@ -96,6 +96,20 @@ def test_prompt_contracts() -> None:
         assert "built = g.build()" in text, path
 
 
+def test_repair_prompt_contract() -> None:
+    text = (ROOT / "prompts" / "gcjp_repair_prompt.md").read_text(
+        encoding="utf-8",
+    )
+    assert "{{BROKEN_CODE}}" in text
+    assert "{{VERIFICATION_REPORT_JSON}}" in text
+    assert "gcjp_lineno" in text
+    assert "source_context" in text
+    assert "structured_violations" in text
+    assert "add_task` does not accept `condition" in text
+    assert "actor_speed_kmh" in text
+    assert "built = g.build()" in text
+
+
 def test_retry_policy() -> None:
     assert _should_retry_http_status(502, attempt_index=0, total_attempts=3)
     assert _should_retry_http_status(503, attempt_index=0, total_attempts=3)
@@ -117,6 +131,7 @@ def main() -> int:
         test_base_url_compat_preset,
         test_code_extraction,
         test_prompt_contracts,
+        test_repair_prompt_contract,
         test_retry_policy,
     ]
     for test in tests:

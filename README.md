@@ -59,22 +59,26 @@ NLTaskOrchestration/
 ├── agents/
 │   ├── llm_client.py                  # OpenAI/Anthropic 多协议 LLM client
 │   ├── planner_agent.py               # prompt 渲染 + LLM 调用 + 代码提取
+│   ├── repair_agent.py                # 阶段 1C：基于验证报告修复 GCJP 代码
 │   └── code_extraction.py             # 从模型响应提取 GCJP Python 代码
 │
 ├── prompts/
 │   ├── gcjp_generation_prompt.md
 │   ├── standard_nl_to_gcjp_prompt.md
 │   ├── gcjp_generation_prompt_fewshot.md
-│   └── standard_nl_to_gcjp_prompt_fewshot.md
+│   ├── standard_nl_to_gcjp_prompt_fewshot.md
+│   └── gcjp_repair_prompt.md
 │
 ├── datasets/
 │   ├── phase1_structured_cases.jsonl  # 1A 结构化输入评测集
-│   └── phase1_standard_nl_cases.jsonl # 1B 标准自然语言评测集
+│   ├── phase1_standard_nl_cases.jsonl # 1B 标准自然语言评测集
+│   └── phase1_repair_cases.jsonl      # 1C 固定坏代码修复样本
 │
 ├── experiments/
 │   ├── phase1_common.py
 │   ├── exp_01a_structured_to_gcjp.py
-│   └── exp_01b_standard_nl_to_gcjp.py
+│   ├── exp_01b_standard_nl_to_gcjp.py
+│   └── exp_01c_repair_loop.py
 │
 ├── schemas/
 │   └── task_plan_schema.json          # 标准化任务计划 JSON Schema
@@ -111,7 +115,8 @@ NLTaskOrchestration/
 │   └── get_local_api_config.py        # 读取本地 Codex/Claude provider 配置
 │
 ├── docs/
-│   └── phase1_baseline_report.md      # 阶段 1A/1B 脱敏 baseline 摘要
+│   ├── phase1_baseline_report.md      # 阶段 1A/1B/1C 脱敏 baseline 摘要
+│   └── phase1_execution_status.md     # 阶段 1 执行状态快照
 └── research/                          # 研究计划文档
 ```
 
@@ -318,10 +323,12 @@ Layer 4: 语义反向校验（预留接口）
 | --- | --- |
 | `agents/llm_client.py` | 统一 OpenAI-compatible Chat Completions 与 Anthropic Messages 调用；支持 profile/env/local provider、headers 脱敏预览、base_url 兼容 preset、502/503/504 与网络中断 retry |
 | `agents/planner_agent.py` | 渲染 prompt，调用 LLM，并返回 raw response、extracted code、provider 摘要 |
+| `agents/repair_agent.py` | 根据坏代码、case payload 与 `VerificationReport.to_dict()` 调用 LLM 生成修复版 GCJP |
 | `agents/code_extraction.py` | 优先提取 fenced Python code block；无 fence 时从 `from gcjp.mission_graph import TaskGraphBuilder` 入口截取 |
 | `experiments/phase1_common.py` | 统一 CLI 参数、provider 加载、样本执行、指标聚合、失败摘要打印 |
 | `experiments/exp_01a_structured_to_gcjp.py` | 1A：结构化任务描述 JSON → GCJP |
 | `experiments/exp_01b_standard_nl_to_gcjp.py` | 1B：标准无歧义自然语言 → GCJP |
+| `experiments/exp_01c_repair_loop.py` | 1C：固定坏代码或已有失败 report → LLM 修复 → 再验证 |
 
 当前 zero-shot prompt 是 baseline；`*_fewshot.md` 用作对照实验，不替代 baseline。
 
@@ -406,6 +413,12 @@ conda run -n llm --no-capture-output python -m experiments.exp_01a_structured_to
 conda run -n llm --no-capture-output python -m experiments.exp_01b_standard_nl_to_gcjp --local-provider claude --prompt prompts/standard_nl_to_gcjp_prompt_fewshot.md
 ```
 
+阶段 1C 修复闭环：
+
+```powershell
+conda run -n llm --no-capture-output python -m experiments.exp_01c_repair_loop --local-provider claude --dataset datasets/phase1_repair_cases.jsonl
+```
+
 实验输出写入 `out/phase1_generation/`，包括 raw response、extracted code、report JSON 和 metrics；该目录是本地产物，不入库。
 
 非 live 回归：
@@ -430,9 +443,10 @@ conda run -n llm --no-capture-output python tools/validate_configs.py
 3. `VerificationPipeline` 完成 SAT/UNSAT 检测：资源超限（demo_02：fleet_1 弹药 5 > 4）与能力不匹配（demo_11）均能被 Z3 检测并归因。
 4. `environment_model.py` 校验 scenario_id / actor / target 与环境配置的一致性；`environment_facilities.yaml` 提供 UTM 坐标转换后的真实设施地图。
 5. **结构化错误反馈链路**：safety 违规、GCJP API 错误、运行时异常均带行号、源码上下文与修复建议，可直接以 JSON 形式作为 LLM 修复 prompt 输入（`demo_12` 5/5 通过）。
-6. **阶段 1A/1B LLM baseline**：2026-05-19 使用 Anthropic Messages 兼容 provider 复跑通过，1A structured JSON → GCJP 为 9/9，1B standard NL → GCJP 为 7/7，聚合指标均为 1.0；脱敏摘要见 `docs/phase1_baseline_report.md`。
+6. **阶段 1A/1B LLM baseline**：2026-05-19 使用 Anthropic Messages 兼容 provider 复跑通过，扩充版 zero-shot 与 few-shot 均达到 1A 15/15、1B 12/12；脱敏摘要见 `docs/phase1_baseline_report.md`。
 7. **多协议 provider 接入**：支持 OpenAI-compatible Chat Completions、Anthropic Messages、本地 Codex/Claude 配置读取、CC Switch 风格中转站参数复用、headers 脱敏预览和 retry。
-8. `DebugLogger` 实现全局可控调试输出，`VERBOSE=False` 时静默运行。
+8. **阶段 1C 修复闭环**：固定坏代码样本 5/5 修复成功，平均 1 轮修复；覆盖缺构造参数、虚构 API、错误 condition 参数、错误 physical 参数和漏 `built`。
+9. `DebugLogger` 实现全局可控调试输出，`VERBOSE=False` 时静默运行。
 
 ---
 
@@ -461,11 +475,12 @@ conda run -n llm --no-capture-output python tools/validate_configs.py
 - ✅ 阶段 0 UNSAT core 语义/框架拆分与归因输出
 - ✅ 阶段 1A/1B LLM 生成评测 baseline：多协议 provider、prompt/dataset/experiments、脱敏输出与本地 provider 读取
 - ✅ 阶段 1 数据集扩充、retry、非 live 回归与 few-shot 对照 prompt
+- ✅ 阶段 1C LLM 修复闭环：固定坏代码样本 5/5 修复成功
 
 ### 下一阶段
 
-1. **扩展 baseline 复跑**：用扩充后的 1A 15 条、1B 12 条数据集分别跑 zero-shot 与 few-shot，对比不同 provider/model 的稳定性。
-2. **LLM 修复闭环原型**：基于 `VerificationReport.to_dict()` 的结构化反馈构建 prompt，让 LLM 在 N 轮以内自我修复 GCJP 代码；统计收敛轮数、错误类型分布。
+1. **OpenAI-compatible live smoke**：用 OpenAI Chat Completions 格式 provider 做一次真实连通与 `--limit 1` 生成评测。
+2. **1A/1B 实时修复联动**：在生成实验运行过程中自动发现失败样本并触发 1C 修复，而不仅是离线修复已有 report。
 3. **失败诊断数据化**：把 `_summary_line()` 的失败摘要进一步汇总到 metrics，形成按 `api_error.code` / `gcjp_lineno` / error type 的报告视图。
 4. **物理可行性自动注入**：JSON 路径根据 actor 初始位置与目标坐标自动计算飞行距离，调用 `add_physical_feasibility_constraint()`。
 5. **UNSAT 归因解释模板**：基于 semantic/framework core 和 attribution 生成可读解释，供人工审查或修复 Agent 使用。

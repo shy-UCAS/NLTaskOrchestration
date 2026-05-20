@@ -48,7 +48,7 @@ from agents.llm_client import (
 DEFAULT_SYSTEM_PROMPT = "You are a concise connectivity test assistant."
 DEFAULT_USER_PROMPT = (
     """
-    请具体介绍什么大语言模型基础架构->Transformers模型架构
+    请尽可能精简的介绍什么大语言模型基础架构->Transformers模型架构
     """
 )
 

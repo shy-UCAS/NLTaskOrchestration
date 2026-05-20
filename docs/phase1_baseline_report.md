@@ -206,6 +206,38 @@ edge_complete_rate: 1.0
 constraint_complete_rate: 1.0
 ```
 
+### Baseline D：阶段 1C 固定坏代码修复闭环
+
+阶段 1C 使用固定坏代码样本集验证“已有失败报告 -> LLM 修复 -> 再验证”闭环。样本覆盖：
+
+- `TaskGraphBuilder()` 缺少 `segment_id/assigned_actors`
+- `add_constraint(...)` 虚构 API
+- `add_task(condition=...)`
+- `add_physical_feasibility_constraint(speed_kmh=...)`
+- 漏写 `built = g.build()`
+
+命令：
+
+```powershell
+python -m experiments.exp_01c_repair_loop --local-provider claude --dataset datasets/phase1_repair_cases.jsonl
+```
+
+结果：
+
+```text
+total_cases: 5
+initial_pass_rate: 0.0
+repair_attempt_rate: 1.0
+repair_success_rate: 1.0
+final_pass_rate: 1.0
+avg_repair_rounds: 1.0
+```
+
+说明：
+
+- 首轮在默认沙箱中出现过 WinError 10013 网络权限错误；授权外部 LLM 访问后，smoke 与完整 5 条样本均通过。
+- 该结果只记录聚合指标，不提交 `out/phase1_generation/exp_01c_repair_loop/` 中的 raw response。
+
 ## 说明
 
 - 本报告只保存脱敏配置和聚合指标，不保存 raw response、API key 或完整请求体。
