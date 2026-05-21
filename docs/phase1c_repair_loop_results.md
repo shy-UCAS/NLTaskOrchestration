@@ -164,6 +164,72 @@ out\phase1_failure_seed_structured_repairs\exp_01c_repair_loop: metrics == recom
 3. 两组实验中各有一个 case 需要 2 轮修复，体现了“修复 -> 验证 -> 新报告 -> 再修复”的闭环价值。
 4. `capability_physical_unsat` case 的最终 Layer 3 保持 `z3_result=unsat`，且 unsat core 包含 `capability_t2_fleet4_jam_site_q`，说明修复没有通过删除约束强行转成 SAT。
 
+## Verification Feedback Ablation
+
+为验证 `VerificationReport` 反馈本身的贡献，新增独立实验入口：
+
+```text
+experiments/exp_01d_repair_feedback_ablation.py
+```
+
+该实验保持 Phase 1C 的修复、评估和输出逻辑不变，仅改变传入
+`RepairAgent.repair_gcjp()` 的验证反馈内容：
+
+| mode | 反馈内容 |
+| --- | --- |
+| `full_report` | 完整 `VerificationReport`，等价当前 Phase 1C |
+| `no_report` | 空对象 `{}`，只给 broken code 和 case |
+| `layer1_only` | 仅保留 Layer 1 语法/安全/执行诊断 |
+| `error_summary_only` | 压缩错误摘要，包含首个失败层、错误类型、行号、Layer 2 issues、Z3/unsat core 等 |
+
+### 1B Standard NL 消融结果
+
+输出目录：
+
+```text
+out\phase1_feedback_ablation\standard_nl
+```
+
+| mode | repair_success_rate | final_pass_rate | avg_repair_rounds |
+| --- | ---: | ---: | ---: |
+| `full_report` | 1.0000 | 1.0000 | 1.3333 |
+| `no_report` | 0.6667 | 0.6667 | 1.3333 |
+| `layer1_only` | 0.6667 | 0.6667 | 1.3333 |
+| `error_summary_only` | 1.0000 | 1.0000 | 1.3333 |
+
+### 1A Structured 消融结果
+
+输出目录：
+
+```text
+out\phase1_feedback_ablation\structured
+```
+
+| mode | repair_success_rate | final_pass_rate | avg_repair_rounds |
+| --- | ---: | ---: | ---: |
+| `full_report` | 1.0000 | 1.0000 | 1.3333 |
+| `no_report` | 0.6667 | 0.6667 | 1.3333 |
+| `layer1_only` | 0.6667 | 0.6667 | 1.3333 |
+| `error_summary_only` | 1.0000 | 1.0000 | 1.3333 |
+
+### 消融结论
+
+两组真实 failure seed 上结果一致：
+
+```text
+full_report > no_report
+error_summary_only > layer1_only
+```
+
+这说明当前失败样本中，单纯给 Layer 1 截断诊断不足以稳定修复复杂样本；
+修复器还需要图结构或语义层面的反馈。`error_summary_only` 能达到
+`full_report` 同等结果，说明完整 JSON 报告不是唯一有效形式，但反馈中
+必须保留跨层诊断摘要。
+
+已对每个 mode 使用 `tools/recompute_phase1c_metrics.py` 反算 metrics，
+确认 `metrics.json` 与逐 case report 一致。`no_report` 模式的 prompt
+中 `Verification report` 段确认为 `{}`。
+
 ## 与固定坏例 Baseline 的关系
 
 固定坏例 baseline：
