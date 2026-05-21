@@ -369,7 +369,7 @@ conda run -n llm --no-capture-output python -m demos.demo_12_gcjp_structured_fee
 
 ### 4.4 阶段 1 LLM 接入与实验
 
-LLM 配置有三类入口，优先级为 CLI 参数 > `PHASE1_LLM_CONFIG` profile > `PHASE1_LLM_*` 环境变量 > 协议原生环境变量。
+LLM 配置入口优先级为 CLI 参数 > 显式 `--config/--provider-profile` 或 `--local-provider` > `PHASE1_LLM_*` 普通环境变量 > 协议原生环境变量。
 
 环境变量方式：
 
@@ -380,14 +380,19 @@ $env:PHASE1_LLM_API_KEY="sk-..."
 $env:PHASE1_LLM_MODEL="your-model"
 $env:PHASE1_LLM_TEMPERATURE="0.1"
 $env:PHASE1_LLM_MAX_TOKENS="4096"
+# 可选：显式启用官方 SDK 后端。
+# $env:PHASE1_LLM_TRANSPORT="official_sdk"
+# 可选覆盖：默认已开启 max thinking。
+# $env:PHASE1_LLM_THINKING="disabled"
+# $env:PHASE1_LLM_REASONING_EFFORT="high"  # openai_chat / openai_responses
+# $env:PHASE1_LLM_OUTPUT_EFFORT="high"     # anthropic_messages
 ```
 
 profile 方式：
 
 ```powershell
 Copy-Item configs\llm_providers.example.yaml configs\llm_providers.local.yaml
-$env:PHASE1_LLM_CONFIG="configs/llm_providers.local.yaml"
-$env:PHASE1_LLM_PROFILE="your_profile"
+python -m demos.demo_llm_client_smoke --config configs/llm_providers.local.yaml --provider-profile your_profile
 ```
 
 本地 provider / CC Switch 兼容方式：
@@ -398,6 +403,26 @@ conda run -n llm --no-capture-output python -m demos.demo_llm_client_smoke --loc
 ```
 
 本项目不读取或修改 CC Switch GUI 内部配置；只复用用户已经写入本地 Codex/Claude 配置或环境变量中的 `protocol/base_url/api_key/model`。对于需要特殊 header 的 Anthropic-style 中转站，可通过 `BASE_URL_COMPAT_PRESETS` 自动补 `auth_header` 和 `User-Agent`，也可以用 `--auth-header`、`--user-agent` 显式覆盖。
+
+推理/思考参数会按协议分流，默认开启最大模式：`thinking` 默认 `enabled`，`openai_chat` 协议默认使用 `reasoning_effort=max`，`anthropic_messages` 协议默认使用 `output_effort=max`，分别对应 `{"thinking": {"type": "enabled"}}`、`{"reasoning_effort": "max"}`、`{"output_config": {"effort": "max"}}`。如需关闭，可传 `--thinking disabled` 或在 profile/env 中设为 `disabled`；更特殊的 provider 字段仍可放进 profile 的 `extra_body`，并会覆盖上述显式配置生成的同名字段。
+
+官方 SDK 后端是显式 opt-in，不影响默认 HTTP 请求路径。使用前按需安装：
+
+```powershell
+pip install openai anthropic
+```
+
+OpenAI Responses API 示例：
+
+```powershell
+python -m demos.demo_llm_client_smoke --protocol openai_responses --transport official_sdk --model gpt-5.5 --api-key-env OPENAI_API_KEY
+```
+
+Anthropic Messages SDK 示例：
+
+```powershell
+python -m demos.demo_llm_client_smoke --protocol anthropic_messages --transport official_sdk --model claude-sonnet-4-6 --thinking adaptive --output-effort high --api-key-env ANTHROPIC_API_KEY
+```
 
 阶段 1 实验：
 
