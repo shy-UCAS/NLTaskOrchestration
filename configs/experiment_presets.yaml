@@ -1,0 +1,183 @@
+# Phase 1 experiment presets.
+# This file stores reusable command parameters only; do not put API keys here.
+
+presets:
+  phase1a_failure_seed_structured:
+    description: Generate 1A structured failure-seed reports with short output.
+    module: experiments.exp_01a_structured_to_gcjp
+    args:
+      local_provider: claude
+      dataset: datasets/phase1_failure_seed_structured_cases.jsonl
+      output_dir: out/phase1_failure_seed_structured_runs
+      max_tokens: 280
+      retry_attempts: 0
+
+  phase1b_failure_seed_standard_nl:
+    description: Generate 1B standard-NL failure-seed reports with short output.
+    module: experiments.exp_01b_standard_nl_to_gcjp
+    args:
+      local_provider: claude
+      dataset: datasets/phase1_failure_seed_standard_nl_cases.jsonl
+      output_dir: out/phase1_failure_seed_runs
+      max_tokens: 280
+      retry_attempts: 0
+
+  phase1c_repair_standard_latest:
+    description: Repair latest 1B standard-NL failure-seed reports.
+    module: experiments.exp_01c_repair_loop
+    args:
+      local_provider: claude
+      source_report_dir:
+        latest_run: out/phase1_failure_seed_runs
+        field: reports_dir
+      output_dir: out/phase1_failure_seed_repairs_verify
+      max_repair_rounds: 2
+      max_tokens: 1800
+      retry_attempts: 0
+
+  phase1c_repair_structured_latest:
+    description: Repair latest 1A structured failure-seed reports.
+    module: experiments.exp_01c_repair_loop
+    args:
+      local_provider: claude
+      source_report_dir:
+        latest_run: out/phase1_failure_seed_structured_runs
+        field: reports_dir
+      output_dir: out/phase1_failure_seed_structured_repairs
+      max_repair_rounds: 2
+      max_tokens: 1800
+      retry_attempts: 0
+
+  phase1d_standard_ablation_latest:
+    description: Run feedback ablation on latest 1B standard-NL failure reports.
+    module: experiments.exp_01d_repair_feedback_ablation
+    args:
+      local_provider: claude
+      source_report_dir:
+        latest_run: out/phase1_failure_seed_runs
+        field: reports_dir
+      output_dir: out/phase1_feedback_ablation_manual/standard_nl
+      max_repair_rounds: 2
+      max_tokens: 1800
+      retry_attempts: 0
+
+  phase1d_structured_ablation_latest:
+    description: Run feedback ablation on latest 1A structured failure reports.
+    module: experiments.exp_01d_repair_feedback_ablation
+    args:
+      local_provider: claude
+      source_report_dir:
+        latest_run: out/phase1_failure_seed_structured_runs
+        field: reports_dir
+      output_dir: out/phase1_feedback_ablation_manual/structured
+      max_repair_rounds: 2
+      max_tokens: 1800
+      retry_attempts: 0
+
+  phase1a_failure_seed_structured_v2:
+    description: Generate v2 1A structured failure-seed reports with short output.
+    module: experiments.exp_01a_structured_to_gcjp
+    args:
+      local_provider: claude
+      dataset: datasets/phase1_failure_seed_structured_cases_v2.jsonl
+      output_dir: out/phase1_failure_seed_structured_runs_v2
+      max_tokens: 280
+      retry_attempts: 0
+
+  phase1b_failure_seed_standard_nl_v2:
+    description: Generate v2 1B standard-NL failure-seed reports with short output.
+    module: experiments.exp_01b_standard_nl_to_gcjp
+    args:
+      local_provider: claude
+      dataset: datasets/phase1_failure_seed_standard_nl_cases_v2.jsonl
+      output_dir: out/phase1_failure_seed_runs_v2
+      max_tokens: 280
+      retry_attempts: 0
+
+  phase1c_repair_standard_v2_latest:
+    description: Repair latest v2 1B standard-NL failure-seed reports.
+    module: experiments.exp_01c_repair_loop
+    args:
+      local_provider: claude
+      source_report_dir:
+        latest_run: out/phase1_failure_seed_runs_v2
+        field: reports_dir
+      output_dir: out/phase1_failure_seed_repairs_verify_v2
+      max_repair_rounds: 2
+      max_tokens: 1800
+      retry_attempts: 0
+
+  phase1c_repair_structured_v2_latest:
+    description: Repair latest v2 1A structured failure-seed reports.
+    module: experiments.exp_01c_repair_loop
+    args:
+      local_provider: claude
+      source_report_dir:
+        latest_run: out/phase1_failure_seed_structured_runs_v2
+        field: reports_dir
+      output_dir: out/phase1_failure_seed_structured_repairs_v2
+      max_repair_rounds: 2
+      max_tokens: 1800
+      retry_attempts: 0
+
+  phase1d_standard_ablation_v2_latest:
+    description: Run feedback ablation on latest v2 1B standard-NL failure reports.
+    module: experiments.exp_01d_repair_feedback_ablation
+    args:
+      local_provider: claude
+      source_report_dir:
+        latest_run: out/phase1_failure_seed_runs_v2
+        field: reports_dir
+      output_dir: out/phase1_feedback_ablation_manual/standard_nl_v2
+      max_repair_rounds: 2
+      max_tokens: 1800
+      retry_attempts: 0
+
+  phase1d_structured_ablation_v2_latest:
+    description: Run feedback ablation on latest v2 1A structured failure reports.
+    module: experiments.exp_01d_repair_feedback_ablation
+    args:
+      local_provider: claude
+      source_report_dir:
+        latest_run: out/phase1_failure_seed_structured_runs_v2
+        field: reports_dir
+      output_dir: out/phase1_feedback_ablation_manual/structured_v2
+      max_repair_rounds: 2
+      max_tokens: 1800
+      retry_attempts: 0
+
+  phase1e_simulated_failure_v1:
+    description: Generate LLM-simulated natural GCJP failure reports.
+    module: experiments.exp_01e_simulated_natural_failure_generation
+    args:
+      local_provider: claude
+      dataset: datasets/phase1_simulated_failure_specs.jsonl
+      output_dir: out/phase1_simulated_failure_runs
+      max_tokens: 1400
+      retry_attempts: 2
+
+  phase1c_repair_simulated_latest:
+    description: Repair latest 1E simulated natural failure reports.
+    module: experiments.exp_01c_repair_loop
+    args:
+      local_provider: claude
+      source_report_dir:
+        latest_run: out/phase1_simulated_failure_runs
+        field: reports_dir
+      output_dir: out/phase1_simulated_failure_repairs
+      max_repair_rounds: 2
+      max_tokens: 4096
+      retry_attempts: 0
+
+  phase1d_simulated_ablation_latest:
+    description: Run feedback ablation on latest 1E simulated natural failure reports.
+    module: experiments.exp_01d_repair_feedback_ablation
+    args:
+      local_provider: claude
+      source_report_dir:
+        latest_run: out/phase1_simulated_failure_runs
+        field: reports_dir
+      output_dir: out/phase1_feedback_ablation_manual/simulated
+      max_repair_rounds: 2
+      max_tokens: 1800
+      retry_attempts: 0
