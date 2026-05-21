@@ -5,9 +5,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from dataclasses import asdict
+from datetime import datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from agents.llm_client import (
     LLMClient,
@@ -32,12 +35,38 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
         choices=["codex", "claude"],
         help="Read local API config written by CC Switch/Codex/Claude tools",
     )
-    parser.add_argument("--protocol", choices=["openai_chat", "anthropic_messages"])
+    parser.add_argument(
+        "--protocol",
+        choices=["openai_chat", "openai_responses", "anthropic_messages"],
+    )
+    parser.add_argument(
+        "--transport",
+        choices=["http", "official_sdk"],
+        help="Request backend: current raw HTTP path or official provider SDK",
+    )
     parser.add_argument("--base-url")
     parser.add_argument("--api-key")
     parser.add_argument("--model")
     parser.add_argument("--temperature", type=float)
     parser.add_argument("--max-tokens", type=int)
+    parser.add_argument(
+        "--thinking",
+        choices=["enabled", "disabled", "adaptive"],
+        help="Provider reasoning switch, sent as {'thinking': {'type': value}}",
+    )
+    parser.add_argument(
+        "--thinking-budget-tokens",
+        type=int,
+        help="Anthropic Messages thinking.budget_tokens value; must be less than max_tokens",
+    )
+    parser.add_argument(
+        "--reasoning-effort",
+        help="OpenAI Chat reasoning_effort value, e.g. high/max",
+    )
+    parser.add_argument(
+        "--output-effort",
+        help="Anthropic Messages output_config.effort value, e.g. high/max",
+    )
     parser.add_argument("--retry-attempts", type=int)
     parser.add_argument("--retry-backoff-seconds", type=float)
     parser.add_argument(
@@ -61,6 +90,21 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
         default=DEFAULT_OUTPUT_DIR,
         help="Directory for raw outputs, extracted code, reports and metrics",
     )
+    parser.add_argument(
+        "--run-label",
+        type=str,
+        default=None,
+        help=(
+            "Optional run name under --output-dir. If omitted, the label is "
+            "derived from provider/model/base_url. By default, a timestamp is "
+            "appended to prevent rerun overwrites."
+        ),
+    )
+    parser.add_argument(
+        "--no-run-timestamp",
+        action="store_true",
+        help="Use the exact run label directory without appending a timestamp.",
+    )
 
 
 def build_agent_from_args(args: argparse.Namespace) -> PlannerAgent:
@@ -71,11 +115,16 @@ def build_agent_from_args(args: argparse.Namespace) -> PlannerAgent:
 def load_config_from_args(args: argparse.Namespace):
     overrides = {
         "protocol": args.protocol,
+        "transport": args.transport,
         "base_url": args.base_url,
         "api_key": args.api_key,
         "model": args.model,
         "temperature": args.temperature,
         "max_tokens": args.max_tokens,
+        "thinking": args.thinking,
+        "thinking_budget_tokens": args.thinking_budget_tokens,
+        "reasoning_effort": args.reasoning_effort,
+        "output_effort": args.output_effort,
         "retry_attempts": args.retry_attempts,
         "retry_backoff_seconds": args.retry_backoff_seconds,
         "auth_header": args.auth_header,
@@ -97,6 +146,116 @@ def print_provider_summary_from_args(args: argparse.Namespace) -> None:
     for key, value in provider_summary_items(config):
         print(f"{key}: {value}")
     print("-" * 40)
+
+
+def resolve_phase1_run_output(
+    *,
+    output_dir: Path,
+    provider_summary: dict[str, Any],
+    run_label: str | None = None,
+    no_run_timestamp: bool = False,
+) -> dict[str, Any]:
+    """Resolve the concrete run directory and metadata for a Phase 1 experiment."""
+    label_source = "cli" if run_label else "auto_config"
+    label = run_label or auto_run_label_from_config(provider_summary)
+    run_dir, run_dir_name, run_timestamp = _resolve_run_dir(
+        output_dir,
+        label,
+        timestamp_enabled=not no_run_timestamp,
+    )
+    return {
+        "base_output_dir": str(output_dir),
+        "run_dir": run_dir,
+        "run_label": label,
+        "run_label_source": label_source,
+        "run_dir_name": run_dir_name,
+        "run_timestamp": run_timestamp,
+        "run_timestamp_enabled": bool(label and not no_run_timestamp),
+        "provider": provider_summary,
+    }
+
+
+def phase1_run_metadata_json(run_output: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "base_output_dir": run_output["base_output_dir"],
+        "run_dir": str(run_output["run_dir"]),
+        "run_label": run_output["run_label"],
+        "run_label_source": run_output["run_label_source"],
+        "run_dir_name": run_output["run_dir_name"],
+        "run_timestamp": run_output["run_timestamp"],
+        "run_timestamp_enabled": run_output["run_timestamp_enabled"],
+        "provider": run_output["provider"],
+    }
+
+
+def write_latest_run_index(
+    *,
+    run_output: dict[str, Any],
+    experiment_name: str,
+    experiment_dir: Path,
+    reports_dir: Path | None,
+    metrics_path: Path | None = None,
+    summary_path: Path | None = None,
+) -> Path:
+    index = {
+        "experiment": experiment_name,
+        **phase1_run_metadata_json(run_output),
+        "experiment_dir": str(experiment_dir),
+        "reports_dir": str(reports_dir) if reports_dir else None,
+        "metrics_path": str(metrics_path) if metrics_path else None,
+        "summary_path": str(summary_path) if summary_path else None,
+    }
+    path = Path(run_output["base_output_dir"]) / "latest_run.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(index, ensure_ascii=False, indent=2), encoding="utf-8")
+    return path
+
+
+def auto_run_label_from_config(config_summary: dict[str, Any]) -> str:
+    host = _base_url_hostname(config_summary.get("base_url"))
+    parts = [
+        _slugify_run_label_part(config_summary.get("provider_name")),
+        _slugify_run_label_part(config_summary.get("model")),
+        _slugify_run_label_part(host or config_summary.get("protocol")),
+    ]
+    parts = [part for part in parts if part]
+    return "__".join(parts) or "llm_run"
+
+
+def _resolve_run_dir(
+    output_dir: Path,
+    run_label: str,
+    *,
+    timestamp_enabled: bool,
+) -> tuple[Path, str, str | None]:
+    if not timestamp_enabled:
+        return output_dir / run_label, run_label, None
+
+    run_timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    run_dir_stem = f"{run_label}__{run_timestamp}"
+    run_dir = output_dir / run_dir_stem
+    suffix = 2
+    while run_dir.exists():
+        run_dir = output_dir / f"{run_dir_stem}_{suffix}"
+        suffix += 1
+    return run_dir, run_dir.name, run_timestamp
+
+
+def _base_url_hostname(base_url: Any) -> str:
+    text = str(base_url or "").strip()
+    if not text:
+        return ""
+    parsed = urlparse(text)
+    if not parsed.hostname and "://" not in text:
+        parsed = urlparse("//" + text)
+    return (parsed.hostname or "").lower()
+
+
+def _slugify_run_label_part(value: Any) -> str:
+    text = str(value or "").strip().lower()
+    text = re.sub(r"[^a-z0-9]+", "_", text)
+    text = re.sub(r"_+", "_", text).strip("_")
+    return text
 
 
 def load_jsonl(path: Path, limit: int | None = None) -> list[dict[str, Any]]:
@@ -129,9 +288,18 @@ def run_generation_experiment(
     if not cases:
         raise ValueError(f"No cases loaded from {dataset_path}")
 
-    agent = build_agent_from_args(args)
+    config = load_config_from_args(args)
+    provider_summary = config.safe_summary()
+    run_output = resolve_phase1_run_output(
+        output_dir=args.output_dir,
+        provider_summary=provider_summary,
+        run_label=args.run_label,
+        no_run_timestamp=args.no_run_timestamp,
+    )
+
+    agent = PlannerAgent(LLMClient(config))
     prompt_template = read_prompt_template(prompt_path)
-    output_dirs = _ensure_output_dirs(args.output_dir, experiment_name)
+    output_dirs = _ensure_output_dirs(run_output["run_dir"], experiment_name)
 
     records = []
     for case in cases:
@@ -155,10 +323,19 @@ def run_generation_experiment(
         print(_summary_line(record))
 
     metrics = _aggregate_metrics(experiment_name, records)
+    metrics.update(phase1_run_metadata_json(run_output))
+    metrics["output_dir"] = str(output_dirs["root"])
     metrics_path = output_dirs["root"] / "metrics.json"
     metrics_path.write_text(
         json.dumps(metrics, ensure_ascii=False, indent=2),
         encoding="utf-8",
+    )
+    write_latest_run_index(
+        run_output=run_output,
+        experiment_name=experiment_name,
+        experiment_dir=output_dirs["root"],
+        reports_dir=output_dirs["reports"],
+        metrics_path=metrics_path,
     )
     print(f"\n[{experiment_name}] 汇总指标 -> {metrics_path}")
     print(json.dumps(metrics["rates"], ensure_ascii=False, indent=2))

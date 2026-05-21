@@ -18,13 +18,15 @@ from typing import Any
 from agents.llm_client import LLMClient, LLMConfigError
 from agents.repair_agent import RepairAgent
 from experiments.phase1_common import (
-    DEFAULT_OUTPUT_DIR,
     add_common_args,
     handle_config_error,
     load_config_from_args,
     load_jsonl,
+    phase1_run_metadata_json,
     print_provider_summary_from_args,
     read_prompt_template,
+    resolve_phase1_run_output,
+    write_latest_run_index,
 )
 from gcjp.code_executor import execute_gcjp_code
 from gcjp.mission_graph import BuiltGraph
@@ -70,12 +72,21 @@ def main() -> int:
 def run_repair_experiment(args: argparse.Namespace) -> dict[str, Any]:
     cases = _load_cases(args)
     if not cases:
-        raise ValueError("No repair cases loaded")
+        if args.source_report_dir:
+            raise ValueError(_format_empty_source_report_error(args.source_report_dir))
+        raise ValueError("No repair cases loaded from dataset")
 
     prompt_template = read_prompt_template(args.prompt)
     config = load_config_from_args(args)
+    provider_summary = config.safe_summary()
+    run_output = resolve_phase1_run_output(
+        output_dir=args.output_dir,
+        provider_summary=provider_summary,
+        run_label=args.run_label,
+        no_run_timestamp=args.no_run_timestamp,
+    )
     agent = RepairAgent(LLMClient(config))
-    output_dirs = _ensure_output_dirs(args.output_dir)
+    output_dirs = _ensure_output_dirs(run_output["run_dir"])
 
     records = []
     for case in cases:
@@ -90,10 +101,19 @@ def run_repair_experiment(args: argparse.Namespace) -> dict[str, Any]:
         print(_summary_line(record))
 
     metrics = _aggregate_metrics(records)
+    metrics.update(phase1_run_metadata_json(run_output))
     metrics["output_dir"] = str(output_dirs["root"])
-    (output_dirs["root"] / "metrics.json").write_text(
+    metrics_path = output_dirs["root"] / "metrics.json"
+    metrics_path.write_text(
         json.dumps(metrics, ensure_ascii=False, indent=2),
         encoding="utf-8",
+    )
+    write_latest_run_index(
+        run_output=run_output,
+        experiment_name=EXPERIMENT_NAME,
+        experiment_dir=output_dirs["root"],
+        reports_dir=output_dirs["reports"],
+        metrics_path=metrics_path,
     )
     return metrics
 
@@ -102,6 +122,44 @@ def _load_cases(args: argparse.Namespace) -> list[dict[str, Any]]:
     if args.source_report_dir:
         return _load_failed_source_reports(args.source_report_dir, args.limit)
     return load_jsonl(args.dataset, limit=args.limit)
+
+
+def _format_empty_source_report_error(report_dir: Path) -> str:
+    if not report_dir.exists():
+        return f"No repair cases loaded: source report dir does not exist: {report_dir}"
+    if not report_dir.is_dir():
+        return f"No repair cases loaded: source report path is not a directory: {report_dir}"
+
+    reports_found = 0
+    skipped_first_pass = 0
+    skipped_missing_code = 0
+    unreadable_reports = 0
+
+    for path in sorted(report_dir.glob("*.json")):
+        reports_found += 1
+        try:
+            record = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            unreadable_reports += 1
+            continue
+        if (record.get("evaluation") or {}).get("first_pass"):
+            skipped_first_pass += 1
+            continue
+        generation = record.get("generation") or {}
+        if not (generation.get("extracted_code") or ""):
+            skipped_missing_code += 1
+
+    return (
+        "No repair cases loaded from source reports. "
+        f"report_dir={report_dir}; reports_found={reports_found}; "
+        f"skipped_first_pass={skipped_first_pass}; "
+        f"skipped_missing_extracted_code={skipped_missing_code}; "
+        f"unreadable_reports={unreadable_reports}. "
+        "Phase 1C can only repair failed reports that contain generation.extracted_code. "
+        "If syntax_extract_rate is 0.0 or reports show NO_CODE/LLMRequestError, rerun 1A/1B "
+        "with a larger --max-tokens and/or retry attempts, or pass a reports dir from a run "
+        "that produced extractable code."
+    )
 
 
 def _load_failed_source_reports(
