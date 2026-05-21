@@ -27,6 +27,10 @@ from experiments.phase1_common import (
     read_prompt_template,
     resolve_phase1_run_output,
     write_latest_run_index,
+    _constraint_complete,
+    _edge_complete,
+    _first_report_layer as _first_layer,
+    _node_complete,
 )
 from gcjp.code_executor import execute_gcjp_code
 from gcjp.mission_graph import BuiltGraph
@@ -86,7 +90,7 @@ def run_repair_experiment(args: argparse.Namespace) -> dict[str, Any]:
         no_run_timestamp=args.no_run_timestamp,
     )
     agent = RepairAgent(LLMClient(config))
-    output_dirs = _ensure_output_dirs(run_output["run_dir"])
+    output_dirs = ensure_output_dirs(run_output["run_dir"])
 
     records = []
     for case in cases:
@@ -96,11 +100,11 @@ def run_repair_experiment(args: argparse.Namespace) -> dict[str, Any]:
             prompt_template=prompt_template,
             max_repair_rounds=args.max_repair_rounds,
         )
-        _write_case_outputs(output_dirs, record)
+        write_case_outputs(output_dirs, record)
         records.append(record)
-        print(_summary_line(record))
+        print(summary_line(record))
 
-    metrics = _aggregate_metrics(records)
+    metrics = aggregate_metrics(records)
     metrics.update(phase1_run_metadata_json(run_output))
     metrics["output_dir"] = str(output_dirs["root"])
     metrics_path = output_dirs["root"] / "metrics.json"
@@ -120,7 +124,7 @@ def run_repair_experiment(args: argparse.Namespace) -> dict[str, Any]:
 
 def _load_cases(args: argparse.Namespace) -> list[dict[str, Any]]:
     if args.source_report_dir:
-        return _load_failed_source_reports(args.source_report_dir, args.limit)
+        return load_failed_source_reports(args.source_report_dir, args.limit)
     return load_jsonl(args.dataset, limit=args.limit)
 
 
@@ -162,7 +166,7 @@ def _format_empty_source_report_error(report_dir: Path) -> str:
     )
 
 
-def _load_failed_source_reports(
+def load_failed_source_reports(
     report_dir: Path,
     limit: int | None,
 ) -> list[dict[str, Any]]:
@@ -201,7 +205,7 @@ def _run_case(
 ) -> dict[str, Any]:
     sample_id = case["sample_id"]
     initial_code = case["broken_code"]
-    initial_eval = _evaluate_code(case, initial_code)
+    initial_eval = evaluate_code(case, initial_code)
 
     attempts = []
     current_code = initial_code
@@ -209,7 +213,7 @@ def _run_case(
     final_eval = initial_eval
 
     for repair_round in range(1, max_repair_rounds + 1):
-        if _is_expected_pass(case, final_eval):
+        if is_expected_pass(case, final_eval):
             break
         try:
             generation = agent.repair_gcjp(
@@ -223,9 +227,9 @@ def _run_case(
             )
             repaired_code = generation.repaired_code
             round_eval = (
-                _evaluate_code(case, repaired_code)
+                evaluate_code(case, repaired_code)
                 if generation.extraction.get("ok")
-                else _extraction_failed_eval(generation.extraction)
+                else extraction_failed_eval(generation.extraction)
             )
             attempt = {
                 "repair_round": repair_round,
@@ -233,7 +237,7 @@ def _run_case(
                 "evaluation": round_eval,
             }
         except Exception as exc:
-            round_eval = _exception_eval(exc)
+            round_eval = exception_eval(exc)
             attempt = {
                 "repair_round": repair_round,
                 "generation": None,
@@ -242,7 +246,7 @@ def _run_case(
             }
         attempts.append(attempt)
         final_eval = round_eval
-        current_code = _attempt_code(attempt) or current_code
+        current_code = attempt_code(attempt) or current_code
         current_report = final_eval.get("report") or current_report
 
     return {
@@ -254,19 +258,19 @@ def _run_case(
         "final_code": current_code,
         "final": final_eval,
         "evaluation": {
-            "initial_pass": _is_expected_pass(case, initial_eval),
+            "initial_pass": is_expected_pass(case, initial_eval),
             "repair_attempted": bool(attempts),
             "repair_success": (
-                not _is_expected_pass(case, initial_eval)
-                and _is_expected_pass(case, final_eval)
+                not is_expected_pass(case, initial_eval)
+                and is_expected_pass(case, final_eval)
             ),
-            "final_pass": _is_expected_pass(case, final_eval),
+            "final_pass": is_expected_pass(case, final_eval),
             "repair_rounds": len(attempts),
         },
     }
 
 
-def _evaluate_code(case: dict[str, Any], code: str) -> dict[str, Any]:
+def evaluate_code(case: dict[str, Any], code: str) -> dict[str, Any]:
     exec_result = execute_gcjp_code(code)
     graph = exec_result.graph if exec_result and exec_result.graph else None
     report = VerificationPipeline(z3_timeout_ms=15_000).verify_gcjp_code(code)
@@ -308,11 +312,11 @@ def _report_matches_expected(
     )
 
 
-def _is_expected_pass(case: dict[str, Any], evaluation: dict[str, Any]) -> bool:
+def is_expected_pass(case: dict[str, Any], evaluation: dict[str, Any]) -> bool:
     return bool(evaluation.get("expected_pass"))
 
 
-def _extraction_failed_eval(extraction: dict[str, Any]) -> dict[str, Any]:
+def extraction_failed_eval(extraction: dict[str, Any]) -> dict[str, Any]:
     return {
         "extraction_ok": False,
         "execution_success": False,
@@ -326,7 +330,7 @@ def _extraction_failed_eval(extraction: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _exception_eval(exc: Exception) -> dict[str, Any]:
+def exception_eval(exc: Exception) -> dict[str, Any]:
     return {
         "extraction_ok": False,
         "execution_success": False,
@@ -340,54 +344,14 @@ def _exception_eval(exc: Exception) -> dict[str, Any]:
     }
 
 
-def _attempt_code(attempt: dict[str, Any]) -> str:
+def attempt_code(attempt: dict[str, Any]) -> str:
     generation = attempt.get("generation") or {}
     return generation.get("repaired_code") or ""
 
 
-def _first_layer(report: dict[str, Any] | None, layer_no: int) -> dict[str, Any] | None:
-    if not report:
-        return None
-    for layer in report.get("layers", []):
-        if layer.get("layer") == layer_no:
-            return layer
-    return None
 
 
-def _node_complete(graph: BuiltGraph | None, expected: dict[str, Any]) -> bool:
-    if not graph:
-        return False
-    node_count = expected.get("node_count")
-    if node_count is not None and len(graph.nodes) != int(node_count):
-        return False
-    expected_nodes = expected.get("nodes") or []
-    actual = {
-        (node.actor, node.action, node.target)
-        for node in graph.nodes.values()
-    }
-    for item in expected_nodes:
-        if (item.get("actor"), item.get("action"), item.get("target")) not in actual:
-            return False
-    return True
-
-
-def _edge_complete(graph: BuiltGraph | None, expected: dict[str, Any]) -> bool:
-    if not graph:
-        return False
-    expected_relations = expected.get("edge_relations") or []
-    actual_relations = [edge.relation for edge in graph.edges]
-    return all(rel in actual_relations for rel in expected_relations)
-
-
-def _constraint_complete(graph: BuiltGraph | None, expected: dict[str, Any]) -> bool:
-    if not graph:
-        return False
-    expected_types = expected.get("constraint_types") or []
-    actual_types = [constraint.constraint_type for constraint in graph.constraints]
-    return all(ctype in actual_types for ctype in expected_types)
-
-
-def _aggregate_metrics(records: list[dict[str, Any]]) -> dict[str, Any]:
+def aggregate_metrics(records: list[dict[str, Any]]) -> dict[str, Any]:
     total = len(records)
     initial_pass = sum(1 for r in records if r["evaluation"]["initial_pass"])
     repair_attempt = sum(1 for r in records if r["evaluation"]["repair_attempted"])
@@ -427,7 +391,7 @@ def _aggregate_metrics(records: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def _ensure_output_dirs(root: Path) -> dict[str, Path]:
+def ensure_output_dirs(root: Path) -> dict[str, Path]:
     exp_root = root / EXPERIMENT_NAME
     dirs = {
         "root": exp_root,
@@ -441,7 +405,7 @@ def _ensure_output_dirs(root: Path) -> dict[str, Path]:
     return dirs
 
 
-def _write_case_outputs(output_dirs: dict[str, Path], record: dict[str, Any]) -> None:
+def write_case_outputs(output_dirs: dict[str, Path], record: dict[str, Any]) -> None:
     sample_id = record["sample_id"]
     (output_dirs["initial_code"] / f"{sample_id}.py").write_text(
         record.get("initial_code") or "",
@@ -461,7 +425,7 @@ def _write_case_outputs(output_dirs: dict[str, Path], record: dict[str, Any]) ->
     )
 
 
-def _summary_line(record: dict[str, Any]) -> str:
+def summary_line(record: dict[str, Any]) -> str:
     ev = record["evaluation"]
     mark = "通过" if ev["final_pass"] else "失败"
     return (
@@ -471,6 +435,19 @@ def _summary_line(record: dict[str, Any]) -> str:
         f"repair_success={ev['repair_success']} "
         f"final={ev['final_pass']}"
     )
+
+
+# Backward-compat aliases (old underscore-prefixed names)
+_load_failed_source_reports = load_failed_source_reports
+_evaluate_code = evaluate_code
+_is_expected_pass = is_expected_pass
+_extraction_failed_eval = extraction_failed_eval
+_exception_eval = exception_eval
+_attempt_code = attempt_code
+_aggregate_metrics = aggregate_metrics
+_ensure_output_dirs = ensure_output_dirs
+_write_case_outputs = write_case_outputs
+_summary_line = summary_line
 
 
 if __name__ == "__main__":

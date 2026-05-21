@@ -101,7 +101,7 @@ def main() -> int:
 
 
 def run_feedback_ablation(args: argparse.Namespace) -> dict[str, Any]:
-    cases = repair_loop._load_failed_source_reports(
+    cases = repair_loop.load_failed_source_reports(
         args.source_report_dir,
         args.limit,
     )
@@ -178,7 +178,7 @@ def _run_mode(
     source_report_dir: Path,
     run_output: dict[str, Any],
 ) -> dict[str, Any]:
-    output_dirs = repair_loop._ensure_output_dirs(output_root)
+    output_dirs = repair_loop.ensure_output_dirs(output_root)
     records = []
     print(f"\n[{EXPERIMENT_NAME}] feedback_mode={mode}")
     for case in cases:
@@ -189,11 +189,11 @@ def _run_mode(
             max_repair_rounds=max_repair_rounds,
             feedback_mode=mode,
         )
-        repair_loop._write_case_outputs(output_dirs, record)
+        repair_loop.write_case_outputs(output_dirs, record)
         records.append(record)
-        print(repair_loop._summary_line(record))
+        print(repair_loop.summary_line(record))
 
-    metrics = repair_loop._aggregate_metrics(records)
+    metrics = repair_loop.aggregate_metrics(records)
     metrics.update(phase1_run_metadata_json(run_output))
     metrics["feedback_mode"] = mode
     metrics["source_report_dir"] = str(source_report_dir)
@@ -227,7 +227,7 @@ def _run_case_with_feedback_mode(
 ) -> dict[str, Any]:
     sample_id = case["sample_id"]
     initial_code = case["broken_code"]
-    initial_eval = repair_loop._evaluate_code(case, initial_code)
+    initial_eval = repair_loop.evaluate_code(case, initial_code)
 
     attempts = []
     current_code = initial_code
@@ -235,7 +235,7 @@ def _run_case_with_feedback_mode(
     final_eval = initial_eval
 
     for repair_round in range(1, max_repair_rounds + 1):
-        if repair_loop._is_expected_pass(case, final_eval):
+        if repair_loop.is_expected_pass(case, final_eval):
             break
         prompt_inputs = _build_prompt_inputs(
             case=case,
@@ -254,9 +254,9 @@ def _run_case_with_feedback_mode(
             )
             repaired_code = generation.repaired_code
             round_eval = (
-                repair_loop._evaluate_code(case, repaired_code)
+                repair_loop.evaluate_code(case, repaired_code)
                 if generation.extraction.get("ok")
-                else repair_loop._extraction_failed_eval(generation.extraction)
+                else repair_loop.extraction_failed_eval(generation.extraction)
             )
             attempt = {
                 "repair_round": repair_round,
@@ -266,7 +266,7 @@ def _run_case_with_feedback_mode(
                 "evaluation": round_eval,
             }
         except Exception as exc:
-            round_eval = repair_loop._exception_eval(exc)
+            round_eval = repair_loop.exception_eval(exc)
             attempt = {
                 "repair_round": repair_round,
                 "feedback_mode": feedback_mode,
@@ -277,31 +277,37 @@ def _run_case_with_feedback_mode(
             }
         attempts.append(attempt)
         final_eval = round_eval
-        current_code = repair_loop._attempt_code(attempt) or current_code
+        current_code = repair_loop.attempt_code(attempt) or current_code
         current_report = final_eval.get("report") or current_report
+
+    last_exposure = (
+        attempts[-1]["prompt_exposure"]
+        if attempts
+        else _build_prompt_inputs(
+            case=case,
+            report=initial_eval.get("report") or {},
+            feedback_mode=feedback_mode,
+        )["prompt_exposure"]
+    )
 
     return {
         "sample_id": sample_id,
         "feedback_mode": feedback_mode,
         "case": case,
-        "prompt_exposure": _build_prompt_inputs(
-            case=case,
-            report=initial_eval.get("report") or {},
-            feedback_mode=feedback_mode,
-        )["prompt_exposure"],
+        "prompt_exposure": last_exposure,
         "initial_code": initial_code,
         "initial": initial_eval,
         "attempts": attempts,
         "final_code": current_code,
         "final": final_eval,
         "evaluation": {
-            "initial_pass": repair_loop._is_expected_pass(case, initial_eval),
+            "initial_pass": repair_loop.is_expected_pass(case, initial_eval),
             "repair_attempted": bool(attempts),
             "repair_success": (
-                not repair_loop._is_expected_pass(case, initial_eval)
-                and repair_loop._is_expected_pass(case, final_eval)
+                not repair_loop.is_expected_pass(case, initial_eval)
+                and repair_loop.is_expected_pass(case, final_eval)
             ),
-            "final_pass": repair_loop._is_expected_pass(case, final_eval),
+            "final_pass": repair_loop.is_expected_pass(case, final_eval),
             "repair_rounds": len(attempts),
         },
     }
@@ -372,13 +378,14 @@ def _transform_case_payload(
 
 def _strip_bug_oracle(payload: dict[str, Any]) -> dict[str, Any]:
     cleaned = dict(payload)
+    bug_spec = cleaned.pop("bug_spec", None) or {}
+    bug_type = bug_spec.get("bug_type")
     cleaned.pop("sample_id", None)
-    cleaned.pop("bug_spec", None)
     cleaned.pop("simulation", None)
     cleaned.pop("source_report", None)
     cleaned.pop("expected_failure_layer", None)
-    if "tags" in cleaned:
-        cleaned["tags"] = _non_bug_tags(cleaned.get("tags") or [])
+    if "tags" in cleaned and bug_type:
+        cleaned["tags"] = _non_bug_tags(cleaned.get("tags") or [], bug_type)
     return cleaned
 
 
@@ -399,23 +406,10 @@ def _task_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _non_bug_tags(tags: list[Any]) -> list[Any]:
-    bug_tokens = {
-        "missing_built",
-        "builder_missing_args",
-        "api_misuse_add_constraint",
-        "missing_required_capability",
-        "missing_resource_constraint",
-        "wrong_resource_bound",
-        "missing_time_window",
-        "wrong_relation_type",
-        "missing_group_sync",
-        "wrong_physical_speed",
-        "missing_capability_constraint",
-    }
+def _non_bug_tags(tags: list[Any], bug_type: str) -> list[Any]:
     return [
         tag for tag in tags
-        if not isinstance(tag, str) or tag not in bug_tokens
+        if not isinstance(tag, str) or tag != bug_type
     ]
 
 

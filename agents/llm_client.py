@@ -804,11 +804,13 @@ class LLMClient:
                 )
                 if not _should_retry_http_status(exc.code, attempt_index, attempts):
                     raise last_error from exc
+                retry_after = _parse_retry_after(exc.headers.get("Retry-After"))
             except Exception as exc:
                 last_error = LLMRequestError(f"LLM 请求异常: {exc}")
                 if not _should_retry_exception(exc, attempt_index, attempts):
                     raise last_error from exc
-            _sleep_before_retry(self.config.retry_backoff_seconds, attempt_index)
+                retry_after = None
+            _sleep_before_retry(self.config.retry_backoff_seconds, attempt_index, retry_after)
         if last_error:
             raise LLMRequestError(
                 f"{last_error}；已重试 {self.config.retry_attempts} 次仍失败"
@@ -1041,7 +1043,7 @@ def _should_retry_http_status(
     attempt_index: int,
     total_attempts: int,
 ) -> bool:
-    return attempt_index < total_attempts - 1 and status_code in {502, 503, 504}
+    return attempt_index < total_attempts - 1 and status_code in {429, 502, 503, 504}
 
 
 def _should_retry_exception(
@@ -1078,7 +1080,20 @@ def _looks_retryable_network_error(exc: Any) -> bool:
     return any(fragment in text for fragment in retryable_fragments)
 
 
-def _sleep_before_retry(backoff_seconds: float, attempt_index: int) -> None:
-    delay = backoff_seconds * (attempt_index + 1)
+def _parse_retry_after(value: str | None) -> float | None:
+    if not value:
+        return None
+    try:
+        return max(0.0, float(value))
+    except (ValueError, TypeError):
+        return None
+
+
+def _sleep_before_retry(
+    backoff_seconds: float,
+    attempt_index: int,
+    retry_after: float | None = None,
+) -> None:
+    delay = retry_after if retry_after is not None else backoff_seconds * (attempt_index + 1)
     if delay > 0:
         time.sleep(delay)
