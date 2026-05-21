@@ -62,13 +62,39 @@ def parse_args() -> argparse.Namespace:
         choices=["codex", "claude"],
         help="读取本地 Codex/Claude 配置，适合 CC Switch 已激活 provider 的情况",
     )
-    parser.add_argument("--protocol", choices=["openai_chat", "anthropic_messages"])
+    parser.add_argument(
+        "--protocol",
+        choices=["openai_chat", "openai_responses", "anthropic_messages"],
+    )
+    parser.add_argument(
+        "--transport",
+        choices=["http", "official_sdk"],
+        help="Request backend: current raw HTTP path or official provider SDK",
+    )
     parser.add_argument("--base-url")
     parser.add_argument("--api-key", help="直接传入 API key；不推荐，容易进入 shell 历史")
     parser.add_argument("--api-key-env", help="从指定环境变量读取 API key")
     parser.add_argument("--model")
     parser.add_argument("--temperature", type=float, default=None)
     parser.add_argument("--max-tokens", type=int, default=None)
+    parser.add_argument(
+        "--thinking",
+        choices=["enabled", "disabled", "adaptive"],
+        help="Provider reasoning switch, sent as {'thinking': {'type': value}}",
+    )
+    parser.add_argument(
+        "--thinking-budget-tokens",
+        type=int,
+        help="Anthropic Messages thinking.budget_tokens value; must be less than max_tokens",
+    )
+    parser.add_argument(
+        "--reasoning-effort",
+        help="OpenAI Chat reasoning_effort value, e.g. high/max",
+    )
+    parser.add_argument(
+        "--output-effort",
+        help="Anthropic Messages output_config.effort value, e.g. high/max",
+    )
     parser.add_argument("--retry-attempts", type=int, default=None)
     parser.add_argument("--retry-backoff-seconds", type=float, default=None)
     parser.add_argument(
@@ -128,11 +154,15 @@ def main() -> int:
                 {"role": "user", "content": args.message},
             ]
         )
-    except LLMRequestError as exc:
+    except (LLMConfigError, LLMRequestError) as exc:
         print(f"[请求失败] {exc}")
         return 3
 
     print("\n[远程 LLM 响应]")
+    if response.thinking_text:
+        print("[思考/推理内容]")
+        print(response.thinking_text.strip())
+        print()
     print(_strip_think(response.text).strip() or "(空响应)")
     print("\n[模型与用量]")
     print(f"model: {response.model}")
@@ -152,11 +182,16 @@ def _overrides_from_args(args: argparse.Namespace) -> dict[str, Any]:
         api_key = os.getenv(args.api_key_env, "")
     return {
         "protocol": args.protocol,
+        "transport": args.transport,
         "base_url": args.base_url,
         "api_key": api_key,
         "model": args.model,
         "temperature": args.temperature,
         "max_tokens": args.max_tokens,
+        "thinking": args.thinking,
+        "thinking_budget_tokens": args.thinking_budget_tokens,
+        "reasoning_effort": args.reasoning_effort,
+        "output_effort": args.output_effort,
         "retry_attempts": args.retry_attempts,
         "retry_backoff_seconds": args.retry_backoff_seconds,
         "auth_header": args.auth_header,

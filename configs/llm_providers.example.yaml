@@ -10,6 +10,21 @@ profiles:
     model: gpt-4.1
     temperature: 0.1
     max_tokens: 4096
+    # Provider-specific reasoning controls. These are sent in the JSON body.
+    # OpenAI Chat uses reasoning_effort; Anthropic Messages uses output_effort
+    # as output_config.effort. Pick the one that matches the configured protocol.
+    # thinking: disabled
+    # thinking_budget_tokens: 2048
+    # reasoning_effort: high
+    # output_effort: high
+
+  openai_responses_sdk_default:
+    protocol: openai_responses
+    transport: official_sdk
+    api_key_env: OPENAI_API_KEY
+    model: gpt-5.5
+    max_tokens: 4096
+    reasoning_effort: high
 
   qwen_via_dashscope:
     protocol: openai_chat
@@ -28,6 +43,7 @@ profiles:
     max_tokens: 4096
     retry_attempts: 2
     retry_backoff_seconds: 1.0
+    thinking: disabled
     extra_body:
       enable_thinking: false
 
@@ -40,6 +56,16 @@ profiles:
     max_tokens: 4096
     # Official Anthropic style normally uses x-api-key.
     auth_header: x_api_key
+
+  anthropic_messages_sdk_default:
+    protocol: anthropic_messages
+    transport: official_sdk
+    api_key_env: ANTHROPIC_API_KEY
+    model: claude-sonnet-4-6
+    temperature: 0.1
+    max_tokens: 16000
+    thinking: adaptive
+    output_effort: high
 
   anthropic_proxy_via_cc_switch:
     protocol: anthropic_messages
