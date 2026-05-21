@@ -37,6 +37,9 @@ Repair rules:
 - `add_task` requires `required_capability`; use `required_capability=[]` when no capability is required.
 - `add_task` does not accept `condition`; use `add_dependency(..., relation="condition_trigger", condition="<condition>")`.
 - For physical feasibility use `actor_speed_kmh`, not `speed_kmh`.
+- Preserve physical-feasibility time bounds: `deadline` constrains task end time,
+  while `latest` constrains only task start time. Do not replace a required
+  `deadline` with `latest`.
 - For flight tasks use `action="fly_to"`, not `action="fly"`.
 - End with exactly one exported graph variable: `built = g.build()`.
 

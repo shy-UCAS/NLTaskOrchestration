@@ -8,6 +8,10 @@ verification feedback passed into the repair prompt:
 
 - full_report: current Phase 1C behavior.
 - no_report: empty feedback object.
+- no_report_no_bug_spec: no report and no explicit simulated bug oracle.
+- task_only_no_report: only source task semantics, expected result, and patterns.
+- report_only_no_oracle: report plus broken code, without task/bug oracle.
+- broken_only: broken code only.
 - layer1_only: only Layer 1 diagnostics.
 - error_summary_only: compact structured error summary.
 """
@@ -38,9 +42,27 @@ EXPERIMENT_NAME = "exp_01d_repair_feedback_ablation"
 FEEDBACK_MODES = (
     "full_report",
     "no_report",
+    "no_report_no_bug_spec",
+    "task_only_no_report",
+    "report_only_no_oracle",
+    "broken_only",
     "layer1_only",
     "error_summary_only",
 )
+
+DEFAULT_FEEDBACK_MODES = (
+    "full_report",
+    "no_report",
+    "layer1_only",
+    "error_summary_only",
+)
+
+LEGACY_CONTEXT_MODES = {
+    "full_report",
+    "no_report",
+    "layer1_only",
+    "error_summary_only",
+}
 
 
 def main() -> int:
@@ -62,7 +84,7 @@ def main() -> int:
         "--feedback-modes",
         nargs="+",
         choices=FEEDBACK_MODES,
-        default=list(FEEDBACK_MODES),
+        default=list(DEFAULT_FEEDBACK_MODES),
         help="Feedback modes to compare.",
     )
     args = parser.parse_args()
@@ -215,18 +237,20 @@ def _run_case_with_feedback_mode(
     for repair_round in range(1, max_repair_rounds + 1):
         if repair_loop._is_expected_pass(case, final_eval):
             break
+        prompt_inputs = _build_prompt_inputs(
+            case=case,
+            report=current_report or {},
+            feedback_mode=feedback_mode,
+        )
         try:
             generation = agent.repair_gcjp(
                 sample_id=sample_id,
                 repair_round=repair_round,
                 prompt_template=prompt_template,
                 broken_code=current_code,
-                verification_report=_transform_feedback_report(
-                    current_report or {},
-                    feedback_mode,
-                ),
-                case_payload=case.get("case_payload") or case,
-                prompt_context=case.get("prompt_context"),
+                verification_report=prompt_inputs["verification_report"],
+                case_payload=prompt_inputs["case_payload"],
+                prompt_context=prompt_inputs["prompt_context"],
             )
             repaired_code = generation.repaired_code
             round_eval = (
@@ -237,6 +261,7 @@ def _run_case_with_feedback_mode(
             attempt = {
                 "repair_round": repair_round,
                 "feedback_mode": feedback_mode,
+                "prompt_exposure": prompt_inputs["prompt_exposure"],
                 "generation": asdict(generation),
                 "evaluation": round_eval,
             }
@@ -245,6 +270,7 @@ def _run_case_with_feedback_mode(
             attempt = {
                 "repair_round": repair_round,
                 "feedback_mode": feedback_mode,
+                "prompt_exposure": prompt_inputs["prompt_exposure"],
                 "generation": None,
                 "evaluation": round_eval,
                 "error": f"{type(exc).__name__}: {exc}",
@@ -258,6 +284,11 @@ def _run_case_with_feedback_mode(
         "sample_id": sample_id,
         "feedback_mode": feedback_mode,
         "case": case,
+        "prompt_exposure": _build_prompt_inputs(
+            case=case,
+            report=initial_eval.get("report") or {},
+            feedback_mode=feedback_mode,
+        )["prompt_exposure"],
         "initial_code": initial_code,
         "initial": initial_eval,
         "attempts": attempts,
@@ -276,19 +307,142 @@ def _run_case_with_feedback_mode(
     }
 
 
+def _build_prompt_inputs(
+    *,
+    case: dict[str, Any],
+    report: dict[str, Any],
+    feedback_mode: str,
+) -> dict[str, Any]:
+    transformed_report = _transform_feedback_report(report, feedback_mode)
+    prompt_case = _transform_case_payload(case, feedback_mode)
+    prompt_context = (
+        case.get("prompt_context")
+        if feedback_mode in LEGACY_CONTEXT_MODES
+        else None
+    )
+    return {
+        "verification_report": transformed_report,
+        "case_payload": prompt_case,
+        "prompt_context": prompt_context,
+        "prompt_exposure": _prompt_exposure(
+            transformed_report,
+            prompt_case,
+            prompt_context,
+        ),
+    }
+
+
 def _transform_feedback_report(
     report: dict[str, Any],
     feedback_mode: str,
 ) -> dict[str, Any]:
     if feedback_mode == "full_report":
         return report or {}
-    if feedback_mode == "no_report":
+    if feedback_mode in {
+        "no_report",
+        "no_report_no_bug_spec",
+        "task_only_no_report",
+        "broken_only",
+    }:
         return {}
+    if feedback_mode == "report_only_no_oracle":
+        return report or {}
     if feedback_mode == "layer1_only":
         return _layer1_only_report(report)
     if feedback_mode == "error_summary_only":
         return _error_summary_report(report)
     raise ValueError(f"Unsupported feedback mode: {feedback_mode}")
+
+
+def _transform_case_payload(
+    case: dict[str, Any],
+    feedback_mode: str,
+) -> dict[str, Any]:
+    payload = case.get("case_payload") or case
+    if feedback_mode in LEGACY_CONTEXT_MODES or feedback_mode == "no_report":
+        return payload
+    if feedback_mode == "no_report_no_bug_spec":
+        return _strip_bug_oracle(payload)
+    if feedback_mode == "task_only_no_report":
+        return _task_only_payload(payload)
+    if feedback_mode in {"report_only_no_oracle", "broken_only"}:
+        return {}
+    raise ValueError(f"Unsupported feedback mode: {feedback_mode}")
+
+
+def _strip_bug_oracle(payload: dict[str, Any]) -> dict[str, Any]:
+    cleaned = dict(payload)
+    cleaned.pop("sample_id", None)
+    cleaned.pop("bug_spec", None)
+    cleaned.pop("simulation", None)
+    cleaned.pop("source_report", None)
+    cleaned.pop("expected_failure_layer", None)
+    if "tags" in cleaned:
+        cleaned["tags"] = _non_bug_tags(cleaned.get("tags") or [])
+    return cleaned
+
+
+def _task_only_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    source_case = payload.get("source_case")
+    if isinstance(source_case, dict):
+        return {
+            "source_case": source_case,
+            "expected_result": source_case.get("expected_result")
+            or payload.get("expected_result"),
+            "expected_patterns": source_case.get("expected_patterns")
+            or payload.get("expected_patterns", {}),
+        }
+    return {
+        "standard_instruction": payload.get("standard_instruction"),
+        "expected_result": payload.get("expected_result"),
+        "expected_patterns": payload.get("expected_patterns", {}),
+    }
+
+
+def _non_bug_tags(tags: list[Any]) -> list[Any]:
+    bug_tokens = {
+        "missing_built",
+        "builder_missing_args",
+        "api_misuse_add_constraint",
+        "missing_required_capability",
+        "missing_resource_constraint",
+        "wrong_resource_bound",
+        "missing_time_window",
+        "wrong_relation_type",
+        "missing_group_sync",
+        "wrong_physical_speed",
+        "missing_capability_constraint",
+    }
+    return [
+        tag for tag in tags
+        if not isinstance(tag, str) or tag not in bug_tokens
+    ]
+
+
+def _prompt_exposure(
+    report: dict[str, Any],
+    case_payload: dict[str, Any],
+    prompt_context: str | None,
+) -> dict[str, bool]:
+    return {
+        "has_report": bool(report),
+        "has_case_payload": bool(case_payload),
+        "has_bug_spec": _contains_key(case_payload, "bug_spec"),
+        "has_prompt_context": bool(prompt_context),
+        "has_expected_patterns": _contains_key(case_payload, "expected_patterns"),
+        "has_source_instruction": (
+            _contains_key(case_payload, "standard_instruction")
+            or _contains_key(case_payload, "source_case")
+        ),
+    }
+
+
+def _contains_key(value: Any, key: str) -> bool:
+    if isinstance(value, dict):
+        return key in value or any(_contains_key(v, key) for v in value.values())
+    if isinstance(value, list):
+        return any(_contains_key(item, key) for item in value)
+    return False
 
 
 def _layer1_only_report(report: dict[str, Any]) -> dict[str, Any]:
