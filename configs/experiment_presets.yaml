@@ -153,7 +153,8 @@ presets:
       local_provider: claude
       dataset: datasets/phase1_simulated_failure_specs.jsonl
       output_dir: out/phase1_simulated_failure_runs
-      max_tokens: 1400
+      max_tokens: 4096
+      thinking_budget_tokens: 3500
       retry_attempts: 2
 
   phase1c_repair_simulated_latest:
@@ -167,6 +168,7 @@ presets:
       output_dir: out/phase1_simulated_failure_repairs
       max_repair_rounds: 2
       max_tokens: 4096
+      thinking_budget_tokens: 3500
       retry_attempts: 0
 
   phase1d_simulated_ablation_latest:
@@ -179,5 +181,27 @@ presets:
         field: reports_dir
       output_dir: out/phase1_feedback_ablation_manual/simulated
       max_repair_rounds: 2
-      max_tokens: 1800
+      max_tokens: 4096
+      thinking_budget_tokens: 3500
+      retry_attempts: 0
+
+  phase1d_simulated_ablation_strict_latest:
+    description: Run strict feedback/oracle ablation on latest 1E simulated natural failure reports.
+    module: experiments.exp_01d_repair_feedback_ablation
+    args:
+      local_provider: claude
+      source_report_dir:
+        latest_run: out/phase1_simulated_failure_runs
+        field: reports_dir
+      output_dir: out/phase1_feedback_ablation_manual/simulated_strict
+      feedback_modes:
+        - full_report
+        - no_report
+        - no_report_no_bug_spec
+        - task_only_no_report
+        - report_only_no_oracle
+        - broken_only
+      max_repair_rounds: 2
+      max_tokens: 4096
+      thinking_budget_tokens: 3500
       retry_attempts: 0

@@ -670,9 +670,10 @@ class LLMClient:
         payload: dict[str, Any] = {
             "model": self.config.model,
             "messages": anthropic_messages,
-            "temperature": self.config.temperature,
             "max_tokens": self.config.max_tokens,
         }
+        if self.config.thinking == "disabled":
+            payload["temperature"] = self.config.temperature
         _apply_reasoning_controls(payload, self.config)
         if system_parts:
             payload["system"] = "\n\n".join(system_parts)
