@@ -130,7 +130,7 @@ def _run_case(
     sample_id = case["sample_id"]
     payload = case["input_payload"]
 
-    ref_graph = build_graph_from_task_plan(payload)
+    ref_graph = build_graph_from_task_plan(payload, segment_id=payload.get("segment_id"))
 
     generation = agent.generate_gcjp(
         sample_id=sample_id,

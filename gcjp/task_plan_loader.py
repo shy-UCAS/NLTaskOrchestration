@@ -332,7 +332,7 @@ def build_graph_from_task_plan(
     action_defaults = action_defaults or ACTION_DEFAULTS
     resource_budgets = resource_budgets or DEFAULT_RESOURCE_BUDGETS
 
-    plan_id = plan["plan_id"]
+    plan_id = plan.get("plan_id", "unknown")
     segment_id = segment_id or f"seg_{plan_id}"
 
     participants = plan.get("participants", [])
@@ -416,7 +416,7 @@ def build_graph_from_task_plan(
     # -------------------------------------------------------------------------
     debug.log(f"\n[DEBUG] === 阶段 2: 添加依赖边 ===")
     for rel in plan.get("relations", []):
-        relation_type = normalize_relation_type(rel["type"])
+        relation_type = normalize_relation_type(rel.get("type") or rel.get("relation", "sequence"))
 
         debug.log(f"  [→] 边: {rel['source']:30s} → {rel['target']:30s} | "
                   f"type={relation_type:20s}"
