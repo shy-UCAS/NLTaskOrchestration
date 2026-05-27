@@ -212,6 +212,7 @@ def _run_mode(
         "unrecovered_error_type_distribution": (
             metrics["unrecovered_error_type_distribution"]
         ),
+        "error_transition_matrix": metrics.get("error_transition_matrix", {}),
         "output_dir": metrics["output_dir"],
         "records": metrics["records"],
     }
@@ -544,6 +545,25 @@ def _render_summary_markdown(summary: dict[str, Any]) -> str:
             )
         )
     lines.append("")
+
+    has_matrix = any(item.get("error_transition_matrix") for item in summary["modes"])
+    if has_matrix:
+        lines.append("## Error Transition Matrix")
+        lines.append("")
+        for item in summary["modes"]:
+            matrix = item.get("error_transition_matrix") or {}
+            if not matrix:
+                continue
+            lines.append(f"### {item['feedback_mode']}")
+            lines.append("")
+            lines.append("| transition | count |")
+            lines.append("| --- | ---: |")
+            for transition, count in sorted(
+                matrix.items(), key=lambda x: x[1], reverse=True
+            ):
+                lines.append(f"| {transition} | {count} |")
+            lines.append("")
+
     return "\n".join(lines)
 
 

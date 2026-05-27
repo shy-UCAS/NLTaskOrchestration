@@ -360,12 +360,18 @@ def aggregate_metrics(records: list[dict[str, Any]]) -> dict[str, Any]:
     total_rounds = sum(r["evaluation"]["repair_rounds"] for r in records)
     recovered: dict[str, int] = {}
     unrecovered: dict[str, int] = {}
+    error_transition_matrix: dict[str, int] = {}
     for record in records:
         err_type = record["initial"].get("execution_error_type") or "UNKNOWN"
         if record["evaluation"]["repair_success"]:
             recovered[err_type] = recovered.get(err_type, 0) + 1
         elif not record["evaluation"]["final_pass"]:
             unrecovered[err_type] = unrecovered.get(err_type, 0) + 1
+        final_err = record["final"].get("execution_error_type") or "UNKNOWN"
+        transition_key = f"{err_type}→{final_err}"
+        error_transition_matrix[transition_key] = (
+            error_transition_matrix.get(transition_key, 0) + 1
+        )
 
     return {
         "experiment": EXPERIMENT_NAME,
@@ -379,6 +385,7 @@ def aggregate_metrics(records: list[dict[str, Any]]) -> dict[str, Any]:
         },
         "recovered_error_type_distribution": recovered,
         "unrecovered_error_type_distribution": unrecovered,
+        "error_transition_matrix": error_transition_matrix,
         "records": [
             {
                 "sample_id": r["sample_id"],

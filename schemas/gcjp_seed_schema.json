@@ -1,0 +1,133 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GCJPSeedSample",
+  "description": "GCJP 种子数据集样本格式，用于训练和评估 NL→GCJP 管道。",
+  "type": "object",
+  "required": ["sample_id", "level", "nl_instruction", "structured_plan", "gcjp_code", "expected_verification"],
+  "properties": {
+    "sample_id": {
+      "type": "string",
+      "description": "唯一样本标识，格式: seed_{level}_{序号}_{简述}"
+    },
+    "level": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5,
+      "description": "复杂度等级: 1=单集群2-3节点, 2=单集群4-6节点, 3=双集群+同步, 4=三集群+联合段, 5=四集群+UNSAT"
+    },
+    "nl_instruction": {
+      "type": "string",
+      "description": "原始自然语言作战指令"
+    },
+    "structured_plan": {
+      "type": "object",
+      "description": "标准化任务计划 JSON（与 task_plan_schema.json 兼容）",
+      "required": ["segment_id", "assigned_actors", "tasks"],
+      "properties": {
+        "segment_id": { "type": "string" },
+        "assigned_actors": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "assumed_conditions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "tasks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["task_id", "actor", "action", "target"],
+            "properties": {
+              "task_id": { "type": "string" },
+              "actor": { "type": "string" },
+              "action": { "type": "string" },
+              "target": { "type": "string" },
+              "duration_lb": { "type": "number" },
+              "duration_ub": { "type": ["number", "null"] },
+              "required_capability": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "energy_cost": { "type": "number" },
+              "ammo_cost": { "type": "integer" }
+            }
+          }
+        },
+        "relations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["source", "target", "relation"],
+            "properties": {
+              "source": { "type": "string" },
+              "target": { "type": "string" },
+              "relation": { "type": "string" },
+              "sync_tolerance": { "type": ["number", "null"] },
+              "condition": { "type": ["string", "null"] }
+            }
+          }
+        },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["constraint_type"],
+            "properties": {
+              "constraint_type": { "type": "string" },
+              "actor": { "type": "string" },
+              "resource_type": { "type": "string" },
+              "max_value": { "type": "number" }
+            }
+          }
+        }
+      }
+    },
+    "gcjp_code": {
+      "type": "string",
+      "description": "对应的 GCJP v1 Python 代码（gold standard）"
+    },
+    "expected_verification": {
+      "type": "object",
+      "required": ["expected_result"],
+      "properties": {
+        "expected_result": {
+          "type": "string",
+          "enum": ["sat", "unsat"]
+        },
+        "expected_patterns": {
+          "type": "object",
+          "properties": {
+            "node_count": { "type": "integer" },
+            "edge_relations": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "constraint_types": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "gold_dag": {
+      "type": ["object", "null"],
+      "description": "金标准 DAG 结构（可选）"
+    },
+    "gold_constraints": {
+      "type": ["array", "null"],
+      "description": "金标准约束列表（可选）",
+      "items": { "type": "object" }
+    },
+    "commander_cot": {
+      "type": ["string", "null"],
+      "description": "指挥员思维链（可选，用于训练）"
+    },
+    "planner_cot": {
+      "type": ["string", "null"],
+      "description": "规划器思维链（可选，用于训练）"
+    }
+  },
+  "additionalProperties": false
+}
