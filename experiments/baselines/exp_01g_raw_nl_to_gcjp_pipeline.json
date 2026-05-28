@@ -1,0 +1,160 @@
+{
+  "experiment": "exp_01g_raw_nl_to_gcjp_pipeline",
+  "timestamp": "2026-05-28T14:54:22.153217",
+  "provider": {
+    "protocol": "anthropic_messages",
+    "model": "mimo-v2.5-pro",
+    "base_url": "https://token-plan-ams.xiaomimimo.com/anthropic",
+    "transport": "http",
+    "temperature": 0.1,
+    "max_tokens": 4096,
+    "thinking": "enabled",
+    "thinking_budget_tokens": null,
+    "reasoning_effort": "max",
+    "output_effort": "max",
+    "extra_body": {},
+    "provider_name": "local_claude",
+    "auth_header": "default",
+    "user_agent": null,
+    "compat_preset": null,
+    "retry_attempts": 2,
+    "retry_backoff_seconds": 1.0,
+    "api_key_present": true
+  },
+  "total_cases": 10,
+  "rates": {
+    "normalization_complete_rate": 0.8,
+    "incomplete_rejection_rate": 0.2,
+    "gcjp_generation_rate": 0.8,
+    "gcjp_verified_rate": 0.2,
+    "end_to_end_pass_rate": 0.2,
+    "avg_total_rounds": 1.7,
+    "raw_to_gcjp_verified_rate": 0.25
+  },
+  "records": [
+    {
+      "sample_id": "1f_001_complete_simple_sequence",
+      "stage": "verification",
+      "evaluation": {
+        "normalization_complete": true,
+        "rejected_as_incomplete": false,
+        "gcjp_generated": true,
+        "gcjp_verified": true,
+        "end_to_end_pass": true,
+        "failure_attribution": null
+      }
+    },
+    {
+      "sample_id": "1f_002_complete_parallel_multi_actor",
+      "stage": "verification",
+      "evaluation": {
+        "normalization_complete": true,
+        "rejected_as_incomplete": false,
+        "gcjp_generated": true,
+        "gcjp_verified": true,
+        "end_to_end_pass": true,
+        "failure_attribution": null
+      }
+    },
+    {
+      "sample_id": "1f_003_complete_sync_rendezvous",
+      "stage": "normalization",
+      "evaluation": {
+        "normalization_complete": false,
+        "rejected_as_incomplete": true,
+        "gcjp_generated": false,
+        "gcjp_verified": false,
+        "end_to_end_pass": false,
+        "failure_attribution": "normalization"
+      }
+    },
+    {
+      "sample_id": "1f_004_incomplete_missing_actor",
+      "stage": "verification",
+      "evaluation": {
+        "normalization_complete": true,
+        "rejected_as_incomplete": false,
+        "gcjp_generated": true,
+        "gcjp_verified": false,
+        "end_to_end_pass": false,
+        "failure_attribution": "verification"
+      }
+    },
+    {
+      "sample_id": "1f_005_incomplete_missing_target",
+      "stage": "verification",
+      "evaluation": {
+        "normalization_complete": true,
+        "rejected_as_incomplete": false,
+        "gcjp_generated": true,
+        "gcjp_verified": false,
+        "end_to_end_pass": false,
+        "failure_attribution": "verification"
+      }
+    },
+    {
+      "sample_id": "1f_006_incomplete_missing_action",
+      "stage": "verification",
+      "evaluation": {
+        "normalization_complete": true,
+        "rejected_as_incomplete": false,
+        "gcjp_generated": true,
+        "gcjp_verified": false,
+        "end_to_end_pass": false,
+        "failure_attribution": "verification"
+      }
+    },
+    {
+      "sample_id": "1f_007_incomplete_missing_time",
+      "stage": "normalization",
+      "evaluation": {
+        "normalization_complete": false,
+        "rejected_as_incomplete": true,
+        "gcjp_generated": false,
+        "gcjp_verified": false,
+        "end_to_end_pass": false,
+        "failure_attribution": "normalization"
+      }
+    },
+    {
+      "sample_id": "1f_008_incomplete_ambiguous_resource",
+      "stage": "verification",
+      "evaluation": {
+        "normalization_complete": true,
+        "rejected_as_incomplete": false,
+        "gcjp_generated": true,
+        "gcjp_verified": false,
+        "end_to_end_pass": false,
+        "failure_attribution": "verification"
+      }
+    },
+    {
+      "sample_id": "1f_009_incomplete_ambiguous_multi_actor",
+      "stage": "verification",
+      "evaluation": {
+        "normalization_complete": true,
+        "rejected_as_incomplete": false,
+        "gcjp_generated": true,
+        "gcjp_verified": false,
+        "end_to_end_pass": false,
+        "failure_attribution": "verification"
+      }
+    },
+    {
+      "sample_id": "1f_010_incomplete_ambiguous_area",
+      "stage": "verification",
+      "evaluation": {
+        "normalization_complete": true,
+        "rejected_as_incomplete": false,
+        "gcjp_generated": true,
+        "gcjp_verified": false,
+        "end_to_end_pass": false,
+        "failure_attribution": "verification"
+      }
+    }
+  ],
+  "failure_attribution_distribution": {
+    "normalization": 2,
+    "verification": 6
+  }
+}

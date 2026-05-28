@@ -105,6 +105,11 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         help="Use the exact run label directory without appending a timestamp.",
     )
+    parser.add_argument(
+        "--save-baseline",
+        action="store_true",
+        help="Save sanitized metrics + per-case results to experiments/baselines/ for git tracking.",
+    )
 
 
 def build_agent_from_args(args: argparse.Namespace) -> PlannerAgent:
@@ -608,6 +613,116 @@ def _compact_text(text: str, max_len: int) -> str:
     if len(compact) <= max_len:
         return compact
     return compact[: max_len - 3] + "..."
+
+
+BASELINES_DIR = Path("experiments") / "baselines"
+BASELINE_DOC_PATH = Path("docs") / "phase1_baseline_report.md"
+
+_BASELINE_SECTION_TITLES = {
+    "exp_01f_instruction_normalization": "Baseline E：阶段 1F 指令规范化",
+    "exp_01g_raw_nl_to_gcjp_pipeline": "Baseline F：阶段 1G 原始 NL → GCJP 端到端管道",
+}
+
+
+def save_baseline_json(
+    experiment_name: str,
+    metrics: dict[str, Any],
+    baselines_dir: Path | None = None,
+) -> Path:
+    """导出脱敏指标 + 逐 case 结果到 experiments/baselines/{experiment}.json。"""
+    out_dir = baselines_dir or BASELINES_DIR
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    provider = metrics.get("provider", {})
+    sanitized_provider = {
+        k: v for k, v in provider.items()
+        if k not in ("api_key", "pre_headers", "effective_headers_preview")
+    }
+
+    baseline = {
+        "experiment": experiment_name,
+        "timestamp": datetime.now().isoformat(),
+        "provider": sanitized_provider,
+        "total_cases": metrics.get("total_cases", 0),
+        "rates": metrics.get("rates", {}),
+        "records": metrics.get("records", []),
+    }
+
+    # 保留失败归因分布（exp_01g 特有）
+    if "failure_attribution_distribution" in metrics:
+        baseline["failure_attribution_distribution"] = metrics[
+            "failure_attribution_distribution"
+        ]
+
+    path = out_dir / f"{experiment_name}.json"
+    path.write_text(
+        json.dumps(baseline, ensure_ascii=False, indent=2), encoding="utf-8",
+    )
+    print(f"[save-baseline] JSON -> {path}")
+    return path
+
+
+def append_baseline_markdown(
+    experiment_name: str,
+    metrics: dict[str, Any],
+    doc_path: Path | None = None,
+) -> bool:
+    """往 docs/phase1_baseline_report.md 追加该实验的 section。已存在则跳过。"""
+    path = doc_path or BASELINE_DOC_PATH
+    if not path.exists():
+        print(f"[save-baseline] 文档不存在，跳过 markdown 追加: {path}")
+        return False
+
+    title = _BASELINE_SECTION_TITLES.get(experiment_name)
+    if not title:
+        print(f"[save-baseline] 未知实验名，跳过: {experiment_name}")
+        return False
+
+    existing = path.read_text(encoding="utf-8")
+    if title in existing:
+        print(f"[save-baseline] section 已存在，跳过: {title}")
+        return False
+
+    rates = metrics.get("rates", {})
+    total = metrics.get("total_cases", 0)
+    mode = metrics.get("mode", "")
+
+    lines = [
+        "",
+        f"### {title}",
+        "",
+        "日期：" + datetime.now().strftime("%Y-%m-%d"),
+        "",
+        "命令：",
+        "",
+        "```powershell",
+    ]
+
+    if experiment_name == "exp_01f_instruction_normalization":
+        cmd = f"python -m experiments.exp_01f_instruction_normalization --local-provider claude"
+        if mode:
+            cmd += f" --mode {mode}"
+        lines.append(cmd)
+    elif experiment_name == "exp_01g_raw_nl_to_gcjp_pipeline":
+        lines.append(
+            "python -m experiments.exp_01g_raw_nl_to_gcjp_pipeline --local-provider claude"
+        )
+
+    lines += [
+        "```",
+        "",
+        "结果：",
+        "",
+        "```text",
+        f"total_cases: {total}",
+    ]
+    for key, value in rates.items():
+        lines.append(f"{key}: {value}")
+    lines += ["```", ""]
+
+    path.write_text(existing.rstrip() + "\n" + "\n".join(lines) + "\n", encoding="utf-8")
+    print(f"[save-baseline] Markdown -> {path}")
+    return True
 
 
 def handle_config_error(exc: LLMConfigError) -> int:

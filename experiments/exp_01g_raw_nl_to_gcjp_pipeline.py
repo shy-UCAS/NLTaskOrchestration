@@ -27,6 +27,7 @@ from gcjp.code_executor import execute_gcjp_code
 from verifier.pipeline import VerificationPipeline
 from experiments.phase1_common import (
     add_common_args,
+    append_baseline_markdown,
     handle_config_error,
     load_config_from_args,
     load_jsonl,
@@ -34,6 +35,7 @@ from experiments.phase1_common import (
     print_provider_summary_from_args,
     read_prompt_template,
     resolve_phase1_run_output,
+    save_baseline_json,
     write_latest_run_index,
 )
 
@@ -142,6 +144,11 @@ def run_pipeline_experiment(args: argparse.Namespace) -> dict[str, Any]:
 
     print(f"\n[{EXPERIMENT_NAME}] 汇总指标 -> {metrics_path}")
     print(json.dumps(metrics["rates"], ensure_ascii=False, indent=2))
+
+    if args.save_baseline:
+        save_baseline_json(EXPERIMENT_NAME, metrics)
+        append_baseline_markdown(EXPERIMENT_NAME, metrics)
+
     return metrics
 
 

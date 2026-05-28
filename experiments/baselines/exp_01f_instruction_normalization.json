@@ -1,0 +1,144 @@
+{
+  "experiment": "exp_01f_instruction_normalization",
+  "timestamp": "2026-05-28T14:41:37.079481",
+  "provider": {
+    "protocol": "anthropic_messages",
+    "model": "mimo-v2.5-pro",
+    "base_url": "https://token-plan-ams.xiaomimimo.com/anthropic",
+    "transport": "http",
+    "temperature": 0.1,
+    "max_tokens": 4096,
+    "thinking": "enabled",
+    "thinking_budget_tokens": null,
+    "reasoning_effort": "max",
+    "output_effort": "max",
+    "extra_body": {},
+    "provider_name": "local_claude",
+    "auth_header": "default",
+    "user_agent": null,
+    "compat_preset": null,
+    "retry_attempts": 2,
+    "retry_backoff_seconds": 1.0,
+    "api_key_present": true
+  },
+  "total_cases": 10,
+  "rates": {
+    "json_parse_success_rate": 0.9,
+    "status_accuracy_rate": 0.9,
+    "missing_field_detection_rate": 0.7142857142857143,
+    "ambiguity_detection_rate": 1.0,
+    "false_complete_rate": 0.0
+  },
+  "records": [
+    {
+      "sample_id": "1f_001_complete_simple_sequence",
+      "predicted_status": "complete",
+      "evaluation": {
+        "json_parse_success": true,
+        "status_correct": true,
+        "missing_field_detected": true,
+        "ambiguity_detected": true,
+        "false_complete": false
+      }
+    },
+    {
+      "sample_id": "1f_002_complete_parallel_multi_actor",
+      "predicted_status": "complete",
+      "evaluation": {
+        "json_parse_success": true,
+        "status_correct": true,
+        "missing_field_detected": true,
+        "ambiguity_detected": true,
+        "false_complete": false
+      }
+    },
+    {
+      "sample_id": "1f_003_complete_sync_rendezvous",
+      "predicted_status": "complete",
+      "evaluation": {
+        "json_parse_success": true,
+        "status_correct": true,
+        "missing_field_detected": true,
+        "ambiguity_detected": true,
+        "false_complete": false
+      }
+    },
+    {
+      "sample_id": "1f_004_incomplete_missing_actor",
+      "predicted_status": "incomplete",
+      "evaluation": {
+        "json_parse_success": true,
+        "status_correct": true,
+        "missing_field_detected": true,
+        "ambiguity_detected": true,
+        "false_complete": false
+      }
+    },
+    {
+      "sample_id": "1f_005_incomplete_missing_target",
+      "predicted_status": "incomplete",
+      "evaluation": {
+        "json_parse_success": true,
+        "status_correct": true,
+        "missing_field_detected": true,
+        "ambiguity_detected": true,
+        "false_complete": false
+      }
+    },
+    {
+      "sample_id": "1f_006_incomplete_missing_action",
+      "predicted_status": "incomplete",
+      "evaluation": {
+        "json_parse_success": true,
+        "status_correct": true,
+        "missing_field_detected": false,
+        "ambiguity_detected": true,
+        "false_complete": false
+      }
+    },
+    {
+      "sample_id": "1f_007_incomplete_missing_time",
+      "predicted_status": null,
+      "evaluation": {
+        "json_parse_success": false,
+        "status_correct": false,
+        "missing_field_detected": false,
+        "ambiguity_detected": true,
+        "false_complete": false
+      }
+    },
+    {
+      "sample_id": "1f_008_incomplete_ambiguous_resource",
+      "predicted_status": "incomplete",
+      "evaluation": {
+        "json_parse_success": true,
+        "status_correct": true,
+        "missing_field_detected": true,
+        "ambiguity_detected": true,
+        "false_complete": false
+      }
+    },
+    {
+      "sample_id": "1f_009_incomplete_ambiguous_multi_actor",
+      "predicted_status": "incomplete",
+      "evaluation": {
+        "json_parse_success": true,
+        "status_correct": true,
+        "missing_field_detected": true,
+        "ambiguity_detected": true,
+        "false_complete": false
+      }
+    },
+    {
+      "sample_id": "1f_010_incomplete_ambiguous_area",
+      "predicted_status": "incomplete",
+      "evaluation": {
+        "json_parse_success": true,
+        "status_correct": true,
+        "missing_field_detected": true,
+        "ambiguity_detected": true,
+        "false_complete": false
+      }
+    }
+  ]
+}

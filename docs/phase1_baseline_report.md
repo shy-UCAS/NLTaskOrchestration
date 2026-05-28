@@ -243,3 +243,48 @@ avg_repair_rounds: 1.0
 - 本报告只保存脱敏配置和聚合指标，不保存 raw response、API key 或完整请求体。
 - 当前 baseline 依赖外部 LLM provider，结果可能受模型版本、网关稳定性和采样策略影响。
 - 当前推荐默认使用 zero-shot prompt；few-shot prompt 保留为弱模型、替代 provider 和后续修复闭环的对照工具。
+
+### Baseline E：阶段 1F 指令规范化
+
+日期：2026-05-28
+
+命令：
+
+```powershell
+python -m experiments.exp_01f_instruction_normalization --local-provider claude --mode single-shot
+```
+
+结果：
+
+```text
+total_cases: 10
+json_parse_success_rate: 0.9
+status_accuracy_rate: 0.9
+missing_field_detection_rate: 0.7142857142857143
+ambiguity_detection_rate: 1.0
+false_complete_rate: 0.0
+```
+
+### Baseline F：阶段 1G 原始 NL → GCJP 端到端管道
+
+日期：2026-05-28
+
+命令：
+
+```powershell
+python -m experiments.exp_01g_raw_nl_to_gcjp_pipeline --local-provider claude
+```
+
+结果：
+
+```text
+total_cases: 10
+normalization_complete_rate: 0.8
+incomplete_rejection_rate: 0.2
+gcjp_generation_rate: 0.8
+gcjp_verified_rate: 0.2
+end_to_end_pass_rate: 0.2
+avg_total_rounds: 1.7
+raw_to_gcjp_verified_rate: 0.25
+```
+
