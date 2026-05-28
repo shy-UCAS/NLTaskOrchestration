@@ -49,7 +49,7 @@ def main() -> int:
     parser.add_argument(
         "--dataset",
         type=Path,
-        default=Path("datasets") / "phase1_ambiguous_nl_cases.jsonl",
+        default=Path("datasets") / "phase1_instruction_normalization_eval.jsonl",
     )
     parser.add_argument(
         "--normalization-prompt",

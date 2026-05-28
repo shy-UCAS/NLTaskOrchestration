@@ -42,6 +42,37 @@ from experiments.phase1_common import (
 
 EXPERIMENT_NAME = "exp_01f_instruction_normalization"
 
+GCJP_TASK_REQUIRED_FIELDS = (
+    "actor",
+    "action",
+    "target",
+    "duration_lb",
+    "energy_cost",
+    "ammo_cost",
+)
+
+MISSING_FIELD_ALIASES = {
+    "actor": "assigned_actors",
+    "actors": "assigned_actors",
+    "assigned_actor": "assigned_actors",
+    "assigned_actors": "assigned_actors",
+    "duration": "duration_lb",
+    "duration_lb": "duration_lb",
+    "task_duration": "duration_lb",
+    "time": "duration_lb",
+    "missing_time": "duration_lb",
+    "energy": "energy_cost",
+    "energy_consumption": "energy_cost",
+    "energy_cost": "energy_cost",
+    "ammo": "ammo_cost",
+    "ammo_consumption": "ammo_cost",
+    "ammo_cost": "ammo_cost",
+    "resource": "resource_constraints",
+    "resources": "resource_constraints",
+    "resource_constraint": "resource_constraints",
+    "resource_constraints": "resource_constraints",
+}
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -49,7 +80,7 @@ def main() -> int:
     parser.add_argument(
         "--dataset",
         type=Path,
-        default=Path("datasets") / "phase1_ambiguous_nl_cases.jsonl",
+        default=Path("datasets") / "phase1_instruction_normalization_eval.jsonl",
     )
     parser.add_argument(
         "--prompt",
@@ -164,6 +195,7 @@ def _run_single_shot(
     return {
         "sample_id": sample_id,
         "mode": "single-shot",
+        "expected_status": case.get("expected_status"),
         "raw_response": result.raw_response,
         "parsed_output": result.parsed_output,
         "extraction": result.extraction,
@@ -193,21 +225,28 @@ def _run_clarification_loop(
     )
 
     final = loop_result.final_result
-    evaluation = _evaluate_normalization(case, final) if final else {}
+    expected_after = case.get("expected_status_after_clarification", "complete")
+    eval_case = {
+        **case,
+        "expected_status": expected_after,
+    }
+    if expected_after == "complete":
+        eval_case["expected_missing_fields"] = []
+    evaluation = _evaluate_normalization(eval_case, final) if final else {}
     evaluation["loop_final_status"] = loop_result.final_status
     evaluation["total_rounds"] = loop_result.total_rounds
-    evaluation["clarification_success"] = loop_result.final_status == "complete"
-
-    expected_after = case.get("expected_status_after_clarification", "complete")
-    evaluation["post_clarification_correct"] = (
+    evaluation["clarification_success"] = (
         loop_result.final_status == "complete"
-        if expected_after == "complete"
-        else loop_result.final_status != "complete"
+        and evaluation.get("gcjp_ready_structure") is not False
+    )
+    evaluation["post_clarification_correct"] = evaluation.get(
+        "status_correct", False,
     )
 
     return {
         "sample_id": sample_id,
         "mode": "clarification-loop",
+        "expected_status": expected_after,
         "raw_response": final.raw_response if final else "",
         "parsed_output": final.parsed_output if final else None,
         "extraction": final.extraction if final else {},
@@ -230,16 +269,29 @@ def _evaluate_normalization(
             "missing_field_detected": False,
             "ambiguity_detected": False,
             "false_complete": False,
+            "gcjp_ready_structure": None,
+            "missing_gcjp_task_fields": [],
         }
 
     expected_status = case["expected_status"]
     predicted_status = result.status
 
     json_ok = result.extraction.get("ok", False)
-    status_correct = predicted_status == expected_status
+    gcjp_ready_structure = None
+    missing_gcjp_task_fields: list[str] = []
+    if predicted_status == "complete":
+        gcjp_ready_structure, missing_gcjp_task_fields = (
+            _complete_output_is_gcjp_ready(result.parsed_output)
+        )
 
-    expected_missing = set(case.get("expected_missing_fields", []))
-    predicted_missing = set(result.missing_fields or [])
+    status_correct = predicted_status == expected_status
+    if predicted_status == "complete" and not gcjp_ready_structure:
+        status_correct = False
+
+    expected_missing = _canonical_missing_fields(
+        case.get("expected_missing_fields", []),
+    )
+    predicted_missing = _canonical_missing_fields(result.missing_fields or [])
     missing_detected = (
         expected_missing.issubset(predicted_missing) if expected_missing else True
     )
@@ -262,7 +314,107 @@ def _evaluate_normalization(
         "missing_field_detected": missing_detected,
         "ambiguity_detected": ambiguity_detected,
         "false_complete": false_complete,
+        "gcjp_ready_structure": gcjp_ready_structure,
+        "missing_gcjp_task_fields": missing_gcjp_task_fields,
     }
+
+
+def _canonical_missing_fields(fields: list[Any]) -> set[str]:
+    canonical: set[str] = set()
+    for field in fields:
+        normalized = _canonical_missing_field(field)
+        if normalized:
+            canonical.add(normalized)
+    return canonical
+
+
+def _canonical_missing_field(field: Any) -> str:
+    if not isinstance(field, str):
+        return ""
+
+    name = field.strip().lower().replace("-", "_").replace(" ", "_")
+    if not name:
+        return ""
+
+    direct = MISSING_FIELD_ALIASES.get(name)
+    if direct:
+        return direct
+
+    if "duration" in name or "持续" in name or "时间" in name:
+        return "duration_lb"
+    if "energy_cost" in name or "energy_consumption" in name or "能量消耗" in name:
+        return "energy_cost"
+    if "ammo_cost" in name or "ammo_consumption" in name or "弹药消耗" in name:
+        return "ammo_cost"
+    if "resource" in name or "资源" in name:
+        return "resource_constraints"
+    if "actor" in name or "编队" in name or "主体" in name:
+        return "assigned_actors"
+
+    return name
+
+
+def _complete_output_is_gcjp_ready(
+    parsed_output: dict[str, Any] | None,
+) -> tuple[bool, list[str]]:
+    missing: list[str] = []
+    if not isinstance(parsed_output, dict):
+        return False, ["parsed_output"]
+
+    resolved = parsed_output.get("resolved_fields")
+    if not isinstance(resolved, dict):
+        return False, ["resolved_fields"]
+
+    actors = resolved.get("assigned_actors")
+    if not isinstance(actors, list) or not actors:
+        missing.append("assigned_actors")
+
+    tasks = resolved.get("tasks")
+    if not isinstance(tasks, list) or not tasks:
+        missing.append("tasks")
+        return False, missing
+
+    for idx, task in enumerate(tasks):
+        if not isinstance(task, dict):
+            missing.append(f"tasks[{idx}]")
+            continue
+        for field_name in GCJP_TASK_REQUIRED_FIELDS:
+            if not _task_field_has_gcjp_value(field_name, task.get(field_name)):
+                missing.append(f"tasks[{idx}].{field_name}")
+
+    return not missing, missing
+
+
+def _task_field_has_gcjp_value(field_name: str, value: Any) -> bool:
+    if field_name in {"actor", "action", "target"}:
+        return isinstance(value, str) and bool(value.strip())
+
+    if field_name == "duration_lb":
+        number = _as_float(value)
+        return number is not None and number > 0
+
+    if field_name == "energy_cost":
+        number = _as_float(value)
+        return number is not None and number >= 0
+
+    if field_name == "ammo_cost":
+        number = _as_float(value)
+        return number is not None and number >= 0 and number.is_integer()
+
+    return value is not None
+
+
+def _as_float(value: Any) -> float | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value.strip())
+        except ValueError:
+            return None
+    return None
 
 
 def _aggregate_metrics(
@@ -319,6 +471,19 @@ def _aggregate_metrics(
                 sum(1 for r in rounds if r <= 1) / len(rounds)
             )
 
+    complete_records = [
+        (r, e) for r, e in zip(records, evals)
+        if r.get("predicted_status") == "complete"
+    ]
+    if complete_records:
+        rates["complete_structure_success_rate"] = (
+            sum(
+                1 for _, e in complete_records
+                if e.get("gcjp_ready_structure")
+            )
+            / len(complete_records)
+        )
+
     return {
         "experiment": EXPERIMENT_NAME,
         "total_cases": total,
@@ -326,6 +491,7 @@ def _aggregate_metrics(
         "records": [
             {
                 "sample_id": r["sample_id"],
+                "expected_status": r.get("expected_status"),
                 "predicted_status": r.get("predicted_status"),
                 "evaluation": r["evaluation"],
             }
@@ -335,11 +501,11 @@ def _aggregate_metrics(
 
 
 def _case_is_incomplete(record: dict[str, Any]) -> bool:
-    """判断原始 case 是否为 incomplete 类型（从 sample_id 的 tag 或 evaluation 推断）。"""
-    eval_data = record.get("evaluation", {})
-    return eval_data.get("false_complete") is not None and not eval_data.get(
-        "status_correct", True
-    ) or "incomplete" in record.get("sample_id", "")
+    """判断原始 case 是否为 incomplete 类型。"""
+    expected_status = record.get("expected_status")
+    if expected_status is not None:
+        return expected_status == "incomplete"
+    return "incomplete" in record.get("sample_id", "")
 
 
 def _summary_line(record: dict[str, Any]) -> str:
@@ -366,6 +532,7 @@ def _error_record(case: dict[str, Any], exc: Exception) -> dict[str, Any]:
     return {
         "sample_id": case["sample_id"],
         "mode": "error",
+        "expected_status": case.get("expected_status"),
         "raw_response": "",
         "parsed_output": None,
         "extraction": {},
@@ -376,6 +543,8 @@ def _error_record(case: dict[str, Any], exc: Exception) -> dict[str, Any]:
             "missing_field_detected": False,
             "ambiguity_detected": False,
             "false_complete": False,
+            "gcjp_ready_structure": None,
+            "missing_gcjp_task_fields": [],
             "error": f"{type(exc).__name__}: {exc}",
         },
     }
