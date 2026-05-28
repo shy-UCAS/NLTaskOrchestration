@@ -691,7 +691,7 @@ def append_baseline_markdown(
         "",
         f"### {title}",
         "",
-        "日期：" + datetime.now().strftime("%Y-%m-%d"),
+        "日期：" + datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "",
         "命令：",
         "",
