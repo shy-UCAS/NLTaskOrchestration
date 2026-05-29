@@ -49,9 +49,17 @@ g.declare_segment_meta(assumed_conditions=[...])
 ```
 
 - Do not pass `segment_id` or `assigned_actors` to `declare_segment_meta`; those belong in `TaskGraphBuilder(...)`.
-- Add all tasks described by the instruction.
-- Add all task relations and explicit constraints described by the instruction.
-- Use only the actors, targets, durations, capabilities, resources, and time values stated in the instruction.
+- Add all tasks described by the normalized instruction.
+- Add all task relations and explicit constraints described by the normalized instruction.
+- Use actors, targets, task actions, relations, and conditions from the normalized instruction.
+- Use the configuration context for GCJP-required parameters that commanders normally do not state:
+  - `action_defaults.<action>.duration_lb`
+  - `action_defaults.<action>.energy_cost`
+  - `action_defaults.<action>.ammo_cost`
+  - `action_defaults.<action>.required_capability`
+  - `capability_model.<actor>.max_ammo`
+  - `capability_model.<actor>.max_energy_kwh`
+  - `capability_model.<actor>.capabilities`
 - End with exactly one exported graph variable:
 
 ```python
@@ -76,14 +84,14 @@ g.add_task(
 ```
 
 - If a task has `duration_ub`, pass `duration_ub=<value>` to `add_task`.
-- `required_capability` is mandatory in `add_task`. If the instruction says "no required capability" or does not state any capability for the task, pass `required_capability=[]`. Do not omit this argument.
+- `required_capability` is mandatory in `add_task`. Prefer `action_defaults.<action>.required_capability`; if the action default has no capability, pass `required_capability=[]`. Do not omit this argument.
 - If a task has a time window, add a separate time-window constraint after the task exists:
 
 ```python
 g.add_time_window_constraint("<task_id>", earliest=<earliest>, latest=<latest>, deadline=<deadline>)
 ```
 
-Only include `earliest`, `latest`, or `deadline` arguments that are explicitly stated in the instruction.
+Only include `earliest`, `latest`, or `deadline` arguments that are explicitly stated in the instruction. Do not invent deadlines.
 
 - For each relation, call `add_dependency` with the relation:
 
@@ -100,11 +108,15 @@ g.add_dependency("<source>", "<target>", relation="<relation>")
 g.add_resource_constraint("<actor>", "<resource_type>", max_value=<max_value>)
 ```
 
+Add one `ammo` and one `energy_kwh` resource constraint for each assigned actor when that actor appears in `capability_model`.
+
 - For capability constraints, use:
 
 ```python
 g.add_capability_constraint("<task_id>", required=[...], actor_capabilities=[...])
 ```
+
+Add a capability constraint for each task when `required_capability` is non-empty and the actor appears in `capability_model`.
 
 - For physical feasibility constraints, use:
 
@@ -135,6 +147,6 @@ Standard unambiguous instruction:
 
 {{STANDARD_INSTRUCTION}}
 
-Expected pattern hints:
+Configuration context and optional expected pattern hints:
 
 {{CASE_JSON}}

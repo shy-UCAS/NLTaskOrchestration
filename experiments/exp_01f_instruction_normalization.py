@@ -1,7 +1,8 @@
 """
 experiments/exp_01f_instruction_normalization.py
 
-Phase 1F：指令规范化实验。
+Phase 1F：真实指挥指令语义规范化实验。
+评估 normalizer 是否能判断作战语义是否完整；持续时间、能耗、弹药和资源上限由后续配置注入，不要求指挥官原文提供。
 
 两种运行模式：
   --mode single-shot（默认）：单次分析，评估首轮识别能力
@@ -50,13 +51,10 @@ from experiments.phase1_common import (
 
 EXPERIMENT_NAME = "exp_01f_instruction_normalization"
 
-GCJP_TASK_REQUIRED_FIELDS = (
+SEMANTIC_TASK_REQUIRED_FIELDS = (
     "actor",
     "action",
     "target",
-    "duration_lb",
-    "energy_cost",
-    "ammo_cost",
 )
 
 MISSING_FIELD_ALIASES = {
@@ -64,21 +62,16 @@ MISSING_FIELD_ALIASES = {
     "actors": "assigned_actors",
     "assigned_actor": "assigned_actors",
     "assigned_actors": "assigned_actors",
-    "duration": "duration_lb",
-    "duration_lb": "duration_lb",
-    "task_duration": "duration_lb",
-    "time": "duration_lb",
-    "missing_time": "duration_lb",
-    "energy": "energy_cost",
-    "energy_consumption": "energy_cost",
-    "energy_cost": "energy_cost",
-    "ammo": "ammo_cost",
-    "ammo_consumption": "ammo_cost",
-    "ammo_cost": "ammo_cost",
-    "resource": "resource_constraints",
-    "resources": "resource_constraints",
-    "resource_constraint": "resource_constraints",
-    "resource_constraints": "resource_constraints",
+    "target": "target",
+    "action": "action",
+    "relation": "relation",
+    "relations": "relation",
+    "order": "relation",
+    "condition": "condition",
+    "trigger": "condition",
+    "split": "split_assignment",
+    "split_assignment": "split_assignment",
+    "assignment": "split_assignment",
 }
 
 
@@ -255,7 +248,7 @@ def _run_clarification_loop(
     evaluation["total_rounds"] = loop_result.total_rounds
     evaluation["clarification_success"] = (
         loop_result.final_status == "complete"
-        and evaluation.get("gcjp_ready_structure") is not False
+        and evaluation.get("semantic_structure") is not False
     )
     evaluation["post_clarification_correct"] = evaluation.get(
         "status_correct", False,
@@ -292,29 +285,36 @@ def _evaluate_normalization(
             "missing_field_detected": False,
             "ambiguity_detected": False,
             "false_complete": False,
-            "gcjp_ready_structure": None,
-            "missing_gcjp_task_fields": [],
+            "semantic_structure": None,
+            "missing_semantic_task_fields": [],
         }
 
     expected_status = case["expected_status"]
     predicted_status = result.status
 
     json_ok = result.extraction.get("ok", False)
-    gcjp_ready_structure = None
-    missing_gcjp_task_fields: list[str] = []
+    semantic_structure = None
+    missing_semantic_task_fields: list[str] = []
     if predicted_status == "complete":
-        gcjp_ready_structure, missing_gcjp_task_fields = (
-            _complete_output_is_gcjp_ready(result.parsed_output)
+        semantic_structure, missing_semantic_task_fields = (
+            _complete_output_is_semantically_ready(result.parsed_output)
         )
 
     status_correct = predicted_status == expected_status
-    if predicted_status == "complete" and not gcjp_ready_structure:
+    if predicted_status == "complete" and not semantic_structure:
         status_correct = False
 
     expected_missing = _canonical_missing_fields(
         case.get("expected_missing_fields", []),
     )
-    predicted_missing = _canonical_missing_fields(result.missing_fields or [])
+    ambiguity_fields = [
+        item.get("field")
+        for item in (result.ambiguities or [])
+        if isinstance(item, dict)
+    ]
+    predicted_missing = _canonical_missing_fields(
+        list(result.missing_fields or []) + ambiguity_fields,
+    )
     missing_detected = (
         expected_missing.issubset(predicted_missing) if expected_missing else True
     )
@@ -337,8 +337,8 @@ def _evaluate_normalization(
         "missing_field_detected": missing_detected,
         "ambiguity_detected": ambiguity_detected,
         "false_complete": false_complete,
-        "gcjp_ready_structure": gcjp_ready_structure,
-        "missing_gcjp_task_fields": missing_gcjp_task_fields,
+        "semantic_structure": semantic_structure,
+        "missing_semantic_task_fields": missing_semantic_task_fields,
     }
 
 
@@ -363,21 +363,23 @@ def _canonical_missing_field(field: Any) -> str:
     if direct:
         return direct
 
-    if "duration" in name or "持续" in name or "时间" in name:
-        return "duration_lb"
-    if "energy_cost" in name or "energy_consumption" in name or "能量消耗" in name:
-        return "energy_cost"
-    if "ammo_cost" in name or "ammo_consumption" in name or "弹药消耗" in name:
-        return "ammo_cost"
-    if "resource" in name or "资源" in name:
-        return "resource_constraints"
     if "actor" in name or "编队" in name or "主体" in name:
         return "assigned_actors"
+    if "target" in name or "目标" in name or "区域" in name or "点位" in name:
+        return "target"
+    if "action" in name or "动作" in name:
+        return "action"
+    if "relation" in name or "关系" in name or "顺序" in name:
+        return "relation"
+    if "condition" in name or "trigger" in name or "条件" in name:
+        return "condition"
+    if "split" in name or "分配" in name or "拆分" in name:
+        return "split_assignment"
 
     return name
 
 
-def _complete_output_is_gcjp_ready(
+def _complete_output_is_semantically_ready(
     parsed_output: dict[str, Any] | None,
 ) -> tuple[bool, list[str]]:
     missing: list[str] = []
@@ -397,47 +399,26 @@ def _complete_output_is_gcjp_ready(
         missing.append("tasks")
         return False, missing
 
+    if len(tasks) > 1:
+        relations = resolved.get("relations")
+        if not isinstance(relations, list) or not relations:
+            missing.append("relations")
+
     for idx, task in enumerate(tasks):
         if not isinstance(task, dict):
             missing.append(f"tasks[{idx}]")
             continue
-        for field_name in GCJP_TASK_REQUIRED_FIELDS:
-            if not _task_field_has_gcjp_value(field_name, task.get(field_name)):
+        for field_name in SEMANTIC_TASK_REQUIRED_FIELDS:
+            if not _task_field_has_semantic_value(field_name, task.get(field_name)):
                 missing.append(f"tasks[{idx}].{field_name}")
 
     return not missing, missing
 
 
-def _task_field_has_gcjp_value(field_name: str, value: Any) -> bool:
+def _task_field_has_semantic_value(field_name: str, value: Any) -> bool:
     if field_name in {"actor", "action", "target"}:
         return isinstance(value, str) and bool(value.strip())
-
-    if field_name == "duration_lb":
-        number = _as_float(value)
-        return number is not None and number > 0
-
-    if field_name == "energy_cost":
-        number = _as_float(value)
-        return number is not None and number >= 0
-
-    if field_name == "ammo_cost":
-        number = _as_float(value)
-        return number is not None and number >= 0 and number.is_integer()
-
     return value is not None
-
-
-def _as_float(value: Any) -> float | None:
-    if isinstance(value, bool):
-        return None
-    if isinstance(value, (int, float)):
-        return float(value)
-    if isinstance(value, str):
-        try:
-            return float(value.strip())
-        except ValueError:
-            return None
-    return None
 
 
 def _aggregate_metrics(
@@ -487,16 +468,20 @@ def _aggregate_metrics(
             r for r, e in incomplete_cases if e.get("false_complete")
         ]
         if false_complete_records:
-            by_category = {"missing_field": 0, "ambiguous_only": 0, "other": 0}
+            by_dimension: dict[str, int] = {}
             for r in false_complete_records:
                 case = case_index.get(r["sample_id"], {})
-                if case.get("expected_missing_fields"):
-                    by_category["missing_field"] += 1
-                elif case.get("expected_ambiguity_spans"):
-                    by_category["ambiguous_only"] += 1
-                else:
-                    by_category["other"] += 1
-            rates["false_complete_by_category"] = by_category
+                dims = _canonical_missing_fields(
+                    case.get("expected_missing_fields", []),
+                )
+                dims |= _canonical_missing_fields([
+                    span.get("field")
+                    for span in case.get("expected_ambiguity_spans", [])
+                    if isinstance(span, dict)
+                ])
+                for dim in sorted(dims) or ["unspecified"]:
+                    by_dimension[dim] = by_dimension.get(dim, 0) + 1
+            rates["false_complete_by_dimension"] = by_dimension
 
     consistency_total = sum(
         1 for r in records if r.get("model_reported_status") is not None
@@ -529,13 +514,15 @@ def _aggregate_metrics(
         if r.get("predicted_status") == "complete"
     ]
     if complete_records:
-        rates["complete_structure_success_rate"] = (
+        semantic_success = (
             sum(
                 1 for _, e in complete_records
-                if e.get("gcjp_ready_structure")
+                if e.get("semantic_structure")
             )
             / len(complete_records)
         )
+        rates["semantic_structure_success_rate"] = semantic_success
+        rates["complete_structure_success_rate"] = semantic_success
 
     return {
         "experiment": EXPERIMENT_NAME,
@@ -600,8 +587,8 @@ def _error_record(case: dict[str, Any], exc: Exception) -> dict[str, Any]:
             "missing_field_detected": False,
             "ambiguity_detected": False,
             "false_complete": False,
-            "gcjp_ready_structure": None,
-            "missing_gcjp_task_fields": [],
+            "semantic_structure": None,
+            "missing_semantic_task_fields": [],
             "error": f"{type(exc).__name__}: {exc}",
         },
     }

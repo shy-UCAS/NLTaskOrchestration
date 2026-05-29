@@ -31,6 +31,10 @@ from agents.instruction_normalizer_agent import InstructionNormalizerAgent
 from agents.llm_client import LLMClient, LLMConfigError
 from agents.planner_agent import PlannerAgent
 from gcjp.code_executor import execute_gcjp_code
+from gcjp.task_plan_loader import (
+    load_action_defaults_from_yaml,
+    load_capability_model_from_yaml,
+)
 from verifier.pipeline import VerificationPipeline
 from experiments.phase1_common import (
     Z3_LOCK,
@@ -70,6 +74,18 @@ def main() -> int:
         type=Path,
         default=Path("prompts") / "standard_nl_to_gcjp_prompt.md",
     )
+    parser.add_argument(
+        "--action-templates",
+        type=Path,
+        default=Path("configs") / "action_templates.yaml",
+        help="Action defaults used by the GCJP generation prompt.",
+    )
+    parser.add_argument(
+        "--capability-model",
+        type=Path,
+        default=Path("configs") / "capability_model.yaml",
+        help="Fleet capability/resource model used by the GCJP generation prompt.",
+    )
     parser.add_argument("--max-clarification-rounds", type=int, default=5)
     parser.add_argument(
         "--interactive",
@@ -107,6 +123,10 @@ def run_pipeline_experiment(args: argparse.Namespace) -> dict[str, Any]:
     planner = PlannerAgent(client)
     norm_prompt = read_prompt_template(args.normalization_prompt)
     gen_prompt = read_prompt_template(args.generation_prompt)
+    generation_context = _build_generation_config_context(
+        action_templates_path=args.action_templates,
+        capability_model_path=args.capability_model,
+    )
 
     run_output = resolve_phase1_run_output(
         output_dir=args.output_dir,
@@ -126,6 +146,7 @@ def run_pipeline_experiment(args: argparse.Namespace) -> dict[str, Any]:
                 planner=planner,
                 norm_prompt=norm_prompt,
                 gen_prompt=gen_prompt,
+                generation_context=generation_context,
                 max_rounds=args.max_clarification_rounds,
                 interactive=args.interactive,
             )
@@ -182,6 +203,7 @@ def _run_case(
     planner: PlannerAgent,
     norm_prompt: str,
     gen_prompt: str,
+    generation_context: dict[str, Any],
     max_rounds: int,
     interactive: bool,
 ) -> dict[str, Any]:
@@ -235,7 +257,7 @@ def _run_case(
     generation = planner.generate_gcjp(
         sample_id=sample_id,
         prompt_template=gen_prompt,
-        case_payload={},
+        case_payload=generation_context,
         standard_instruction=standard_instruction,
     )
 
@@ -277,6 +299,29 @@ def _run_case(
             "end_to_end_pass": verified,
             "failure_attribution": None if verified else "verification",
         },
+    }
+
+
+def _build_generation_config_context(
+    *,
+    action_templates_path: Path,
+    capability_model_path: Path,
+) -> dict[str, Any]:
+    action_defaults = load_action_defaults_from_yaml(action_templates_path)
+    capability_model = load_capability_model_from_yaml(capability_model_path)
+    return {
+        "parameter_source": {
+            "action_templates": str(action_templates_path),
+            "capability_model": str(capability_model_path),
+            "policy": (
+                "Use normalized command semantics for actor/action/target/relation. "
+                "Use action_defaults for duration_lb, energy_cost, ammo_cost and "
+                "required_capability. Use capability_model for actor resource limits "
+                "and actor capabilities."
+            ),
+        },
+        "action_defaults": action_defaults,
+        "capability_model": capability_model,
     }
 
 
