@@ -8,7 +8,11 @@ prediction（LLM 生成 GCJP 代码执行），然后做 Node-F1 / Edge-F1 /
 Constraint-F1 对比。
 
 用法：
-  python -m experiments.exp_02_json_to_gcjp_comparison --local-provider claude --limit 2
+  # 默认从 configs/llm_providers.local.yaml 读取 profile
+  python -m experiments.exp_02_json_to_gcjp_comparison --provider-profile <profile_name> --limit 2 --workers 8
+
+  # 覆盖结构化数据集或 prompt
+  python -m experiments.exp_02_json_to_gcjp_comparison --provider-profile <profile_name> --dataset datasets/phase1_structured_cases.jsonl --prompt prompts/gcjp_generation_prompt.md
 """
 from __future__ import annotations
 
@@ -33,6 +37,7 @@ from experiments.phase1_common import (
     print_provider_summary_from_args,
     read_prompt_template,
     resolve_phase1_run_output,
+    run_cases_concurrent,
     write_latest_run_index,
 )
 
@@ -83,23 +88,29 @@ def run_comparison_experiment(args: argparse.Namespace) -> dict[str, Any]:
     for sub in ("generated_code", "comparisons", "reports"):
         (exp_dir / sub).mkdir(parents=True, exist_ok=True)
 
-    records = []
-    for case in cases:
-        sample_id = case["sample_id"]
+    def _worker(case: dict[str, Any]) -> dict[str, Any]:
         try:
-            record = _run_case(case, agent, prompt_template)
+            return _run_case(case, agent, prompt_template)
         except Exception as exc:
-            record = {
-                "sample_id": sample_id,
+            return {
+                "sample_id": case["sample_id"],
                 "ref_built": False,
                 "pred_built": False,
                 "comparison": None,
                 "error": f"{type(exc).__name__}: {exc}",
             }
 
+    def _on_complete(record: dict[str, Any]) -> None:
         _write_outputs(exp_dir, record)
-        records.append(record)
         print(_summary_line(record))
+
+    records = run_cases_concurrent(
+        cases,
+        _worker,
+        workers=getattr(args, "workers", 1),
+        on_complete=_on_complete,
+        show_usage=getattr(args, "show_usage", False),
+    )
 
     metrics = _aggregate_metrics(records)
     metrics.update(phase1_run_metadata_json(run_output))
@@ -159,6 +170,7 @@ def _run_case(
         "extraction_ok": extraction_ok,
         "extracted_code": code,
         "comparison": comparison_dict,
+        "usage": generation.usage,
         "generation_summary": {
             "model": generation.model,
             "extraction": generation.extraction,

@@ -8,8 +8,15 @@ Phase 1G：原始 NL → 指令规范化（含澄清闭环）→ GCJP 生成 →
                                if not complete → 记录失败，不生成 GCJP
 
 用法：
-  python -m experiments.exp_01g_raw_nl_to_gcjp_pipeline --local-provider claude --limit 2
-  python -m experiments.exp_01g_raw_nl_to_gcjp_pipeline --local-provider claude --interactive
+  # 默认从 configs/llm_providers.local.yaml 读取 profile
+  python -m experiments.exp_01g_raw_nl_to_gcjp_pipeline --provider-profile <profile_name> --workers 4
+
+  # 覆盖 eval/dev 数据集或进入交互澄清
+  python -m experiments.exp_01g_raw_nl_to_gcjp_pipeline --provider-profile <profile_name> --dataset datasets/phase1_instruction_normalization_dev.jsonl
+  python -m experiments.exp_01g_raw_nl_to_gcjp_pipeline --provider-profile <profile_name> --interactive --workers 1
+
+  # 临时指定其他 provider 配置文件
+  python -m experiments.exp_01g_raw_nl_to_gcjp_pipeline --config configs/llm_providers.local.yaml --provider-profile <profile_name>
 """
 from __future__ import annotations
 
@@ -26,6 +33,7 @@ from agents.planner_agent import PlannerAgent
 from gcjp.code_executor import execute_gcjp_code
 from verifier.pipeline import VerificationPipeline
 from experiments.phase1_common import (
+    Z3_LOCK,
     add_common_args,
     append_baseline_markdown,
     handle_config_error,
@@ -35,6 +43,7 @@ from experiments.phase1_common import (
     print_provider_summary_from_args,
     read_prompt_template,
     resolve_phase1_run_output,
+    run_cases_concurrent,
     save_baseline_json,
     write_latest_run_index,
 )
@@ -82,6 +91,14 @@ def run_pipeline_experiment(args: argparse.Namespace) -> dict[str, Any]:
     if not cases:
         raise ValueError(f"No cases loaded from {args.dataset}")
 
+    workers = getattr(args, "workers", 8)
+    if args.interactive and workers > 1:
+        print(
+            f"[{EXPERIMENT_NAME}] interactive 模式与 --workers>1 互斥,"
+            f"自动回退到 --workers 1。"
+        )
+        workers = 1
+
     config = load_config_from_args(args)
     provider_summary = config.safe_summary()
     client = LLMClient(config)
@@ -101,11 +118,9 @@ def run_pipeline_experiment(args: argparse.Namespace) -> dict[str, Any]:
     for sub in ("normalization", "generated_code", "reports"):
         (exp_dir / sub).mkdir(parents=True, exist_ok=True)
 
-    records = []
-    for case in cases:
-        sample_id = case["sample_id"]
+    def _worker(case: dict[str, Any]) -> dict[str, Any]:
         try:
-            record = _run_case(
+            return _run_case(
                 case=case,
                 normalizer=normalizer,
                 planner=planner,
@@ -115,15 +130,23 @@ def run_pipeline_experiment(args: argparse.Namespace) -> dict[str, Any]:
                 interactive=args.interactive,
             )
         except Exception as exc:
-            record = {
-                "sample_id": sample_id,
+            return {
+                "sample_id": case["sample_id"],
                 "stage": "error",
                 "evaluation": {"error": f"{type(exc).__name__}: {exc}"},
             }
 
+    def _on_complete(record: dict[str, Any]) -> None:
         _write_outputs(exp_dir, record)
-        records.append(record)
         print(_summary_line(record))
+
+    records = run_cases_concurrent(
+        cases,
+        _worker,
+        workers=workers,
+        on_complete=_on_complete,
+        show_usage=getattr(args, "show_usage", False),
+    )
 
     metrics = _aggregate_metrics(records)
     metrics.update(phase1_run_metadata_json(run_output))
@@ -187,6 +210,7 @@ def _run_case(
             loop_result.final_result.standard_instruction
             if loop_result.final_result else None
         ),
+        "usage": [r.usage for r in loop_result.all_results if r.usage],
     }
 
     if loop_result.final_status != "complete":
@@ -235,7 +259,8 @@ def _run_case(
             },
         }
 
-    report = VerificationPipeline(z3_timeout_ms=15_000).verify_gcjp_code(code)
+    with Z3_LOCK:
+        report = VerificationPipeline(z3_timeout_ms=15_000).verify_gcjp_code(code)
     verified = report.overall_passed if report else False
 
     return {

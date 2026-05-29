@@ -6,13 +6,16 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import urlparse
 
 from agents.llm_client import (
+    DEFAULT_PROVIDER_CONFIG_PATH,
     LLMClient,
     LLMConfigError,
     load_provider_config,
@@ -26,10 +29,26 @@ from verifier.pipeline import VerificationPipeline, VerificationReport
 
 DEFAULT_OUTPUT_DIR = Path("out") / "phase1_generation"
 
+# z3-solver Python 绑定对默认全局 Context 的多线程并发不保证安全。
+# 所有 VerificationPipeline.verify_gcjp_code 调用都应在 with Z3_LOCK: 内执行。
+Z3_LOCK = threading.Lock()
+
 
 def add_common_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--config", help="LLM provider YAML config path")
-    parser.add_argument("--provider-profile", help="LLM provider profile name")
+    parser.add_argument(
+        "--config",
+        help=(
+            "LLM provider YAML config path. If omitted with --provider-profile, "
+            f"defaults to {DEFAULT_PROVIDER_CONFIG_PATH}."
+        ),
+    )
+    parser.add_argument(
+        "--provider-profile",
+        help=(
+            "LLM provider profile name. Uses configs/llm_providers.local.yaml "
+            "when --config is omitted."
+        ),
+    )
     parser.add_argument(
         "--local-provider",
         choices=["codex", "claude"],
@@ -109,6 +128,20 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
         "--save-baseline",
         action="store_true",
         help="Save sanitized metrics + per-case results to experiments/baselines/ for git tracking.",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=8,
+        help=(
+            "并发 worker 数 (ThreadPoolExecutor 线程数)。默认 8;远程 API 限流时下调,"
+            "本地 vLLM/Ollama 可上调到 32-64。--workers 1 退化为串行。"
+        ),
+    )
+    parser.add_argument(
+        "--show-usage",
+        action="store_true",
+        help="并发结束后输出本轮所有 LLM 调用的 token 用量统计。",
     )
 
 
@@ -280,6 +313,231 @@ def read_prompt_template(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def _collect_usage_from_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """从 records 中递归收集所有唯一 usage dict(已按 id() 去重,避免嵌套结构重复计数)。"""
+    seen_ids: set[int] = set()
+    usage_list: list[dict[str, Any]] = []
+
+    def _walk(obj: Any) -> None:
+        if isinstance(obj, dict):
+            usage = obj.get("usage")
+            if isinstance(usage, dict) and usage and id(usage) not in seen_ids:
+                seen_ids.add(id(usage))
+                usage_list.append(usage)
+            elif isinstance(usage, list):
+                for u in usage:
+                    if isinstance(u, dict) and u and id(u) not in seen_ids:
+                        seen_ids.add(id(u))
+                        usage_list.append(u)
+            for val in obj.values():
+                _walk(val)
+        elif isinstance(obj, list):
+            for item in obj:
+                _walk(item)
+
+    _walk(records)
+    return usage_list
+
+
+def _print_llm_usage_summary(records: list[dict[str, Any]]) -> None:
+    """打印本轮所有 LLM 调用的 token 用量统计。"""
+    usages = _collect_usage_from_records(records)
+    if not usages:
+        print("\n[LLM 用量] 未在 records 中找到 usage 数据,"
+              "可能所有样本均未成功调用 LLM。")
+        return
+
+    total_calls = len(usages)
+    merged: dict[str, int] = {}
+    for u in usages:
+        for key, val in u.items():
+            if isinstance(val, (int, float)):
+                merged[key] = merged.get(key, 0) + int(val)
+
+    # Anthropic 风格的 key → 兼容名称
+    input_tokens = merged.get("input_tokens", merged.get("prompt_tokens", 0))
+    cache_create = merged.get("cache_creation_input_tokens", 0)
+    cache_read = merged.get("cache_read_input_tokens", 0)
+    output_tokens = merged.get("output_tokens", merged.get("completion_tokens", 0))
+    total_tokens = merged.get("total_tokens", input_tokens + output_tokens)
+
+    print("\n" + "─" * 48)
+    print("  LLM 用量统计")
+    print("─" * 48)
+    print(f"  总 LLM 调用次数      : {total_calls}")
+    print(f"  输入 tokens           : {input_tokens:,}")
+    if cache_create:
+        print(f"    ├─ 写入缓存         : {cache_create:,}")
+    if cache_read:
+        print(f"    └─ 命中缓存         : {cache_read:,}")
+    print(f"  输出 tokens           : {output_tokens:,}")
+    print(f"  总计 tokens           : {total_tokens:,}")
+    if total_calls:
+        print(f"  平均 输入/调用        : {input_tokens // total_calls:,}")
+        print(f"  平均 输出/调用        : {output_tokens // total_calls:,}")
+    print("─" * 48)
+
+
+def run_cases_concurrent(
+    cases: list[dict[str, Any]],
+    worker_fn: Callable[[dict[str, Any]], dict[str, Any]],
+    *,
+    workers: int,
+    on_complete: Callable[[dict[str, Any]], None] | None = None,
+    show_usage: bool = False,
+) -> list[dict[str, Any]]:
+    """并发处理 cases,返回按 cases 原始顺序排好的 records。
+
+    worker_fn 必须自行 try/except,绝不能让异常逃出(否则只能在 future.result()
+    处兜底,无法回到对应实验定制的 _error_record 形态)。on_complete 在主线程内
+    按完成顺序调用,负责写文件 + print —— 主线程内调用所以无需加锁。
+
+    workers <= 1 时退化为串行,完全保留原循环顺序,便于调试与回归对照。
+    """
+    llm_warning_state: dict[str, dict[str, Any]] = {}
+    if workers <= 1:
+        records: list[dict[str, Any]] = []
+        for case in cases:
+            rec = worker_fn(case)
+            if on_complete is not None:
+                on_complete(rec)
+            _track_llm_api_warning(rec, llm_warning_state)
+            records.append(rec)
+        _print_llm_api_warning_summary(llm_warning_state)
+        if show_usage:
+            _print_llm_usage_summary(records)
+        return records
+
+    by_id: dict[str, dict[str, Any]] = {}
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        futures = {ex.submit(worker_fn, c): c["sample_id"] for c in cases}
+        for fut in as_completed(futures):
+            sid = futures[fut]
+            try:
+                rec = fut.result()
+            except Exception as exc:  # 兜底:worker_fn 应自行处理异常
+                rec = {
+                    "sample_id": sid,
+                    "evaluation": {"error": f"{type(exc).__name__}: {exc}"},
+                }
+            by_id[sid] = rec
+            if on_complete is not None:
+                on_complete(rec)
+            _track_llm_api_warning(rec, llm_warning_state)
+    records = [by_id[c["sample_id"]] for c in cases]
+    _print_llm_api_warning_summary(llm_warning_state)
+    if show_usage:
+        _print_llm_usage_summary(records)
+    return records
+
+
+def _track_llm_api_warning(
+    record: dict[str, Any],
+    warning_state: dict[str, dict[str, Any]],
+) -> None:
+    warning = _extract_record_llm_api_warning(record)
+    if warning is None:
+        return
+
+    signature, message = warning
+    entry = warning_state.setdefault(
+        signature,
+        {
+            "count": 0,
+            "first_sample_id": record.get("sample_id", "?"),
+            "first_message": message,
+        },
+    )
+    entry["count"] += 1
+    if entry["count"] == 1:
+        print(
+            "[LLM/API 警告] "
+            f"sample_id={entry['first_sample_id']} "
+            f"{signature}: {_compact_text(message, 260)}"
+        )
+
+
+def _print_llm_api_warning_summary(
+    warning_state: dict[str, dict[str, Any]],
+) -> None:
+    if not warning_state:
+        return
+    total = sum(int(v["count"]) for v in warning_state.values())
+    print("\n[LLM/API 警告汇总] "
+          f"检测到 {total} 个样本发生 LLM/API 调用错误。")
+    for signature, entry in sorted(warning_state.items()):
+        print(
+            "  - "
+            f"{signature}: {entry['count']} case(s), "
+            f"first_sample_id={entry['first_sample_id']}"
+        )
+
+
+def _extract_record_llm_api_warning(
+    record: dict[str, Any],
+) -> tuple[str, str] | None:
+    for message in _iter_error_texts(record):
+        signature = _llm_api_error_signature(message)
+        if signature:
+            return signature, message
+    return None
+
+
+def _iter_error_texts(obj: Any):
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            if key in {"error", "config_error", "probe_error"}:
+                if isinstance(value, str) and value:
+                    yield value
+                elif isinstance(value, list):
+                    for item in value:
+                        if isinstance(item, str) and item:
+                            yield item
+            else:
+                yield from _iter_error_texts(value)
+    elif isinstance(obj, list):
+        for item in obj:
+            yield from _iter_error_texts(item)
+
+
+def _llm_api_error_signature(message: str) -> str | None:
+    if not _looks_like_llm_api_error(message):
+        return None
+
+    parts: list[str] = []
+    http_match = re.search(r"HTTP\s+(\d{3})", message)
+    if http_match:
+        parts.append(f"HTTP {http_match.group(1)}")
+
+    code_match = re.search(r'"code"\s*:\s*"([^"]+)"', message)
+    type_match = re.search(r'"type"\s*:\s*"([^"]+)"', message)
+    if code_match:
+        parts.append(code_match.group(1))
+    elif type_match:
+        parts.append(type_match.group(1))
+
+    if not parts:
+        if "LLMRequestError" in message:
+            parts.append("LLMRequestError")
+        else:
+            parts.append("LLM/API error")
+    return " / ".join(parts)
+
+
+def _looks_like_llm_api_error(message: str) -> bool:
+    markers = (
+        "LLMRequestError",
+        "LLM 请求",
+        "LLM request",
+        "OpenAI SDK 请求失败",
+        "Anthropic SDK 请求失败",
+        "model_not_found",
+        "invalid_request_error",
+        "packy_api_error",
+    )
+    return any(marker in message for marker in markers)
+
+
 def run_generation_experiment(
     *,
     experiment_name: str,
@@ -306,8 +564,7 @@ def run_generation_experiment(
     prompt_template = read_prompt_template(prompt_path)
     output_dirs = _ensure_output_dirs(run_output["run_dir"], experiment_name)
 
-    records = []
-    for case in cases:
+    def _worker(case: dict[str, Any]) -> dict[str, Any]:
         sample_id = case["sample_id"]
         try:
             generation = agent.generate_gcjp(
@@ -319,13 +576,21 @@ def run_generation_experiment(
                     if standard_instruction_fn else None
                 ),
             )
-            record = _evaluate_generation(case, generation)
+            return _evaluate_generation(case, generation)
         except Exception as exc:
-            record = _error_record(case, exc)
+            return _error_record(case, exc)
 
-        _write_case_outputs(output_dirs, sample_id, record)
-        records.append(record)
+    def _on_complete(record: dict[str, Any]) -> None:
+        _write_case_outputs(output_dirs, record["sample_id"], record)
         print(_summary_line(record))
+
+    records = run_cases_concurrent(
+        cases,
+        _worker,
+        workers=getattr(args, "workers", 1),
+        on_complete=_on_complete,
+        show_usage=getattr(args, "show_usage", False),
+    )
 
     metrics = _aggregate_metrics(experiment_name, records)
     metrics.update(phase1_run_metadata_json(run_output))
@@ -357,10 +622,11 @@ def _evaluate_generation(
 
     exec_result = execute_gcjp_code(code) if extraction_ok else None
     graph = exec_result.graph if exec_result and exec_result.graph else None
-    report = (
-        VerificationPipeline(z3_timeout_ms=15_000).verify_gcjp_code(code)
-        if extraction_ok else None
-    )
+    if extraction_ok:
+        with Z3_LOCK:
+            report = VerificationPipeline(z3_timeout_ms=15_000).verify_gcjp_code(code)
+    else:
+        report = None
     eval_result = _evaluate_expected(case, graph, report, exec_result, extraction_ok)
 
     return {

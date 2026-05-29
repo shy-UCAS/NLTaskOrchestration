@@ -8,8 +8,15 @@ Phase 1F：指令规范化实验。
   --mode clarification-loop：走完整澄清闭环，评估多轮交互效果
 
 用法：
-  python -m experiments.exp_01f_instruction_normalization --local-provider claude --limit 2
-  python -m experiments.exp_01f_instruction_normalization --local-provider claude --mode clarification-loop
+  # 默认从 configs/llm_providers.local.yaml 读取 profile
+  python -m experiments.exp_01f_instruction_normalization --provider-profile <profile_name> --workers 8
+
+  # 跑 dev/smoke 集，或切到澄清闭环
+  python -m experiments.exp_01f_instruction_normalization --provider-profile <profile_name> --dataset datasets/phase1_instruction_normalization_dev.jsonl
+  python -m experiments.exp_01f_instruction_normalization --provider-profile <profile_name> --mode clarification-loop --dataset datasets/phase1_instruction_normalization_eval.jsonl
+
+  # 临时指定其他 provider 配置文件
+  python -m experiments.exp_01f_instruction_normalization --config configs/llm_providers.local.yaml --provider-profile <profile_name>
 """
 from __future__ import annotations
 
@@ -35,6 +42,7 @@ from experiments.phase1_common import (
     print_provider_summary_from_args,
     read_prompt_template,
     resolve_phase1_run_output,
+    run_cases_concurrent,
     save_baseline_json,
     write_latest_run_index,
 )
@@ -126,22 +134,22 @@ def run_normalization_experiment(args: argparse.Namespace) -> dict[str, Any]:
     raw_dir.mkdir(exist_ok=True)
     parsed_dir.mkdir(exist_ok=True)
 
-    records = []
-    for case in cases:
+    def _worker(case: dict[str, Any]) -> dict[str, Any]:
         sample_id = case["sample_id"]
         try:
             if args.mode == "single-shot":
-                record = _run_single_shot(
+                return _run_single_shot(
                     case, agent, prompt_template, sample_id,
                 )
-            else:
-                record = _run_clarification_loop(
-                    case, agent, prompt_template, sample_id,
-                    max_rounds=args.max_clarification_rounds,
-                )
+            return _run_clarification_loop(
+                case, agent, prompt_template, sample_id,
+                max_rounds=args.max_clarification_rounds,
+            )
         except Exception as exc:
-            record = _error_record(case, exc)
+            return _error_record(case, exc)
 
+    def _on_complete(record: dict[str, Any]) -> None:
+        sample_id = record["sample_id"]
         (raw_dir / f"{sample_id}.txt").write_text(
             record.get("raw_response", ""), encoding="utf-8",
         )
@@ -150,10 +158,17 @@ def run_normalization_experiment(args: argparse.Namespace) -> dict[str, Any]:
             json.dumps(parsed, ensure_ascii=False, indent=2) if parsed else "null",
             encoding="utf-8",
         )
-        records.append(record)
         print(_summary_line(record))
 
-    metrics = _aggregate_metrics(records, args.mode)
+    records = run_cases_concurrent(
+        cases,
+        _worker,
+        workers=getattr(args, "workers", 1),
+        on_complete=_on_complete,
+        show_usage=getattr(args, "show_usage", False),
+    )
+
+    metrics = _aggregate_metrics(records, args.mode, cases)
     metrics.update(phase1_run_metadata_json(run_output))
     metrics["mode"] = args.mode
     metrics["output_dir"] = str(exp_dir)
@@ -200,6 +215,9 @@ def _run_single_shot(
         "parsed_output": result.parsed_output,
         "extraction": result.extraction,
         "predicted_status": result.status,
+        "model_reported_status": result.model_reported_status,
+        "status_overridden_by_invariant": result.status_overridden_by_invariant,
+        "usage": result.usage,
         "evaluation": evaluation,
     }
 
@@ -251,9 +269,14 @@ def _run_clarification_loop(
         "parsed_output": final.parsed_output if final else None,
         "extraction": final.extraction if final else {},
         "predicted_status": final.status if final else None,
+        "model_reported_status": final.model_reported_status if final else None,
+        "status_overridden_by_invariant": (
+            final.status_overridden_by_invariant if final else False
+        ),
         "clarification_history": loop_result.clarification_history,
         "total_rounds": loop_result.total_rounds,
         "loop_final_status": loop_result.final_status,
+        "usage": [r.usage for r in loop_result.all_results if r.usage],
         "evaluation": evaluation,
     }
 
@@ -418,15 +441,18 @@ def _as_float(value: Any) -> float | None:
 
 
 def _aggregate_metrics(
-    records: list[dict[str, Any]], mode: str,
+    records: list[dict[str, Any]],
+    mode: str,
+    cases: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     total = len(records)
     if total == 0:
         return {"experiment": EXPERIMENT_NAME, "total_cases": 0, "rates": {}}
 
     evals = [r["evaluation"] for r in records]
+    case_index = {c["sample_id"]: c for c in (cases or [])}
 
-    rates: dict[str, float] = {
+    rates: dict[str, float | dict[str, int]] = {
         "json_parse_success_rate": (
             sum(1 for e in evals if e.get("json_parse_success")) / total
         ),
@@ -456,6 +482,33 @@ def _aggregate_metrics(
             sum(1 for _, e in incomplete_cases if e.get("false_complete"))
             / len(incomplete_cases)
         )
+
+        false_complete_records = [
+            r for r, e in incomplete_cases if e.get("false_complete")
+        ]
+        if false_complete_records:
+            by_category = {"missing_field": 0, "ambiguous_only": 0, "other": 0}
+            for r in false_complete_records:
+                case = case_index.get(r["sample_id"], {})
+                if case.get("expected_missing_fields"):
+                    by_category["missing_field"] += 1
+                elif case.get("expected_ambiguity_spans"):
+                    by_category["ambiguous_only"] += 1
+                else:
+                    by_category["other"] += 1
+            rates["false_complete_by_category"] = by_category
+
+    consistency_total = sum(
+        1 for r in records if r.get("model_reported_status") is not None
+    )
+    if consistency_total:
+        overrides = sum(
+            1 for r in records if r.get("status_overridden_by_invariant")
+        )
+        rates["invariant_override_rate"] = overrides / consistency_total
+        rates["model_self_consistency_rate"] = (
+            consistency_total - overrides
+        ) / consistency_total
 
     if mode == "clarification-loop":
         loop_records = [r for r in records if r.get("mode") == "clarification-loop"]
@@ -493,6 +546,10 @@ def _aggregate_metrics(
                 "sample_id": r["sample_id"],
                 "expected_status": r.get("expected_status"),
                 "predicted_status": r.get("predicted_status"),
+                "model_reported_status": r.get("model_reported_status"),
+                "status_overridden_by_invariant": r.get(
+                    "status_overridden_by_invariant", False,
+                ),
                 "evaluation": r["evaluation"],
             }
             for r in records

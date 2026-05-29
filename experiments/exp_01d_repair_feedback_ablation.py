@@ -14,6 +14,13 @@ verification feedback passed into the repair prompt:
 - broken_only: broken code only.
 - layer1_only: only Layer 1 diagnostics.
 - error_summary_only: compact structured error summary.
+
+Usage:
+  # Default provider file: configs/llm_providers.local.yaml
+  python -m experiments.exp_01d_repair_feedback_ablation --provider-profile <profile_name> --source-report-dir out/phase1_generation/<run_dir>/<experiment>/reports --workers 4
+
+  # Compare a selected subset of feedback modes
+  python -m experiments.exp_01d_repair_feedback_ablation --provider-profile <profile_name> --source-report-dir out/phase1_generation/<run_dir>/<experiment>/reports --feedback-modes full_report layer1_only error_summary_only
 """
 from __future__ import annotations
 
@@ -33,6 +40,7 @@ from experiments.phase1_common import (
     print_provider_summary_from_args,
     read_prompt_template,
     resolve_phase1_run_output,
+    run_cases_concurrent,
     write_latest_run_index,
 )
 from experiments import exp_01c_repair_loop as repair_loop
@@ -122,6 +130,7 @@ def run_feedback_ablation(args: argparse.Namespace) -> dict[str, Any]:
     base_output_dir = run_output["run_dir"]
     base_output_dir.mkdir(parents=True, exist_ok=True)
 
+    show_usage = getattr(args, "show_usage", False)
     mode_summaries = []
     for mode in args.feedback_modes:
         mode_summary = _run_mode(
@@ -133,6 +142,8 @@ def run_feedback_ablation(args: argparse.Namespace) -> dict[str, Any]:
             output_root=base_output_dir / mode,
             source_report_dir=args.source_report_dir,
             run_output=run_output,
+            workers=getattr(args, "workers", 1),
+            show_usage=show_usage,
         )
         mode_summaries.append(mode_summary)
 
@@ -177,21 +188,37 @@ def _run_mode(
     output_root: Path,
     source_report_dir: Path,
     run_output: dict[str, Any],
+    workers: int = 1,
+    show_usage: bool = False,
 ) -> dict[str, Any]:
     output_dirs = repair_loop.ensure_output_dirs(output_root)
-    records = []
     print(f"\n[{EXPERIMENT_NAME}] feedback_mode={mode}")
-    for case in cases:
-        record = _run_case_with_feedback_mode(
-            case=case,
-            agent=agent,
-            prompt_template=prompt_template,
-            max_repair_rounds=max_repair_rounds,
-            feedback_mode=mode,
-        )
+
+    def _worker(case: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return _run_case_with_feedback_mode(
+                case=case,
+                agent=agent,
+                prompt_template=prompt_template,
+                max_repair_rounds=max_repair_rounds,
+                feedback_mode=mode,
+            )
+        except Exception as exc:
+            record = repair_loop._worker_error_record(case, exc)
+            record["feedback_mode"] = mode
+            return record
+
+    def _on_complete(record: dict[str, Any]) -> None:
         repair_loop.write_case_outputs(output_dirs, record)
-        records.append(record)
         print(repair_loop.summary_line(record))
+
+    records = run_cases_concurrent(
+        cases,
+        _worker,
+        workers=workers,
+        on_complete=_on_complete,
+        show_usage=show_usage,
+    )
 
     metrics = repair_loop.aggregate_metrics(records)
     metrics.update(phase1_run_metadata_json(run_output))

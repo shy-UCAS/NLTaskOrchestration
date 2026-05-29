@@ -5,6 +5,13 @@ This experiment asks the LLM to produce extractable GCJP code that looks like a
 real generation attempt, but contains one specified realistic bug. Valid
 simulated failures are written to reports/ so Phase 1C and 1D can consume them
 directly. Invalid generations are written to invalid_reports/ for audit.
+
+Usage:
+  # Default provider file: configs/llm_providers.local.yaml
+  python -m experiments.exp_01e_simulated_natural_failure_generation --provider-profile <profile_name> --workers 8
+
+  # Override specs dataset or prompt
+  python -m experiments.exp_01e_simulated_natural_failure_generation --provider-profile <profile_name> --dataset datasets/phase1_simulated_failure_specs.jsonl --prompt prompts/gcjp_simulated_natural_failure_prompt.md
 """
 from __future__ import annotations
 
@@ -32,6 +39,7 @@ from experiments.phase1_common import (
     print_provider_summary_from_args,
     read_prompt_template,
     resolve_phase1_run_output,
+    run_cases_concurrent,
     write_latest_run_index,
 )
 
@@ -75,10 +83,7 @@ def run_simulated_failure_experiment(args: argparse.Namespace) -> dict[str, Any]
     output_dirs["invalid_reports"] = output_dirs["root"] / "invalid_reports"
     output_dirs["invalid_reports"].mkdir(parents=True, exist_ok=True)
 
-    records = []
-    valid_records = []
-    for case in cases:
-        sample_id = case["sample_id"]
+    def _worker(case: dict[str, Any]) -> dict[str, Any]:
         try:
             generation = _generate_simulated_failure(
                 client=client,
@@ -86,20 +91,29 @@ def run_simulated_failure_experiment(args: argparse.Namespace) -> dict[str, Any]
                 case=case,
             )
             record = _evaluate_generation(case, generation)
-            _attach_simulation_metadata(record)
         except Exception as exc:
             record = _error_record(case, exc)
-            _attach_simulation_metadata(record)
+        _attach_simulation_metadata(record)
+        return record
 
-        records.append(record)
+    def _on_complete(record: dict[str, Any]) -> None:
+        sample_id = record["sample_id"]
         if _is_valid_simulated_failure(record):
-            valid_records.append(record)
             _write_case_outputs(output_dirs, sample_id, record)
         else:
             invalid_output_dirs = dict(output_dirs)
             invalid_output_dirs["reports"] = output_dirs["invalid_reports"]
             _write_case_outputs(invalid_output_dirs, sample_id, record)
         print(_summary_line(record) + _simulation_suffix(record))
+
+    records = run_cases_concurrent(
+        cases,
+        _worker,
+        workers=getattr(args, "workers", 1),
+        on_complete=_on_complete,
+        show_usage=getattr(args, "show_usage", False),
+    )
+    valid_records = [r for r in records if _is_valid_simulated_failure(r)]
 
     metrics = _aggregate_simulated_metrics(records, valid_records)
     metrics.update(phase1_run_metadata_json(run_output))

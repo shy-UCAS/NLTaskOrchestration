@@ -1,6 +1,12 @@
 """
 experiments/exp_01c_repair_loop.py
-python -m experiments.exp_01c_repair_loop --local-provider claude --limit 2
+用法：
+  # 默认从 configs/llm_providers.local.yaml 读取 profile
+  python -m experiments.exp_01c_repair_loop --provider-profile <profile_name> --limit 2 --workers 8
+
+  # 覆盖修复样本，或修复 1A/1B 输出目录里的失败 reports
+  python -m experiments.exp_01c_repair_loop --provider-profile <profile_name> --dataset datasets/phase1_repair_cases.jsonl --max-repair-rounds 2
+  python -m experiments.exp_01c_repair_loop --provider-profile <profile_name> --source-report-dir out/phase1_generation/<run_dir>/<experiment>/reports --workers 4
 
 Phase 1C：LLM 自动修复闭环实验。
 
@@ -18,6 +24,7 @@ from typing import Any
 from agents.llm_client import LLMClient, LLMConfigError
 from agents.repair_agent import RepairAgent
 from experiments.phase1_common import (
+    Z3_LOCK,
     add_common_args,
     handle_config_error,
     load_config_from_args,
@@ -26,6 +33,7 @@ from experiments.phase1_common import (
     print_provider_summary_from_args,
     read_prompt_template,
     resolve_phase1_run_output,
+    run_cases_concurrent,
     write_latest_run_index,
     _constraint_complete,
     _edge_complete,
@@ -92,17 +100,28 @@ def run_repair_experiment(args: argparse.Namespace) -> dict[str, Any]:
     agent = RepairAgent(LLMClient(config))
     output_dirs = ensure_output_dirs(run_output["run_dir"])
 
-    records = []
-    for case in cases:
-        record = _run_case(
-            case=case,
-            agent=agent,
-            prompt_template=prompt_template,
-            max_repair_rounds=args.max_repair_rounds,
-        )
+    def _worker(case: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return _run_case(
+                case=case,
+                agent=agent,
+                prompt_template=prompt_template,
+                max_repair_rounds=args.max_repair_rounds,
+            )
+        except Exception as exc:
+            return _worker_error_record(case, exc)
+
+    def _on_complete(record: dict[str, Any]) -> None:
         write_case_outputs(output_dirs, record)
-        records.append(record)
         print(summary_line(record))
+
+    records = run_cases_concurrent(
+        cases,
+        _worker,
+        workers=getattr(args, "workers", 1),
+        on_complete=_on_complete,
+        show_usage=getattr(args, "show_usage", False),
+    )
 
     metrics = aggregate_metrics(records)
     metrics.update(phase1_run_metadata_json(run_output))
@@ -273,7 +292,8 @@ def _run_case(
 def evaluate_code(case: dict[str, Any], code: str) -> dict[str, Any]:
     exec_result = execute_gcjp_code(code)
     graph = exec_result.graph if exec_result and exec_result.graph else None
-    report = VerificationPipeline(z3_timeout_ms=15_000).verify_gcjp_code(code)
+    with Z3_LOCK:
+        report = VerificationPipeline(z3_timeout_ms=15_000).verify_gcjp_code(code)
     return {
         "extraction_ok": bool(code),
         "execution_success": bool(exec_result and exec_result.passed),
@@ -327,6 +347,29 @@ def extraction_failed_eval(extraction: dict[str, Any]) -> dict[str, Any]:
         "edge_complete": False,
         "constraint_complete": False,
         "extraction": extraction,
+    }
+
+
+def _worker_error_record(case: dict[str, Any], exc: Exception) -> dict[str, Any]:
+    """Worker 兜底 record:用于 _run_case 整体抛异常时(_run_case 内部已对单轮
+    异常做 exception_eval 包装,这里仅兜底极端情况),保持 metrics 聚合不崩。"""
+    err_eval = exception_eval(exc)
+    return {
+        "sample_id": case["sample_id"],
+        "case": case,
+        "initial_code": case.get("broken_code", ""),
+        "initial": err_eval,
+        "attempts": [],
+        "final_code": case.get("broken_code", ""),
+        "final": err_eval,
+        "evaluation": {
+            "initial_pass": False,
+            "repair_attempted": False,
+            "repair_success": False,
+            "final_pass": False,
+            "repair_rounds": 0,
+            "error": f"{type(exc).__name__}: {exc}",
+        },
     }
 
 

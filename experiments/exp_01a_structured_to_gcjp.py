@@ -1,8 +1,14 @@
 """
 experiments/exp_01a_structured_to_gcjp.py
-python -m experiments.exp_01a_structured_to_gcjp --limit 1
-# 读取本地 Claude Code 配置
-python -m experiments.exp_01a_structured_to_gcjp --local-provider claude --limit 1
+用法：
+  # 默认从 configs/llm_providers.local.yaml 读取 profile
+  python -m experiments.exp_01a_structured_to_gcjp --provider-profile <profile_name> --limit 1 --workers 8
+
+  # 覆盖结构化数据集或 prompt
+  python -m experiments.exp_01a_structured_to_gcjp --provider-profile <profile_name> --dataset datasets/phase1_structured_cases.jsonl --prompt prompts/gcjp_generation_prompt.md
+
+  # 临时指定其他 provider 配置文件
+  python -m experiments.exp_01a_structured_to_gcjp --config configs/llm_providers.local.yaml --provider-profile <profile_name>
 
 Phase 1A：标准化任务描述 JSON → LLM 生成 GCJP 代码实验。
 

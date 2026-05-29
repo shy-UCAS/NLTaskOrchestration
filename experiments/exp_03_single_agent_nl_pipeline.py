@@ -10,9 +10,12 @@ NL 全串联单 Agent 原型：raw NL → 指令规范化（含澄清闭环）�
   - datasets/seed/gcjp_seed.jsonl 中的 nl_instruction
 
 用法：
-  python -m experiments.exp_03_single_agent_nl_pipeline --local-provider claude --limit 2
-  python -m experiments.exp_03_single_agent_nl_pipeline --local-provider claude --dataset datasets/seed/gcjp_seed.jsonl --nl-field nl_instruction
-  python -m experiments.exp_03_single_agent_nl_pipeline --local-provider claude --interactive
+  # 默认从 configs/llm_providers.local.yaml 读取 profile
+  python -m experiments.exp_03_single_agent_nl_pipeline --provider-profile <profile_name> --limit 2 --workers 4
+
+  # 覆盖数据集、NL 字段，或进入交互澄清
+  python -m experiments.exp_03_single_agent_nl_pipeline --provider-profile <profile_name> --dataset datasets/seed/gcjp_seed.jsonl --nl-field nl_instruction
+  python -m experiments.exp_03_single_agent_nl_pipeline --provider-profile <profile_name> --interactive --workers 1
 """
 from __future__ import annotations
 
@@ -29,6 +32,7 @@ from agents.planner_agent import PlannerAgent
 from gcjp.code_executor import execute_gcjp_code
 from verifier.pipeline import VerificationPipeline
 from experiments.phase1_common import (
+    Z3_LOCK,
     add_common_args,
     handle_config_error,
     load_config_from_args,
@@ -37,6 +41,7 @@ from experiments.phase1_common import (
     print_provider_summary_from_args,
     read_prompt_template,
     resolve_phase1_run_output,
+    run_cases_concurrent,
     write_latest_run_index,
 )
 
@@ -88,6 +93,14 @@ def run_e2e_experiment(args: argparse.Namespace) -> dict[str, Any]:
     if not cases:
         raise ValueError(f"No cases loaded from {args.dataset}")
 
+    workers = getattr(args, "workers", 1)
+    if args.interactive and workers > 1:
+        print(
+            f"[{EXPERIMENT_NAME}] interactive 模式与 --workers>1 互斥,"
+            f"自动回退到 --workers 1。"
+        )
+        workers = 1
+
     config = load_config_from_args(args)
     provider_summary = config.safe_summary()
     client = LLMClient(config)
@@ -107,14 +120,15 @@ def run_e2e_experiment(args: argparse.Namespace) -> dict[str, Any]:
     for sub in ("normalization", "generated_code", "reports"):
         (exp_dir / sub).mkdir(parents=True, exist_ok=True)
 
-    records = []
-    for case in cases:
+    runnable_cases = [
+        case for case in cases if case.get(args.nl_field, "")
+    ]
+
+    def _worker(case: dict[str, Any]) -> dict[str, Any]:
         sample_id = case["sample_id"]
         nl_instruction = case.get(args.nl_field, "")
-        if not nl_instruction:
-            continue
         try:
-            record = _run_case(
+            return _run_case(
                 sample_id=sample_id,
                 nl_instruction=nl_instruction,
                 case=case,
@@ -126,7 +140,7 @@ def run_e2e_experiment(args: argparse.Namespace) -> dict[str, Any]:
                 interactive=args.interactive,
             )
         except Exception as exc:
-            record = {
+            return {
                 "sample_id": sample_id,
                 "stage": "error",
                 "normalization": None,
@@ -139,9 +153,17 @@ def run_e2e_experiment(args: argparse.Namespace) -> dict[str, Any]:
                 },
             }
 
+    def _on_complete(record: dict[str, Any]) -> None:
         _write_outputs(exp_dir, record)
-        records.append(record)
         print(_summary_line(record))
+
+    records = run_cases_concurrent(
+        runnable_cases,
+        _worker,
+        workers=workers,
+        on_complete=_on_complete,
+        show_usage=getattr(args, "show_usage", False),
+    )
 
     metrics = _aggregate_metrics(records)
     metrics.update(phase1_run_metadata_json(run_output))
@@ -213,6 +235,7 @@ def _run_case(
             loop_result.final_result.standard_instruction
             if loop_result.final_result else None
         ),
+        "usage": [r.usage for r in loop_result.all_results if r.usage],
     }
 
     if loop_result.final_status != "complete":
@@ -263,7 +286,8 @@ def _run_case(
             },
         }
 
-    report = VerificationPipeline(z3_timeout_ms=15_000).verify_gcjp_code(code)
+    with Z3_LOCK:
+        report = VerificationPipeline(z3_timeout_ms=15_000).verify_gcjp_code(code)
     verified = report.overall_passed if report else False
 
     return {

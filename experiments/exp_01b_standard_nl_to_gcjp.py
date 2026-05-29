@@ -1,6 +1,11 @@
 """
 experiments/exp_01b_standard_nl_to_gcjp.py
-python -m experiments.exp_01b_standard_nl_to_gcjp --limit 1
+用法：
+  # 默认从 configs/llm_providers.local.yaml 读取 profile
+  python -m experiments.exp_01b_standard_nl_to_gcjp --provider-profile <profile_name> --limit 1 --workers 8
+
+  # 覆盖标准自然语言数据集或 prompt
+  python -m experiments.exp_01b_standard_nl_to_gcjp --provider-profile <profile_name> --dataset datasets/phase1_standard_nl_cases.jsonl --prompt prompts/standard_nl_to_gcjp_prompt.md
 
 Phase 1B：标准化自然语言指令 → LLM 生成 GCJP 代码实验。
 
