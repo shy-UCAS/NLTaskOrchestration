@@ -1,0 +1,86 @@
+# Phase 1F declared action lexicon.
+# This file is the executable source for action normalization checks.
+
+standard_actions:
+  - reconnaissance
+  - strike
+  - jam
+  - intercept
+  - track
+  - standby
+  - fly_to
+  - rendezvous
+  - breakthrough
+
+actions:
+  reconnaissance:
+    phrases:
+      - 侦察
+      - 搜索
+      - 标定目标位置
+      - 确认目标位置
+  strike:
+    phrases:
+      - 打击
+      - 攻击
+      - 精确打击
+      - 摧毁
+      - 火力压制
+  jam:
+    phrases:
+      - 电子干扰
+      - 电子压制
+      - 压制通信
+      - 压制雷达
+      - 通信压制
+      - 雷达压制
+  intercept:
+    phrases:
+      - 拦截
+      - 反制移动目标
+  track:
+    phrases:
+      - 持续跟踪
+      - 尾随监视
+  standby:
+    phrases:
+      - 待命
+      - 保持
+      - 预备支援
+  fly_to:
+    phrases:
+      - 出发
+      - 前往
+      - 接近
+      - 推进到
+  rendezvous:
+    phrases:
+      - 会合
+      - 集结
+      - 同步到达
+  breakthrough:
+    phrases:
+      - 突防
+      - 突破防线
+      - 佯攻突防
+
+ambiguous_phrases:
+  - phrase: 压制
+    candidates: [jam, strike]
+    reason: 缺少电子/通信/雷达或火力限定，无法在 jam 与 strike 之间唯一归一
+  - phrase: 佯动
+    candidates: [breakthrough, reconnaissance, jam, standby]
+    reason: 仅描述战术意图，无法唯一归一到标准动作
+  - phrase: 佯攻
+    candidates: [breakthrough, reconnaissance, jam, standby]
+    reason: 缺少突防等动作限定，无法唯一归一到标准动作
+
+unresolvable_phrases:
+  - phrase: 配合作战
+    reason: 泛动作短语，未给出可唯一归一的具体动作
+  - phrase: 协同行动
+    reason: 泛动作短语，未给出可唯一归一的具体动作
+  - phrase: 处理
+    reason: 泛动作短语，未给出可唯一归一的具体动作
+  - phrase: 执行任务
+    reason: 泛动作短语，未给出可唯一归一的具体动作

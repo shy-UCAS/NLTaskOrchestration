@@ -7,9 +7,10 @@ agent 本身无状态，每次调用接收完整上下文。
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from agents.instruction_validators import validate_normalization_contract
 from agents.json_extraction import JsonExtractionResult, extract_json_object
 from agents.llm_client import LLMClient, LLMResponse
 
@@ -33,6 +34,7 @@ class NormalizationResult:
     usage: dict[str, Any]
     model_reported_status: str | None = None
     status_overridden_by_invariant: bool = False
+    contract_violations: list[dict[str, str]] = field(default_factory=list)
 
 
 class InstructionNormalizerAgent:
@@ -64,7 +66,12 @@ class InstructionNormalizerAgent:
         )
         extraction = extract_json_object(response.text)
         return _build_result(
-            sample_id, prompt, response, extraction, clarification_round,
+            sample_id,
+            prompt,
+            response,
+            extraction,
+            clarification_round,
+            raw_instruction=raw_instruction,
         )
 
 
@@ -99,6 +106,8 @@ def _build_result(
     response: LLMResponse,
     extraction: JsonExtractionResult,
     clarification_round: int,
+    *,
+    raw_instruction: str,
 ) -> NormalizationResult:
     parsed = extraction.data if extraction.ok else None
     status = None
@@ -120,6 +129,33 @@ def _build_result(
         status = "incomplete"
         standard_instruction = None
         status_overridden_by_invariant = True
+        if parsed:
+            parsed["status"] = status
+            parsed["standard_instruction"] = standard_instruction
+
+    contract_violations: list[dict[str, str]] = []
+    if status == "complete" and parsed:
+        contract_result = validate_normalization_contract(
+            parsed,
+            raw_instruction=raw_instruction,
+        )
+        contract_violations = contract_result.as_records()
+        if not contract_result.ok:
+            missing_fields = _merge_unique(
+                missing_fields,
+                contract_result.missing_fields,
+            )
+            ambiguities = _merge_ambiguities(
+                ambiguities,
+                contract_result.ambiguities,
+            )
+            status = "incomplete"
+            standard_instruction = None
+            status_overridden_by_invariant = True
+            parsed["status"] = status
+            parsed["standard_instruction"] = standard_instruction
+            parsed["missing_fields"] = missing_fields
+            parsed["ambiguities"] = ambiguities
 
     return NormalizationResult(
         sample_id=sample_id,
@@ -139,4 +175,35 @@ def _build_result(
         usage=response.usage,
         model_reported_status=model_reported_status,
         status_overridden_by_invariant=status_overridden_by_invariant,
+        contract_violations=contract_violations,
     )
+
+
+def _merge_unique(existing: list[str], additions: list[str]) -> list[str]:
+    merged: list[str] = []
+    seen: set[str] = set()
+    for item in existing + additions:
+        if item in seen:
+            continue
+        seen.add(item)
+        merged.append(item)
+    return merged
+
+
+def _merge_ambiguities(
+    existing: list[dict[str, Any]],
+    additions: list[dict[str, str]],
+) -> list[dict[str, Any]]:
+    merged: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for item in existing + additions:
+        key = (
+            str(item.get("span", "")),
+            str(item.get("reason", "")),
+            str(item.get("field", "")),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(item)
+    return merged
