@@ -43,6 +43,7 @@ CLAUDE_CLI_USER_AGENT = "claude-cli/2.0.76 (external, cli)"
 DEFAULT_THINKING = "enabled"
 DEFAULT_REASONING_EFFORT = "max"
 DEFAULT_OUTPUT_EFFORT = "max"
+DEFAULT_PROVIDER_CONFIG_PATH = Path("configs") / "llm_providers.local.yaml"
 BASE_URL_COMPAT_PRESETS: dict[str, dict[str, str]] = {
     # 这类 Anthropic-style 中转站需要 Claude CLI 风格 UA，并使用 Bearer 认证。
     "uuapi.net": {
@@ -194,8 +195,11 @@ def load_provider_config(
     overrides = {k: v for k, v in (overrides or {}).items() if v is not None}
 
     data: dict[str, Any] = {}
-    if config_path:
-        data.update(_load_profile(Path(config_path), profile))
+    profile_config_path = Path(config_path) if config_path else None
+    if profile and profile_config_path is None:
+        profile_config_path = DEFAULT_PROVIDER_CONFIG_PATH
+    if profile_config_path:
+        data.update(_load_profile(profile_config_path, profile))
 
     local_provider = local_provider or data.get("local_provider")
     if local_provider:
