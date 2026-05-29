@@ -102,7 +102,222 @@ fleets:
         standby: 0.5
         breakthrough: 1.0
 
-# UAV 类型定义（供参考，集群约束以 fleet_constraints 为准）
+  fleet_5:
+    description: "第 5 集群 - 远程侦察跟踪型"
+    composition:
+      - uav_type: "recon_uav"
+        count: 4
+        role: "reconnaissance"
+    fleet_constraints:
+      max_speed_kmh: 130
+      cruise_speed_kmh: 90
+      max_range_km: 260
+      max_ammo: 0
+      max_energy_kwh: 55.0
+      jamming_capable: false
+      recon_capable: true
+      strike_capable: false
+      min_task_duration:
+        reconnaissance: 2.0
+        track: 2.0
+        strike: null
+        jam: null
+        fly_to: null
+        standby: 0.5
+        breakthrough: null
+        intercept: null
+
+  fleet_6:
+    description: "第 6 集群 - 拦截打击型"
+    composition:
+      - uav_type: "strike_uav"
+        count: 5
+        role: "strike"
+    fleet_constraints:
+      max_speed_kmh: 170
+      cruise_speed_kmh: 115
+      max_range_km: 190
+      max_ammo: 8
+      max_energy_kwh: 62.0
+      jamming_capable: false
+      recon_capable: false
+      strike_capable: true
+      min_task_duration:
+        reconnaissance: null
+        track: null
+        strike: 1.0
+        jam: null
+        fly_to: null
+        standby: 0.5
+        breakthrough: 1.5
+        intercept: 1.0
+
+  fleet_7:
+    description: "第 7 集群 - 电子压制型"
+    composition:
+      - uav_type: "ew_uav"
+        count: 3
+        role: "electronic_warfare"
+    fleet_constraints:
+      max_speed_kmh: 105
+      cruise_speed_kmh: 75
+      max_range_km: 240
+      max_ammo: 1
+      max_energy_kwh: 85.0
+      jamming_capable: true
+      recon_capable: true
+      strike_capable: false
+      min_task_duration:
+        reconnaissance: 2.0
+        track: 2.0
+        strike: null
+        jam: 3.0
+        fly_to: null
+        standby: 0.5
+        breakthrough: null
+        intercept: null
+
+  fleet_8:
+    description: "第 8 集群 - 侦察打击混合型"
+    composition:
+      - uav_type: "recon_uav"
+        count: 2
+        role: "reconnaissance"
+      - uav_type: "strike_uav"
+        count: 3
+        role: "strike"
+    fleet_constraints:
+      max_speed_kmh: 145
+      cruise_speed_kmh: 100
+      max_range_km: 210
+      max_ammo: 6
+      max_energy_kwh: 70.0
+      jamming_capable: false
+      recon_capable: true
+      strike_capable: true
+      min_task_duration:
+        reconnaissance: 2.0
+        track: 2.0
+        strike: 1.2
+        jam: null
+        fly_to: null
+        standby: 0.5
+        breakthrough: 1.5
+        intercept: 1.0
+
+  fleet_9:
+    description: "第 9 集群 - 集结待命支援型"
+    composition:
+      - uav_type: "recon_uav"
+        count: 1
+        role: "reconnaissance"
+      - uav_type: "strike_uav"
+        count: 1
+        role: "strike"
+    fleet_constraints:
+      max_speed_kmh: 120
+      cruise_speed_kmh: 85
+      max_range_km: 220
+      max_ammo: 2
+      max_energy_kwh: 48.0
+      jamming_capable: false
+      recon_capable: true
+      strike_capable: true
+      min_task_duration:
+        reconnaissance: 2.0
+        track: 2.0
+        strike: 1.5
+        jam: null
+        fly_to: null
+        standby: 0.5
+        breakthrough: 2.0
+        intercept: 1.0
+
+  fleet_10:
+    description: "第 10 集群 - 高速突防型"
+    composition:
+      - uav_type: "strike_uav"
+        count: 4
+        role: "breakthrough"
+    fleet_constraints:
+      max_speed_kmh: 190
+      cruise_speed_kmh: 140
+      max_range_km: 170
+      max_ammo: 5
+      max_energy_kwh: 52.0
+      jamming_capable: false
+      recon_capable: false
+      strike_capable: true
+      min_task_duration:
+        reconnaissance: null
+        track: null
+        strike: 1.0
+        jam: null
+        fly_to: null
+        standby: 0.5
+        breakthrough: 1.0
+        intercept: 1.0
+
+  fleet_11:
+    description: "第 11 集群 - 综合电子侦察型"
+    composition:
+      - uav_type: "ew_uav"
+        count: 2
+        role: "electronic_warfare"
+      - uav_type: "recon_uav"
+        count: 2
+        role: "reconnaissance"
+    fleet_constraints:
+      max_speed_kmh: 125
+      cruise_speed_kmh: 88
+      max_range_km: 255
+      max_ammo: 1
+      max_energy_kwh: 90.0
+      jamming_capable: true
+      recon_capable: true
+      strike_capable: false
+      min_task_duration:
+        reconnaissance: 2.0
+        track: 2.0
+        strike: null
+        jam: 3.0
+        fly_to: null
+        standby: 0.5
+        breakthrough: null
+        intercept: null
+
+  fleet_12:
+    description: "第 12 集群 - 预备综合打击型"
+    composition:
+      - uav_type: "recon_uav"
+        count: 2
+        role: "reconnaissance"
+      - uav_type: "strike_uav"
+        count: 4
+        role: "strike"
+      - uav_type: "ew_uav"
+        count: 1
+        role: "electronic_warfare"
+    fleet_constraints:
+      max_speed_kmh: 150
+      cruise_speed_kmh: 105
+      max_range_km: 230
+      max_ammo: 7
+      max_energy_kwh: 95.0
+      jamming_capable: true
+      recon_capable: true
+      strike_capable: true
+      min_task_duration:
+        reconnaissance: 2.0
+        track: 2.0
+        strike: 1.2
+        jam: 3.0
+        fly_to: null
+        standby: 0.5
+        breakthrough: 1.5
+        intercept: 1.0
+
+# UAV 类型定义（供参考，集群级约束以 fleet_constraints 为准）
 uav_types:
   recon_uav:
     description: "侦察型无人机"
