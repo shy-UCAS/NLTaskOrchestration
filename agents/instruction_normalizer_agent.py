@@ -31,6 +31,8 @@ class NormalizationResult:
     model_source: str
     provider: dict[str, Any]
     usage: dict[str, Any]
+    model_reported_status: str | None = None
+    status_overridden_by_invariant: bool = False
 
 
 class InstructionNormalizerAgent:
@@ -112,6 +114,13 @@ def _build_result(
         missing_fields = parsed.get("missing_fields") or []
         ambiguities = parsed.get("ambiguities") or []
 
+    model_reported_status = status
+    status_overridden_by_invariant = False
+    if status == "complete" and (missing_fields or ambiguities):
+        status = "incomplete"
+        standard_instruction = None
+        status_overridden_by_invariant = True
+
     return NormalizationResult(
         sample_id=sample_id,
         prompt=prompt,
@@ -128,4 +137,6 @@ def _build_result(
         model_source=response.model_source,
         provider=response.provider,
         usage=response.usage,
+        model_reported_status=model_reported_status,
+        status_overridden_by_invariant=status_overridden_by_invariant,
     )
