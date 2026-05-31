@@ -3,7 +3,7 @@ from openai import OpenAI
 
 client = OpenAI(
     base_url="https://www.packyapi.com/v1",
-    api_key="sk-a2ng1pUr3hoTWH0gMovetsXMgOYT5UbpS0oITbmGyx3Luiz3"
+    api_key="***"
 )
 
 MODEL = "deepseek-v4-pro"
