@@ -1,17 +1,23 @@
 """
-Phase 1E: generate LLM-simulated natural GCJP failure reports.
-
-This experiment asks the LLM to produce extractable GCJP code that looks like a
-real generation attempt, but contains one specified realistic bug. Valid
-simulated failures are written to reports/ so Phase 1C and 1D can consume them
-directly. Invalid generations are written to invalid_reports/ for audit.
-
-Usage:
-  # Default provider file: configs/llm_providers.local.yaml
+experiments/exp_01e_simulated_natural_failure_generation.py
+用法：
+  # 默认从 configs/llm_providers.local.yaml 读取 profile
   python -m experiments.exp_01e_simulated_natural_failure_generation --provider-profile <profile_name> --workers 8
 
-  # Override specs dataset or prompt
+  # 覆盖 specs 数据集或 prompt
   python -m experiments.exp_01e_simulated_natural_failure_generation --provider-profile <profile_name> --dataset datasets/phase1_simulated_failure_specs.jsonl --prompt prompts/gcjp_simulated_natural_failure_prompt.md
+
+Phase 1E：LLM 模拟自然失败报告生成实验。
+
+场景：
+  从 datasets/phase1_simulated_failure_specs.jsonl 读取失败规格（bug_spec），
+  经 prompts/gcjp_simulated_natural_failure_prompt.md 模板渲染后发送给 LLM，
+  要求 LLM 生成包含指定 bug 的可提取 GCJP 代码。
+  有效的模拟失败写入 reports/ 供 Phase 1C/1D 消费；无效生成写入 invalid_reports/ 供审计。
+
+预期输出：
+  out/phase1_generation/exp_01e_simulated_natural_failure_generation/ 下输出
+  reports/（有效失败报告）、invalid_reports/（无效生成）、汇总 metrics.json。
 """
 from __future__ import annotations
 

@@ -1,26 +1,32 @@
 """
 experiments/exp_01d_repair_feedback_ablation.py
-
-Phase 1D: compare Phase 1C repair feedback modes.
-
-This experiment reuses Phase 1C repair/evaluation behavior, but changes the
-verification feedback passed into the repair prompt:
-
-- full_report: current Phase 1C behavior.
-- no_report: empty feedback object.
-- no_report_no_bug_spec: no report and no explicit simulated bug oracle.
-- task_only_no_report: only source task semantics, expected result, and patterns.
-- report_only_no_oracle: report plus broken code, without task/bug oracle.
-- broken_only: broken code only.
-- layer1_only: only Layer 1 diagnostics.
-- error_summary_only: compact structured error summary.
-
-Usage:
-  # Default provider file: configs/llm_providers.local.yaml
+用法：
+  # 默认从 configs/llm_providers.local.yaml 读取 profile，修复 1A/1B 失败样本
   python -m experiments.exp_01d_repair_feedback_ablation --provider-profile <profile_name> --source-report-dir out/phase1_generation/<run_dir>/<experiment>/reports --workers 4
 
-  # Compare a selected subset of feedback modes
-  python -m experiments.exp_01d_repair_feedback_ablation --provider-profile <profile_name> --source-report-dir out/phase1_generation/<run_dir>/<experiment>/reports --feedback-modes full_report layer1_only error_summary_only
+  # 只比较部分 feedback modes
+  python -m experiments.exp_01d_repair_feedback_ablation --provider-profile <profile_name> --source-report-dir out/.../reports --feedback-modes full_report layer1_only error_summary_only
+
+Phase 1D：修复反馈消融实验。
+
+场景：
+  复用 Phase 1C 的修复/评估流程，但对比不同 feedback mode 对修复效果的影响。
+  从 --source-report-dir 加载 1A/1B 失败样本，对每种 feedback mode 裁剪 prompt 中的
+  验证报告和案例数据，量化分析各类信息对修复成功率的贡献。
+
+  支持的 feedback modes：
+  - full_report：完整验证报告（Phase 1C 默认行为）
+  - no_report：空反馈对象
+  - no_report_no_bug_spec：无报告且无 bug oracle
+  - task_only_no_report：仅保留任务语义、期望结果和模式
+  - report_only_no_oracle：报告 + 坏代码，无任务/bug oracle
+  - broken_only：仅坏代码
+  - layer1_only：仅 Layer 1 诊断信息
+  - error_summary_only：压缩结构化错误摘要
+
+预期输出：
+  out/phase1_generation/<run_dir>/exp_01d_repair_feedback_ablation/ 下按 feedback mode
+  分目录输出修复结果，根目录输出 summary.json / summary.md 汇总各 mode 的通过率。
 """
 from __future__ import annotations
 
