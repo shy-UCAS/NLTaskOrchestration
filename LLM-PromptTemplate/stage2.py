@@ -5,6 +5,7 @@ from langchain_core.output_parsers import StrOutputParser
 import re
 import json
 import pandas as pd
+import os
 
 # ===================== 1. 原有消歧逻辑（复用） =====================
 def get_disambiguation_result(raw_text):
@@ -20,7 +21,7 @@ def get_disambiguation_result(raw_text):
     # 封装LLM API调用
     llm = ChatOpenAI(
         model="gemini-3.1-pro-preview-h", 
-        api_key="sk-CDwQAMCzrYQvhGMy5PBrS6zIuWWoqpBg8FeG0Ka3Y4T8sJRs",
+        api_key=os.getenv("GEMINI_API_KEY"),
         base_url="https://api2.qiandao.mom/v1"
     )
     chain = prompt_template | llm | StrOutputParser()

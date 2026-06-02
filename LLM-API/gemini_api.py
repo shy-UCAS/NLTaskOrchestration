@@ -2,7 +2,7 @@ import os
 from openai import OpenAI
 
 client = OpenAI(
-    api_key='sk-CDwQAMCzrYQvhGMy5PBrS6zIuWWoqpBg8FeG0Ka3Y4T8sJRs',  # 建议放环境变量/ .env
+    api_key=os.getenv("GEMINI_API_KEY"),  # 建议放环境变量/ .env
     base_url="https://api2.qiandao.mom/v1",
 )
 

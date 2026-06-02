@@ -2,6 +2,7 @@ from langchain_core.prompts import PromptTemplate, FewShotPromptTemplate
 from langchain_openai import ChatOpenAI
 from langchain_core.output_parsers import StrOutputParser
 import json
+import os
 # 1. 定义消歧示例（可选，提升准确率）
 examples = [
     {
@@ -21,7 +22,7 @@ prompt_template = PromptTemplate(
 # 3. 封装LLM API调用
 llm = ChatOpenAI(
     model="gemini-3.1-pro-preview-h", 
-    api_key="sk-CDwQAMCzrYQvhGMy5PBrS6zIuWWoqpBg8FeG0Ka3Y4T8sJRs",
+    api_key=os.getenv("GEMINI_API_KEY"),
     base_url="https://api2.qiandao.mom/v1"
 )
 chain = prompt_template | llm | StrOutputParser()

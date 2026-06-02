@@ -23,4 +23,7 @@ Thumbs.db
 out/
 
 # Local LLM provider secrets
+.env
+.env.*
+!.env.example
 configs/llm_providers.local.yaml
