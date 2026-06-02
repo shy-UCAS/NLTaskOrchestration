@@ -639,13 +639,17 @@ def _evaluate_generation(
     }
 
 
-def _evaluate_expected(
+def evaluate_graph_against_expected(
     case: dict[str, Any],
     graph: BuiltGraph | None,
     report: VerificationReport | None,
-    exec_result,
-    extraction_ok: bool,
 ) -> dict[str, Any]:
+    """与生成方式无关的图层评分:仅依赖最终 BuiltGraph + 验证报告 + case 真值。
+
+    1A/1B/1H(执行 LLM 代码)、exp_01i(确定性构图)、exp_01j(骨架填参后执行)共用此函数,
+    保证 builtgraph/l2/l3/node/edge/constraint/first_pass 七项口径完全一致,可横向对照。
+    expected_patterns / expected_result 始终从原始 case 读取,绝不进 prompt。
+    """
     expected_patterns = case.get("expected_patterns", {}) or {}
     expected_result = case.get("expected_result")
     layer2 = _layer(report, 2)
@@ -662,13 +666,8 @@ def _evaluate_expected(
     node_ok = _node_complete(graph, expected_patterns)
     edge_ok = _edge_complete(graph, expected_patterns)
     constraint_ok = _constraint_complete(graph, expected_patterns)
-    safety_passed = bool(exec_result and exec_result.safety and exec_result.safety.passed)
-    execution_success = bool(exec_result and exec_result.passed)
 
     return {
-        "syntax_extract": extraction_ok,
-        "safety_pass": safety_passed,
-        "execution_success": execution_success,
         "builtgraph_success": bool(graph),
         "l2_graph_pass": bool(layer2 and layer2.passed),
         "l3_expected_result": l3_expected,
@@ -676,6 +675,24 @@ def _evaluate_expected(
         "node_complete": node_ok,
         "edge_complete": edge_ok,
         "constraint_complete": constraint_ok,
+    }
+
+
+def _evaluate_expected(
+    case: dict[str, Any],
+    graph: BuiltGraph | None,
+    report: VerificationReport | None,
+    exec_result,
+    extraction_ok: bool,
+) -> dict[str, Any]:
+    safety_passed = bool(exec_result and exec_result.safety and exec_result.safety.passed)
+    execution_success = bool(exec_result and exec_result.passed)
+
+    return {
+        "syntax_extract": extraction_ok,
+        "safety_pass": safety_passed,
+        "execution_success": execution_success,
+        **evaluate_graph_against_expected(case, graph, report),
     }
 
 
@@ -722,19 +739,26 @@ def _constraint_complete(graph: BuiltGraph | None, expected: dict[str, Any]) -> 
     return all(ctype in actual_types for ctype in expected_types)
 
 
-def _aggregate_metrics(experiment_name: str, records: list[dict[str, Any]]) -> dict[str, Any]:
-    keys = [
-        "syntax_extract",
-        "safety_pass",
-        "execution_success",
-        "builtgraph_success",
-        "l2_graph_pass",
-        "l3_expected_result",
-        "first_pass",
-        "node_complete",
-        "edge_complete",
-        "constraint_complete",
-    ]
+DEFAULT_RATE_KEYS = [
+    "syntax_extract",
+    "safety_pass",
+    "execution_success",
+    "builtgraph_success",
+    "l2_graph_pass",
+    "l3_expected_result",
+    "first_pass",
+    "node_complete",
+    "edge_complete",
+    "constraint_complete",
+]
+
+
+def _aggregate_metrics(
+    experiment_name: str,
+    records: list[dict[str, Any]],
+    rate_keys: list[str] | None = None,
+) -> dict[str, Any]:
+    keys = rate_keys if rate_keys is not None else DEFAULT_RATE_KEYS
     total = len(records)
     rates = {}
     for key in keys:
