@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JSONL Dataset Viewer</title>
+<style>
+:root {
+  --bg: #1e1e2e;
+  --surface: #282840;
+  --surface2: #32325a;
+  --text: #cdd6f4;
+  --text2: #a6adc8;
+  --accent: #89b4fa;
+  --green: #a6e3a1;
+  --red: #f38ba8;
+  --yellow: #f9e2af;
+  --border: #45475a;
+  --key: #89b4fa;
+  --string: #a6e3a1;
+  --number: #fab387;
+  --bool: #cba6f7;
+  --null: #6c7086;
+  --tag-bg: #363654;
+  --scrollbar: #45475a;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Segoe UI', 'SF Mono', 'Cascadia Code', Consolas, monospace;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Header ── */
+header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+header h1 { font-size: 16px; font-weight: 600; white-space: nowrap; }
+header .file-name { color: var(--text2); font-size: 12px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.btn {
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background .15s;
+}
+.btn:hover { background: var(--border); }
+.btn.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+
+/* ── Main Layout ── */
+main {
+  display: flex;
+  flex: 1;
+  min-height: 0;   /* fix flexbox scroll: allow shrinking below content height */
+  overflow: hidden;
+}
+
+/* ── Sidebar ── */
+aside {
+  width: 320px;
+  min-width: 260px;
+  min-height: 0;     /* fix flexbox scroll */
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  resize: horizontal;
+}
+.search-bar {
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+  max-height: 35vh;
+  overflow-y: auto;
+}
+.search-bar input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+}
+.search-bar input:focus { border-color: var(--accent); }
+.filter-row {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.tag-chip {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--tag-bg);
+  border: 1px solid var(--border);
+  color: var(--text2);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .15s;
+}
+.tag-chip.selected { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.sample-list {
+  flex: 1;
+  min-height: 0;    /* fix flexbox scroll */
+  overflow-y: auto;
+  padding: 4px;
+}
+.sample-item {
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  border-left: 3px solid transparent;
+  margin: 2px 0;
+  transition: background .1s;
+}
+.sample-item:hover { background: var(--surface2); }
+.sample-item.active { background: var(--surface2); border-left-color: var(--accent); }
+.sample-item .sid { font-weight: 600; color: var(--accent); font-size: 11px; }
+.sample-item .meta { color: var(--text2); font-size: 10px; margin-top: 2px; }
+.sample-item .tags-row { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 3px; }
+.sample-item .mini-tag {
+  font-size: 9px; padding: 1px 6px; border-radius: 8px;
+  background: var(--tag-bg); color: var(--text2);
+}
+.result-sat { border-left-color: var(--green) !important; }
+.result-unsat { border-left-color: var(--red) !important; }
+.result-complete { border-left-color: var(--green) !important; }
+.result-incomplete { border-left-color: var(--yellow) !important; }
+.result-ambiguous { border-left-color: var(--yellow) !important; }
+
+/* ── Content Panel ── */
+#content-panel {
+  flex: 1;
+  min-width: 0;       /* fix flexbox scroll (horizontal) */
+  min-height: 0;       /* fix flexbox scroll (vertical) */
+  overflow-y: auto;
+}
+#content-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  min-height: 100%;    /* fill panel when content is short */
+}
+.placeholder {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text2);
+  font-size: 14px;
+  text-align: center;
+  line-height: 1.8;
+}
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  padding: 40px;
+  text-align: center;
+  color: var(--text2);
+  transition: border-color .2s;
+}
+.drop-zone.drag-over { border-color: var(--accent); color: var(--accent); }
+#content-panel.drag-over { outline: 3px dashed var(--accent); outline-offset: -8px; }
+
+/* ── Sample Card ── */
+.sample-card {
+  background: var(--surface);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.card-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.card-title { font-size: 14px; font-weight: 600; }
+.card-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.badge {
+  font-size: 10px; padding: 3px 10px; border-radius: 10px;
+  font-weight: 600; text-transform: uppercase;
+}
+.badge-sat { background: rgba(166,227,161,0.15); color: var(--green); }
+.badge-unsat { background: rgba(243,139,168,0.15); color: var(--red); }
+.badge-complete { background: rgba(166,227,161,0.15); color: var(--green); }
+.badge-incomplete { background: rgba(249,226,175,0.15); color: var(--yellow); }
+.badge-ambiguous { background: rgba(249,226,175,0.15); color: var(--yellow); }
+.card-body { padding: 4px 0; }
+
+/* ── JSON Tree ── */
+.json-tree {
+  font-family: 'Cascadia Code', 'SF Mono', 'Fira Code', Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+/* Each nesting level gets its own guide-line block */
+.json-node { }
+
+/* Collapse: hide children, rotate chevron */
+.json-node.collapsed > .json-children { display: none; }
+.json-node.collapsed > .json-line-open > .json-toggle { transform: rotate(-90deg); }
+
+/* ── Toggle chevron ── */
+.json-toggle {
+  cursor: pointer;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--text2);
+  transition: transform 0.18s ease;
+  position: relative;
+  top: 1px;
+}
+.json-toggle::after {
+  content: '';
+  display: block;
+  width: 0;
+  height: 0;
+  border-left: 4.5px solid transparent;
+  border-right: 4.5px solid transparent;
+  border-top: 5.5px solid currentColor;
+  border-radius: 1px;
+}
+.json-toggle.leaf { visibility: hidden; }
+
+/* ── Lines ── */
+.json-line {
+  display: flex;
+  align-items: flex-start;
+  padding: 2px 8px 2px 4px;
+  border-radius: 4px;
+  cursor: default;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  transition: background 0.12s;
+}
+.json-line:hover { background: rgba(137, 180, 250, 0.07); }
+
+/* Opening bracket line (toggle + bracket + pill) */
+.json-line-open { padding-left: 2px; }
+
+/* Closing bracket line — aligns flush with opening */
+.json-line-close {
+  padding-left: 2px;
+}
+
+/* ── Guide lines (indent via nested .json-children) ── */
+.json-children {
+  margin-left: 9px;
+  padding-left: 14px;
+  border-left: 1px solid var(--border);
+}
+
+/* ── Keys ── */
+.json-key {
+  color: #80cbc4;        /* teal-ish — easy on eyes */
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+/* Depth-based key tints */
+.json-line-entry .json-key { color: #89b4fa; }          /* lvl ≥1 — cornflower blue */
+.json-children .json-line-entry .json-key { color: #82aaff; }
+.json-children .json-children .json-line-entry .json-key { color: #80cbc4; }
+.json-children .json-children .json-children .json-line-entry .json-key { color: #89ddff; }
+.json-children .json-children .json-children .json-children .json-line-entry .json-key { color: #c3e88d; }
+/* Index keys (array indices) */
+.json-key-index { color: var(--text2); font-size: 11px; min-width: 20px; }
+
+.json-kv-sep { color: var(--text2); margin: 0 4px; flex-shrink: 0; }
+
+/* ── Values ── */
+.json-val-string { color: #c3e88d; }           /* soft green */
+.json-val-number { color: #f78c6c; }           /* warm orange */
+.json-val-bool   { color: #c792ea; }           /* lavender */
+.json-val-null   { color: #636f80; font-style: italic; }
+
+/* ── Brackets ── */
+.json-bracket { color: #6c7086; }              /* subtle gray */
+.json-bracket-empty { color: #6c7086; font-style: italic; }
+
+/* ── Comma ── */
+.json-comma { color: #6c7086; flex-shrink: 0; }
+
+/* ── Type pill (count badge) ── */
+.json-type-pill {
+  display: inline-block;
+  font-size: 9.5px;
+  padding: 0.5px 8px;
+  margin-left: 6px;
+  border-radius: 10px;
+  background: var(--surface2);
+  color: #7a8196;
+  font-weight: 400;
+  letter-spacing: 0.2px;
+  line-height: 1.6;
+  vertical-align: middle;
+}
+
+/* Truncation hint */
+.json-trunc-hint {
+  font-size: 10px;
+  color: #7a8196;
+  margin-left: 4px;
+  font-style: italic;
+}
+
+/* ── Expandable long string ── */
+.json-str-wrapper {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  vertical-align: top;
+}
+/* The mini toggle triangle, same visual language as node toggle */
+.json-str-toggle {
+  cursor: pointer;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--accent);
+  margin-right: 2px;
+  position: relative;
+  top: 2px;
+  transform: rotate(-90deg);   /* collapsed → points right ▶ */
+  transition: transform 0.18s ease;
+}
+.json-str-toggle::after {
+  content: '';
+  display: block;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid currentColor;
+  border-radius: 1px;
+}
+.json-str-wrapper.expanded .json-str-toggle {
+  transform: rotate(0deg);    /* expanded → points down ▼ */
+}
+/* Preview (truncated) — hidden when expanded */
+.json-str-preview { display: inline; }
+.json-str-wrapper.expanded .json-str-preview { display: none; }
+/* Pill hidden when expanded */
+.json-str-wrapper.expanded > .json-type-pill { display: none; }
+/* Full string block — hidden by default, shown when expanded */
+.json-str-full {
+  display: none;
+  margin-top: 2px;
+  width: 100%;
+}
+.json-str-wrapper.expanded .json-str-full {
+  display: block;
+}
+.json-str-full pre {
+  margin: 4px 0 6px 0;
+  padding: 10px 14px;
+  background: var(--bg);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+  font-family: 'Cascadia Code', 'SF Mono', 'Fira Code', Consolas, monospace;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+/* ── Navigation ── */
+.nav-row {
+  display: flex; gap: 8px; align-items: center; padding: 8px 0;
+}
+.nav-row .btn { font-size: 11px; }
+.nav-row .pos { color: var(--text2); font-size: 12px; }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text2); }
+
+/* ── Summary view ── */
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+}
+.summary-item {
+  background: var(--surface2);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+}
+.summary-item .label { color: var(--text2); font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; }
+.summary-item .value { color: var(--text); margin-top: 2px; word-break: break-all; }
+
+/* ── Stats bar ── */
+.stats-bar {
+  padding: 6px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 16px;
+  font-size: 11px;
+  color: var(--text2);
+  flex-shrink: 0;
+}
+.stats-bar span { white-space: nowrap; }
+.stats-bar .num { color: var(--accent); font-weight: 600; }
+
+@media (max-width: 768px) {
+  aside { width: 100% !important; min-width: 0; max-height: 40vh; }
+  main { flex-direction: column; }
+}
+
+/* FLATTENED TABLE VIEW */
+.flat-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.flat-table th { text-align: left; padding: 6px 8px; border-bottom: 2px solid var(--border); color: var(--text2); font-size: 10px; text-transform: uppercase; position: sticky; top: 0; background: var(--surface); z-index: 1; }
+.flat-table td { padding: 5px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.flat-table tr:hover td { background: rgba(255,255,255,0.03); }
+.flat-table .cell-id { color: var(--accent); font-weight: 600; }
+.flat-table .cell-tag { font-size: 9px; padding: 1px 6px; border-radius: 8px; background: var(--tag-bg); color: var(--text2); display: inline-block; margin: 1px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📊 JSONL Dataset Viewer</h1>
+  <span class="file-name" id="current-file">— 未加载文件 —</span>
+  <button class="btn" onclick="document.getElementById('file-input').click()" title="选择 JSONL 文件">📂 打开文件</button>
+  <input type="file" id="file-input" accept=".jsonl,.json" hidden onchange="loadFile(event)">
+  <button class="btn" id="btn-tree" onclick="setView('tree')">🌳 树形视图</button>
+  <button class="btn" id="btn-flat" onclick="setView('flat')">📋 表状视图</button>
+  <button class="btn" id="btn-raw" onclick="setView('raw')">{ } Raw JSON</button>
+  <button class="btn" onclick="exportFiltered()">💾 导出过滤结果</button>
+</header>
+
+<div class="stats-bar" id="stats-bar" style="display:none">
+  <span>总计: <span class="num" id="stat-total">0</span> 条</span>
+  <span>过滤: <span class="num" id="stat-filtered">0</span> 条</span>
+  <span>SAT: <span class="num" id="stat-sat" style="color:var(--green)">0</span></span>
+  <span>UNSAT: <span class="num" id="stat-unsat" style="color:var(--red)">0</span></span>
+</div>
+
+<main>
+  <aside>
+    <div class="search-bar">
+      <input type="text" id="search-input" placeholder="搜索 sample_id / 关键词…" oninput="applyFilter()">
+      <div class="filter-row" id="tag-filters"></div>
+    </div>
+    <div class="sample-list" id="sample-list"></div>
+  </aside>
+  <div id="content-panel">
+    <div id="content-inner">
+      <div class="placeholder drop-zone" id="drop-zone">
+        <div style="font-size:48px;margin-bottom:12px;">📁</div>
+        <div>拖拽 .jsonl 文件到此处<br>或点击 <b>📂 打开文件</b> 按钮</div>
+        <div style="font-size:11px;margin-top:8px;color:var(--text2)">支持 datasets/ 目录下的所有 JSONL 数据集</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+// ── State ──
+let allSamples = [];
+let filteredIndices = [];
+let currentIndex = -1;
+let currentView = 'tree';
+let selectedTags = new Set();
+let allTags = new Set();
+
+// ── File Loading (bind to content panel: it uses inner wrapper, so listeners survive re-render) ──
+const contentPanel = document.getElementById('content-panel');
+contentPanel.addEventListener('dragover', e => { e.preventDefault(); contentPanel.classList.add('drag-over'); });
+contentPanel.addEventListener('dragleave', e => {
+  // Only remove class when actually leaving the panel, not entering a child
+  if (!contentPanel.contains(e.relatedTarget)) contentPanel.classList.remove('drag-over');
+});
+contentPanel.addEventListener('drop', e => {
+  e.preventDefault();
+  contentPanel.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) readFile(file);
+});
+
+function loadFile(event) {
+  const file = event.target.files[0];
+  if (file) readFile(file);
+}
+
+async function readFile(file) {
+  const text = await file.text();
+  const lines = text.trim().split('\n').filter(l => l.trim());
+  allSamples = [];
+  allTags.clear();
+  const parseErrors = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    try {
+      const obj = JSON.parse(lines[i]);
+      allSamples.push(obj);
+      if (Array.isArray(obj.tags)) obj.tags.forEach(t => allTags.add(t));
+      if (obj.expected_result) allTags.add('result:' + obj.expected_result);
+      if (obj.expected_status) allTags.add('status:' + obj.expected_status);
+    } catch (e) {
+      parseErrors.push(`第 ${i+1} 行: ${e.message}`);
+    }
+  }
+
+  if (parseErrors.length > 0) {
+    console.warn(`JSONL 解析失败 ${parseErrors.length}/${lines.length} 行:`, parseErrors);
+  }
+
+  document.getElementById('current-file').textContent = file.name + ` (${allSamples.length} 条)`;
+  document.getElementById('stats-bar').style.display = 'flex';
+  updateStats();
+  buildTagFilters();
+  applyFilterNow();  // immediate on load (skip debounce)
+}
+
+// ── Stats ──
+function updateStats() {
+  const sat = allSamples.filter(s => s.expected_result === 'sat' || s.expected_status === 'complete').length;
+  const unsat = allSamples.filter(s => s.expected_result === 'unsat' || s.expected_status === 'incomplete' || s.expected_status === 'ambiguous').length;
+  document.getElementById('stat-total').textContent = allSamples.length;
+  document.getElementById('stat-filtered').textContent = filteredIndices.length;
+  document.getElementById('stat-sat').textContent = sat;
+  document.getElementById('stat-unsat').textContent = unsat;
+}
+
+// ── Tag Filters ──
+function buildTagFilters() {
+  const container = document.getElementById('tag-filters');
+  container.innerHTML = '';
+  const sorted = [...allTags].sort();
+  sorted.forEach(tag => {
+    const chip = document.createElement('span');
+    chip.className = 'tag-chip' + (selectedTags.has(tag) ? ' selected' : '');
+    chip.textContent = tag;
+    chip.onclick = () => {
+      if (selectedTags.has(tag)) selectedTags.delete(tag); else selectedTags.add(tag);
+      chip.classList.toggle('selected');
+      applyFilterNow();
+    };
+    container.appendChild(chip);
+  });
+}
+
+// ── Filter ──
+let filterTimer = null;
+function applyFilter() {
+  clearTimeout(filterTimer);
+  filterTimer = setTimeout(applyFilterNow, 200);
+}
+function applyFilterNow() {
+  const query = (document.getElementById('search-input').value || '').toLowerCase();
+  filteredIndices = [];
+  allSamples.forEach((s, i) => {
+    // tag filter
+    if (selectedTags.size > 0) {
+      const sampleTags = new Set();
+      if (Array.isArray(s.tags)) s.tags.forEach(t => sampleTags.add(t));
+      if (s.expected_result) sampleTags.add('result:' + s.expected_result);
+      if (s.expected_status) sampleTags.add('status:' + s.expected_status);
+      let match = false;
+      for (const st of selectedTags) {
+        if (sampleTags.has(st)) { match = true; break; }
+      }
+      if (!match) return;
+    }
+    // text search
+    if (query) {
+      const flat = JSON.stringify(s).toLowerCase();
+      if (!flat.includes(query)) return;
+    }
+    filteredIndices.push(i);
+  });
+  updateStats();
+  renderSampleList();
+  if (filteredIndices.length > 0 && !filteredIndices.includes(currentIndex)) {
+    selectSample(filteredIndices[0]);
+  } else if (filteredIndices.length === 0) {
+    currentIndex = -1;
+    document.getElementById('content-inner').innerHTML = '<div class="placeholder">没有匹配的样本</div>';
+  }
+}
+
+// ── Sample List ──
+function renderSampleList() {
+  const list = document.getElementById('sample-list');
+  list.innerHTML = '';
+  const show = filteredIndices.slice(0, 500); // virtualize for perf
+  show.forEach(idx => {
+    const s = allSamples[idx];
+    const div = document.createElement('div');
+    const result = s.expected_result || s.expected_status || '';
+    const rs = result.replace(/^status:/, '');
+    div.className = 'sample-item result-' + rs + (idx === currentIndex ? ' active' : '');
+    const tags = (s.tags || []).slice(0, 4).map(t => `<span class="mini-tag">${escHtml(t)}</span>`).join('');
+    div.innerHTML = `<div class="sid">${escHtml(s.sample_id || '(no id)')}</div>
+      <div class="meta">${escHtml(rs)} · ${idx + 1}/${allSamples.length}</div>
+      ${tags ? '<div class="tags-row">' + tags + '</div>' : ''}`;
+    div.onclick = () => selectSample(idx);
+    list.appendChild(div);
+  });
+  if (filteredIndices.length > 500) {
+    const tip = document.createElement('div');
+    tip.style.cssText = 'padding:8px;color:var(--text2);font-size:10px';
+    tip.textContent = `显示前 500 条，共 ${filteredIndices.length} 条匹配`;
+    list.appendChild(tip);
+  }
+}
+
+function selectSample(idx) {
+  currentIndex = idx;
+  renderSampleList();
+  renderContent(idx);
+  // scroll sidebar (defend against items beyond the 500 render cap)
+  const items = document.querySelectorAll('.sample-item');
+  const pos = filteredIndices.indexOf(idx);
+  if (pos >= 0 && pos < items.length) items[pos].scrollIntoView({ block: 'nearest' });
+}
+
+// ── Content Rendering ──
+function renderContent(idx) {
+  const s = allSamples[idx];
+  const inner = document.getElementById('content-inner');
+  const result = s.expected_result || s.expected_status || '';
+
+  let bodyHtml = '';
+  if (currentView === 'tree') {
+    bodyHtml = renderJsonTree(s);
+  } else if (currentView === 'flat') {
+    bodyHtml = renderFlatView(s);
+  } else {
+    bodyHtml = `<pre style="white-space:pre-wrap;word-break:break-all;font-size:11px;line-height:1.6;">${escHtml(JSON.stringify(s, null, 2))}</pre>`;
+  }
+
+  // summary
+  const summaryItems = [];
+  if (s.sample_id) summaryItems.push({l:'Sample ID', v:s.sample_id});
+  if (s.expected_result) summaryItems.push({l:'Expected Result', v:s.expected_result, cls: s.expected_result});
+  if (s.expected_status) summaryItems.push({l:'Status', v:s.expected_status, cls: s.expected_status});
+  if (s.tags) summaryItems.push({l:'Tags', v:s.tags.join(', ')});
+  // add pattern summaries if present
+  if (s.expected_patterns) {
+    if (s.expected_patterns.node_count != null) summaryItems.push({l:'节点数', v:s.expected_patterns.node_count});
+    if (s.expected_patterns.edge_relations) summaryItems.push({l:'边关系', v:s.expected_patterns.edge_relations.join(', ')});
+    if (s.expected_patterns.constraint_types) summaryItems.push({l:'约束类型', v:s.expected_patterns.constraint_types.join(', ')});
+  }
+  if (s.expected_fix_patterns) {
+    if (s.expected_fix_patterns.node_count != null) summaryItems.push({l:'节点数', v:s.expected_fix_patterns.node_count});
+    if (s.expected_fix_patterns.edge_relations) summaryItems.push({l:'边关系', v:s.expected_fix_patterns.edge_relations.join(', ')});
+    if (s.expected_fix_patterns.constraint_types) summaryItems.push({l:'约束类型', v:s.expected_fix_patterns.constraint_types.join(', ')});
+  }
+
+  const summaryHtml = summaryItems.map(item =>
+    `<div class="summary-item"><div class="label">${item.l}</div><div class="value ${item.cls ? 'badge-text-' + item.cls : ''}">${escHtml(String(item.v))}</div></div>`
+  ).join('');
+
+  inner.innerHTML = `
+    <div class="nav-row">
+      <button class="btn" onclick="navPrev()" ${filteredIndices.indexOf(idx) <= 0 ? 'disabled' : ''}>◀ 上一条</button>
+      <span class="pos">${filteredIndices.indexOf(idx) + 1} / ${filteredIndices.length}</span>
+      <button class="btn" onclick="navNext()" ${filteredIndices.indexOf(idx) >= filteredIndices.length - 1 ? 'disabled' : ''}>下一条 ▶</button>
+      <button class="btn" onclick="if(confirm('将此样本复制到剪贴板？')) copySample(${idx})">📋 复制 JSON</button>
+    </div>
+    <div class="summary-grid">${summaryHtml}</div>
+    <div class="sample-card">
+      <div class="card-header">
+        <span class="card-title">📄 完整数据</span>
+        <div class="card-badges">
+          ${result ? `<span class="badge badge-${result}">${result}</span>` : ''}
+          ${(s.tags||[]).slice(0,6).map(t=>`<span class="badge" style="background:var(--tag-bg);color:var(--text2);text-transform:none">${escHtml(t)}</span>`).join('')}
+        </div>
+      </div>
+      <div class="card-body">${bodyHtml}</div>
+    </div>`;
+}
+
+// ── JSON Tree Renderer ──
+function renderJsonTree(obj) {
+  // ── primitives ──
+  if (obj === null) return '<span class="json-val-null">null</span>';
+  if (typeof obj === 'boolean') return `<span class="json-val-bool">${obj}</span>`;
+  if (typeof obj === 'number') {
+    const formatted = Number.isInteger(obj) ? String(obj)
+      : parseFloat(obj.toPrecision(6)).toString();
+    return `<span class="json-val-number">${formatted}</span>`;
+  }
+  if (typeof obj === 'string') {
+    const isLong = obj.length > 200;
+    if (!isLong) return `<span class="json-val-string">"${escHtml(obj)}"</span>`;
+    // Long string — render expandable preview + hidden full block
+    const id = 'str_' + Math.random().toString(36).slice(2, 8);
+    const preview = escHtml(obj.slice(0, 160)) + '<span class="json-trunc-hint">…</span>';
+    const full = escHtml(obj);
+    return `<span class="json-str-wrapper" id="${id}">`
+      + `<span class="json-str-toggle" onclick="event.stopPropagation(); toggleString('${id}')" title="展开/折叠完整内容"></span>`
+      + `<span class="json-str-preview json-val-string">"${preview}"</span>`
+      + `<span class="json-type-pill">${obj.length} chars</span>`
+      + `<span class="json-str-full"><pre>"${full}"</pre></span>`
+      + `</span>`;
+  }
+
+  // ── array ──
+  if (Array.isArray(obj)) {
+    if (obj.length === 0) return '<span class="json-bracket json-bracket-empty">[ ]</span>';
+    const id = 'node_' + Math.random().toString(36).slice(2, 8);
+    let html = `<div class="json-node" id="${id}">`;
+    // opening line
+    html += `<div class="json-line json-line-open">`;
+    html += `<span class="json-toggle" onclick="toggleNode('${id}')"></span>`;
+    html += `<span class="json-bracket">[</span>`;
+    html += `<span class="json-type-pill">${obj.length} items</span>`;
+    html += `</div>`;
+    // children (indent via .json-children → border-left guide line)
+    html += '<div class="json-children">';
+    obj.forEach((item, i) => {
+      html += '<div class="json-line json-line-entry">';
+      html += `<span class="json-key json-key-index">${i}</span>`;
+      html += `<span class="json-kv-sep">:</span>`;
+      html += renderJsonTree(item);
+      if (i < obj.length - 1) html += '<span class="json-comma">,</span>';
+      html += '</div>';
+    });
+    html += '</div>';
+    // closing line
+    html += `<div class="json-line json-line-close"><span class="json-bracket">]</span></div>`;
+    html += '</div>';
+    return html;
+  }
+
+  // ── object ──
+  if (typeof obj === 'object') {
+    const keys = Object.keys(obj);
+    if (keys.length === 0) return '<span class="json-bracket json-bracket-empty">{ }</span>';
+    const id = 'node_' + Math.random().toString(36).slice(2, 8);
+    let html = `<div class="json-node" id="${id}">`;
+    // opening line
+    html += `<div class="json-line json-line-open">`;
+    html += `<span class="json-toggle" onclick="toggleNode('${id}')"></span>`;
+    html += `<span class="json-bracket">{</span>`;
+    html += `<span class="json-type-pill">${keys.length} keys</span>`;
+    html += `</div>`;
+    // children
+    html += '<div class="json-children">';
+    keys.forEach((key, i) => {
+      html += '<div class="json-line json-line-entry">';
+      html += `<span class="json-key">"${escHtml(key)}"</span>`;
+      html += `<span class="json-kv-sep">:</span>`;
+      html += renderJsonTree(obj[key]);
+      if (i < keys.length - 1) html += '<span class="json-comma">,</span>';
+      html += '</div>';
+    });
+    html += '</div>';
+    // closing line
+    html += `<div class="json-line json-line-close"><span class="json-bracket">}</span></div>`;
+    html += '</div>';
+    return html;
+  }
+
+  return String(obj);
+}
+
+// ── Flat Table View ──
+function renderFlatView(sample) {
+  const flat = flattenObject(sample);
+  let html = '<table class="flat-table"><thead><tr><th>Key Path</th><th>Value</th><th>Type</th></tr></thead><tbody>';
+  for (const [key, val] of Object.entries(flat)) {
+    const type = val === null ? 'null' : Array.isArray(val) ? 'array' : typeof val;
+    html += `<tr><td style="color:var(--key)">${escHtml(key)}</td><td>${escHtml(String(val))}</td><td style="color:var(--text2)">${type}</td></tr>`;
+  }
+  html += '</tbody></table>';
+  return html;
+}
+
+function flattenObject(obj, prefix = '') {
+  const result = {};
+  if (obj === null || typeof obj !== 'object') { result[prefix || '(root)'] = obj; return result; }
+  if (Array.isArray(obj)) {
+    obj.forEach((item, i) => {
+      const key = prefix ? `${prefix}[${i}]` : `[${i}]`;
+      if (typeof item === 'object' && item !== null) {
+        Object.assign(result, flattenObject(item, key));
+      } else {
+        result[key] = item;
+      }
+    });
+  } else {
+    for (const [key, val] of Object.entries(obj)) {
+      const fullKey = prefix ? `${prefix}.${key}` : key;
+      if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
+        Object.assign(result, flattenObject(val, fullKey));
+      } else if (Array.isArray(val) && val.length > 0 && typeof val[0] === 'object') {
+        // arrays of objects: show as count + flatten each
+        result[fullKey] = `[${val.length} items]`;
+        val.forEach((item, i) => {
+          if (typeof item === 'object' && item !== null) {
+            Object.assign(result, flattenObject(item, `${fullKey}[${i}]`));
+          } else {
+            result[`${fullKey}[${i}]`] = item;
+          }
+        });
+      } else {
+        result[fullKey] = val;
+      }
+    }
+  }
+  return result;
+}
+
+// ── Helpers ──
+function toggleNode(id) {
+  document.getElementById(id).classList.toggle('collapsed');
+}
+
+function toggleString(id) {
+  document.getElementById(id).classList.toggle('expanded');
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function setView(view) {
+  currentView = view;
+  document.getElementById('btn-tree').classList.toggle('active', view === 'tree');
+  document.getElementById('btn-flat').classList.toggle('active', view === 'flat');
+  document.getElementById('btn-raw').classList.toggle('active', view === 'raw');
+  if (currentIndex >= 0) renderContent(currentIndex);
+}
+
+function navPrev() {
+  const pos = filteredIndices.indexOf(currentIndex);
+  if (pos > 0) selectSample(filteredIndices[pos - 1]);
+}
+function navNext() {
+  const pos = filteredIndices.indexOf(currentIndex);
+  if (pos < filteredIndices.length - 1) selectSample(filteredIndices[pos + 1]);
+}
+
+function copySample(idx) {
+  navigator.clipboard.writeText(JSON.stringify(allSamples[idx], null, 2));
+}
+
+function exportFiltered() {
+  if (allSamples.length === 0) { alert('请先加载 JSONL 文件'); return; }
+  if (filteredIndices.length === 0) { alert('当前过滤结果为空，无需导出'); return; }
+  const data = filteredIndices.map(i => allSamples[i]);
+  const text = data.map(d => JSON.stringify(d)).join('\n');
+  const blob = new Blob([text], {type: 'application/jsonl'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'filtered_export.jsonl'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Keyboard ──
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'ArrowDown' || e.key === 'j') { e.preventDefault(); navNext(); }
+  if (e.key === 'ArrowUp' || e.key === 'k') { e.preventDefault(); navPrev(); }
+  if (e.key === 't') setView('tree');
+  if (e.key === 'f') setView('flat');
+  if (e.key === 'r') setView('raw');
+  if (e.key === '/' || e.key === 's') { e.preventDefault(); document.getElementById('search-input').focus(); }
+});
+
+// Init
+document.getElementById('btn-tree').classList.add('active');
+</script>
+</body>
+</html>
