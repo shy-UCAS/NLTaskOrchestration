@@ -147,6 +147,6 @@ Standard unambiguous instruction:
 
 {{STANDARD_INSTRUCTION}}
 
-Configuration context and optional expected pattern hints:
+Configuration context (action defaults and capability/resource model):
 
 {{CASE_JSON}}
