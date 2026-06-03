@@ -14,6 +14,11 @@ from typing import Any
 
 from gcjp.errors import GCJPAPIError
 from gcjp.mission_graph import BuiltGraph, TaskGraphBuilder
+from gcjp.runtime_context import (
+    RuntimeConfig,
+    reset_runtime_config,
+    set_runtime_config,
+)
 from gcjp.safety_checker import SafetyCheckResult, check_gcjp_code
 
 
@@ -119,7 +124,12 @@ SAFE_BUILTINS = {
 }
 
 
-def execute_gcjp_code(code: str) -> GCJPExecutionResult:
+def execute_gcjp_code(
+    code: str,
+    *,
+    action_defaults: dict[str, dict[str, Any]] | None = None,
+    capability_model: dict[str, dict[str, Any]] | None = None,
+) -> GCJPExecutionResult:
     """
     Execute a GCJP code string and extract variable `built`.
 
@@ -163,23 +173,31 @@ def execute_gcjp_code(code: str) -> GCJPExecutionResult:
             source_context=context,
         )
 
+    token = None
+    if action_defaults is not None or capability_model is not None:
+        token = set_runtime_config(RuntimeConfig(action_defaults, capability_model))
+
     try:
-        exec(compiled, exec_globals, exec_locals)
-    except Exception as exc:
-        tb = traceback.format_exc()
-        lineno, context = _extract_gcjp_source_context(code, tb)
-        api_error = exc.to_dict() if isinstance(exc, GCJPAPIError) else None
-        return GCJPExecutionResult(
-            passed=False,
-            safety=safety,
-            error_type=ERROR_EXECUTION_FAILED,
-            error_msg=f"GCJP execution failed: {type(exc).__name__}: {exc}",
-            locals_snapshot=exec_locals,
-            traceback_text=tb,
-            gcjp_lineno=lineno,
-            source_context=context,
-            api_error=api_error,
-        )
+        try:
+            exec(compiled, exec_globals, exec_locals)
+        except Exception as exc:
+            tb = traceback.format_exc()
+            lineno, context = _extract_gcjp_source_context(code, tb)
+            api_error = exc.to_dict() if isinstance(exc, GCJPAPIError) else None
+            return GCJPExecutionResult(
+                passed=False,
+                safety=safety,
+                error_type=ERROR_EXECUTION_FAILED,
+                error_msg=f"GCJP execution failed: {type(exc).__name__}: {exc}",
+                locals_snapshot=exec_locals,
+                traceback_text=tb,
+                gcjp_lineno=lineno,
+                source_context=context,
+                api_error=api_error,
+            )
+    finally:
+        if token is not None:
+            reset_runtime_config(token)
 
     built = exec_locals.get("built", exec_globals.get("built"))
 

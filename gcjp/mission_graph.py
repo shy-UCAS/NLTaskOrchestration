@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import networkx as nx
 
@@ -21,6 +21,37 @@ from gcjp.api_spec import (
     VALID_TASK_METADATA_KEYS,
 )
 from gcjp.errors import GCJPAPIError
+
+
+class MissingTaskParameterError(GCJPAPIError):
+    """Raised before TaskNode construction when a system parameter is unresolved."""
+
+    def __init__(
+        self,
+        field: str,
+        *,
+        task_id: str,
+        action: str,
+        has_runtime_config: bool,
+    ):
+        super().__init__(
+            code="MISSING_TASK_PARAMETER",
+            message=(
+                f"system parameter missing: {field} for task '{task_id}' "
+                f"(action='{action}'); no injected action_defaults/capability_model "
+                "or explicit GCJP parameter was provided"
+            ),
+            api="add_task",
+            actual={field: None, "action": action, "has_runtime_config": has_runtime_config},
+            expected=(
+                "duration_lb / energy_cost / ammo_cost / required_capability must be "
+                "explicitly provided or resolved from injected runtime config"
+            ),
+            hint=(
+                "For exp_01k, call execute_gcjp_code(..., action_defaults=..., "
+                "capability_model=...) so API-fill code can bind system parameters."
+            ),
+        )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -164,6 +195,8 @@ class TaskGraphBuilder:
         self._segment_meta: Optional[SegmentMeta] = None
         self._constraint_counter = 0
         self._constraint_source_labels: set[str] = set()
+        self._constraint_semantic_index: dict[tuple[Any, ...], str] = {}
+        self._dependency_semantic_keys: set[tuple[Any, ...]] = set()
 
     # ─────────────────────────────────────────────────────────────────────────
     # 段元信息声明
@@ -195,10 +228,10 @@ class TaskGraphBuilder:
         actor: str,
         action: str,
         target: str,
-        duration_lb: float,
-        required_capability: list[str],
-        energy_cost: float,
-        ammo_cost: int = 0,
+        duration_lb: Optional[float] = None,
+        required_capability: Optional[list[str]] = None,
+        energy_cost: Optional[float] = None,
+        ammo_cost: Optional[int] = None,
         duration_ub: Optional[float] = None,
         time_window_earliest: Optional[float] = None,
         time_window_latest: Optional[float] = None,
@@ -233,6 +266,66 @@ class TaskGraphBuilder:
                 expected={"existing_task_ids": list(self._nodes.keys())},
                 hint="task_id 必须唯一；改用不同标识，或检查是否漏调 add_dependency 而重复 add_task。",
             )
+
+        runtime_config = None
+        if (
+            duration_lb is None
+            or required_capability is None
+            or energy_cost is None
+            or ammo_cost is None
+        ):
+            from gcjp.runtime_context import get_runtime_config
+
+            runtime_config = get_runtime_config()
+            action_defaults = runtime_config.action_defaults if runtime_config else None
+            if action_defaults is not None:
+                from gcjp.task_plan_loader import resolve_task_params
+
+                resolved = resolve_task_params(action, action_defaults)
+                if duration_lb is None:
+                    duration_lb = resolved["duration_lb"]
+                if required_capability is None:
+                    required_capability = resolved["required_capability"]
+                if energy_cost is None:
+                    energy_cost = resolved["energy_cost"]
+                if ammo_cost is None:
+                    ammo_cost = resolved["ammo_cost"]
+            elif (
+                duration_lb is not None
+                and required_capability is not None
+                and energy_cost is not None
+                and ammo_cost is None
+            ):
+                # Backward compatibility with the old add_task(..., ammo_cost=0) default.
+                ammo_cost = 0
+
+        has_runtime_config = runtime_config is not None
+        missing_fields = {
+            "duration_lb": duration_lb,
+            "required_capability": required_capability,
+            "energy_cost": energy_cost,
+            "ammo_cost": ammo_cost,
+        }
+        for field_name, field_value in missing_fields.items():
+            if field_value is None:
+                raise MissingTaskParameterError(
+                    field_name,
+                    task_id=task_id,
+                    action=action,
+                    has_runtime_config=has_runtime_config,
+                )
+
+        try:
+            duration_lb = float(duration_lb)
+        except (TypeError, ValueError) as exc:
+            raise GCJPAPIError(
+                code="INVALID_DURATION_LB",
+                message=f"duration_lb 必须是可转换为 float 的正数，当前值: {duration_lb}",
+                api="add_task",
+                actual=duration_lb,
+                expected="positive float",
+                hint="duration_lb 表示任务最短持续时间，必须为正浮点数，如 1.0。",
+            ) from exc
         if duration_lb <= 0:
             raise GCJPAPIError(
                 code="INVALID_DURATION_LB",
@@ -242,6 +335,43 @@ class TaskGraphBuilder:
                 expected="duration_lb > 0",
                 hint="duration_lb 表示任务最短持续时间，必须为正浮点数，如 1.0。",
             )
+        if isinstance(required_capability, str) or not isinstance(
+            required_capability, (list, tuple, set)
+        ):
+            raise GCJPAPIError(
+                code="INVALID_REQUIRED_CAPABILITY",
+                message=(
+                    "required_capability 必须是 list/tuple/set，"
+                    f"当前类型: {type(required_capability).__name__}"
+                ),
+                api="add_task",
+                actual=required_capability,
+                expected="list[str] or tuple[str] or set[str]",
+                hint="required_capability 示例: ['recon_capable']；无能力要求时使用 []。",
+            )
+        required_capability = list(required_capability)
+        try:
+            energy_cost = float(energy_cost)
+        except (TypeError, ValueError) as exc:
+            raise GCJPAPIError(
+                code="INVALID_ENERGY_COST",
+                message=f"energy_cost 必须是可转换为 float 的数值，当前值: {energy_cost}",
+                api="add_task",
+                actual=energy_cost,
+                expected="float",
+                hint="energy_cost 表示任务能量消耗，应来自配置或显式 GCJP 参数。",
+            ) from exc
+        try:
+            ammo_cost = int(ammo_cost)
+        except (TypeError, ValueError) as exc:
+            raise GCJPAPIError(
+                code="INVALID_AMMO_COST",
+                message=f"ammo_cost 必须是可转换为 int 的数值，当前值: {ammo_cost}",
+                api="add_task",
+                actual=ammo_cost,
+                expected="int",
+                hint="ammo_cost 表示任务弹药消耗，应来自配置或显式 GCJP 参数。",
+            ) from exc
         if actor not in self.assigned_actors and not is_coalition:
             raise GCJPAPIError(
                 code="ACTOR_NOT_ASSIGNED",
@@ -355,6 +485,10 @@ class TaskGraphBuilder:
             )
         if relation == "sync" and sync_tolerance is None:
             sync_tolerance = 1.0  # 使用默认同步容忍
+        edge_key = (source, target, relation)
+        if edge_key in self._dependency_semantic_keys:
+            return
+        self._dependency_semantic_keys.add(edge_key)
 
         edge = DependencyEdge(
             source=source, target=target, relation=relation,
@@ -383,6 +517,54 @@ class TaskGraphBuilder:
     # 约束管理
     # ─────────────────────────────────────────────────────────────────────────
 
+    def _constraint_semantic_key(
+        self,
+        constraint_type: str,
+        params: dict,
+    ) -> tuple[Any, ...] | None:
+        if constraint_type == "resource":
+            return (
+                "resource",
+                params.get("actor"),
+                params.get("resource_type"),
+            )
+        if constraint_type == "capability":
+            return ("capability", params.get("task_id"))
+        if constraint_type == "time_window":
+            return (
+                "time_window",
+                params.get("task_id"),
+                params.get("earliest"),
+                params.get("latest"),
+                params.get("deadline"),
+            )
+        if constraint_type == "time_order":
+            return ("time_order", params.get("before"), params.get("after"))
+        if constraint_type == "sync":
+            return (
+                "sync",
+                params.get("task_i"),
+                params.get("task_j"),
+                params.get("tolerance"),
+            )
+        if constraint_type == "group_sync":
+            return (
+                "group_sync",
+                tuple(params.get("task_ids") or []),
+                params.get("tolerance"),
+                params.get("mode"),
+            )
+        if constraint_type == "physical_feasibility":
+            return (
+                "physical_feasibility",
+                params.get("task_id"),
+                params.get("from_position"),
+                params.get("to_position"),
+                params.get("distance_km"),
+                params.get("speed_kmh"),
+            )
+        return None
+
     def _add_constraint(
         self,
         constraint_type: str,
@@ -405,6 +587,9 @@ class TaskGraphBuilder:
                     "add_resource_constraint / ...）而非直接调用 add_constraint。"
                 ),
             )
+        semantic_key = self._constraint_semantic_key(constraint_type, params)
+        if semantic_key is not None and semantic_key in self._constraint_semantic_index:
+            return self._constraint_semantic_index[semantic_key]
         if not source_label:
             raise GCJPAPIError(
                 code="EMPTY_SOURCE_LABEL",
@@ -450,6 +635,8 @@ class TaskGraphBuilder:
             applies_to=applies_to,
         )
         self._constraints.append(constraint)
+        if semantic_key is not None:
+            self._constraint_semantic_index[semantic_key] = cid
         return cid
 
     def add_constraint(
@@ -900,6 +1087,52 @@ class TaskGraphBuilder:
     # 构建与导出
     # ─────────────────────────────────────────────────────────────────────────
 
+    def _derive_runtime_config_constraints(self) -> None:
+        from gcjp.runtime_context import get_runtime_config
+
+        runtime_config = get_runtime_config()
+        if (
+            runtime_config is None
+            or runtime_config.action_defaults is None
+            or runtime_config.capability_model is None
+        ):
+            return
+
+        from gcjp.task_plan_loader import (
+            derive_actor_resource_limits,
+            derive_capability_constraint_params,
+        )
+
+        for actor in self.assigned_actors:
+            limits = derive_actor_resource_limits(actor, runtime_config.capability_model)
+            self.add_resource_constraint(
+                actor=actor,
+                resource_type="ammo",
+                max_value=limits["max_ammo"],
+                source_label=f"auto_resource_{actor}_ammo",
+            )
+            self.add_resource_constraint(
+                actor=actor,
+                resource_type="energy_kwh",
+                max_value=limits["max_energy_kwh"],
+                source_label=f"auto_resource_{actor}_energy_kwh",
+            )
+
+        for task_id, node in self._nodes.items():
+            params = derive_capability_constraint_params(
+                task_id=task_id,
+                actor=node.actor,
+                action=node.action,
+                action_defaults=runtime_config.action_defaults,
+                capability_model=runtime_config.capability_model,
+            )
+            self.add_capability_constraint(
+                task_id=params["task_id"],
+                required=params["required"],
+                actor_capabilities=params["actor_capabilities"],
+                source_label=f"auto_capability_{task_id}_{node.actor}",
+            )
+
     def build(self) -> "BuiltGraph":
         """
         完成图构建，返回 BuiltGraph 对象供验证管道使用。
@@ -914,6 +1147,8 @@ class TaskGraphBuilder:
                 expected=">= 1 task node",
                 hint="调用 build() 前至少 add_task() 一次；GCJP 段不能为空。",
             )
+
+        self._derive_runtime_config_constraints()
 
         return BuiltGraph(
             segment_id=self.segment_id,

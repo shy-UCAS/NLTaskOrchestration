@@ -14,7 +14,7 @@ import tempfile
 import textwrap
 import time
 from dataclasses import asdict, dataclass, field
-from typing import Optional
+from typing import Any, Optional
 
 import networkx as nx
 
@@ -538,13 +538,23 @@ class VerificationPipeline:
             total_elapsed_ms=(time.time() - t0) * 1000,
         )
 
-    def verify_gcjp_code(self, code: str) -> VerificationReport:
+    def verify_gcjp_code(
+        self,
+        code: str,
+        *,
+        action_defaults: dict[str, dict[str, Any]] | None = None,
+        capability_model: dict[str, dict[str, Any]] | None = None,
+    ) -> VerificationReport:
         """
         对 GCJP 代码字符串运行完整验证流程：
         L1 安全检查与受限执行 -> 提取 BuiltGraph -> L2/L3/L4 验证。
         """
         t0 = time.time()
-        exec_result = execute_gcjp_code(code)
+        exec_result = execute_gcjp_code(
+            code,
+            action_defaults=action_defaults,
+            capability_model=capability_model,
+        )
         elapsed = (time.time() - t0) * 1000
 
         structured_violations = (

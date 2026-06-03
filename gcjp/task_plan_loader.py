@@ -296,6 +296,53 @@ def _get_actor_from_capability_model(
     return capability_model[actor]
 
 
+def resolve_task_params(
+    action: str,
+    action_defaults: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Resolve deterministic task system parameters for an action."""
+    defaults = action_defaults.get(action)
+    if defaults is None:
+        raise ValueError(
+            f"未知动作类型 '{action}'，请在 ACTION_DEFAULTS 或 action_templates.yaml 中定义"
+        )
+    return {
+        "duration_lb": float(defaults["duration_lb"]),
+        "required_capability": list(defaults.get("required_capability", [])),
+        "energy_cost": float(defaults.get("energy_cost", 0.0)),
+        "ammo_cost": int(defaults.get("ammo_cost", 0)),
+    }
+
+
+def derive_actor_resource_limits(
+    actor: str,
+    capability_model: dict[str, dict[str, Any]],
+) -> dict[str, float]:
+    """Resolve deterministic resource limits for an actor."""
+    actor_info = _get_actor_from_capability_model(capability_model, actor)
+    return {
+        "max_ammo": float(actor_info["max_ammo"]),
+        "max_energy_kwh": float(actor_info["max_energy_kwh"]),
+    }
+
+
+def derive_capability_constraint_params(
+    task_id: str,
+    actor: str,
+    action: str,
+    action_defaults: dict[str, dict[str, Any]],
+    capability_model: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Resolve deterministic capability-constraint params for a task."""
+    task_params = resolve_task_params(action, action_defaults)
+    actor_info = _get_actor_from_capability_model(capability_model, actor)
+    return {
+        "task_id": task_id,
+        "required": list(task_params.get("required_capability", [])),
+        "actor_capabilities": list(actor_info.get("capabilities", [])),
+    }
+
+
 # =============================================================================
 # 核心函数：标准化任务计划 JSON → BuiltGraph
 # =============================================================================
@@ -370,11 +417,7 @@ def build_graph_from_task_plan(
         action = task["action"]
         target = task["target"]
 
-        defaults = action_defaults.get(action)
-        if defaults is None:
-            raise ValueError(
-                f"未知动作类型 '{action}'，请在 ACTION_DEFAULTS 或 action_templates.yaml 中定义"
-            )
+        defaults = resolve_task_params(action, action_defaults)
 
         time_window = task.get("time_window") or {}
 
@@ -387,10 +430,10 @@ def build_graph_from_task_plan(
             actor=actor,
             action=action,
             target=target,
-            duration_lb=float(defaults["duration_lb"]),
-            required_capability=list(defaults.get("required_capability", [])),
-            energy_cost=float(defaults.get("energy_cost", 0.0)),
-            ammo_cost=int(defaults.get("ammo_cost", 0)),
+            duration_lb=defaults["duration_lb"],
+            required_capability=defaults["required_capability"],
+            energy_cost=defaults["energy_cost"],
+            ammo_cost=defaults["ammo_cost"],
             time_window_earliest=time_window.get("earliest"),
             time_window_latest=time_window.get("latest"),
             is_coalition=bool(task.get("is_coalition", False)),
@@ -460,9 +503,9 @@ def build_graph_from_task_plan(
     if add_resource_constraints:
         for actor in assigned_actors:
             if capability_model is not None:
-                actor_info = _get_actor_from_capability_model(capability_model, actor)
-                ammo_limit = float(actor_info["max_ammo"])
-                energy_limit = float(actor_info["max_energy_kwh"])
+                limits = derive_actor_resource_limits(actor, capability_model)
+                ammo_limit = limits["max_ammo"]
+                energy_limit = limits["max_energy_kwh"]
                 debug.log(f"  [+] {actor} (capability_model): ammo <= {ammo_limit}, "
                           f"energy_kwh <= {energy_limit}")
             else:
@@ -494,20 +537,25 @@ def build_graph_from_task_plan(
             task_id = task["task_id"]
             actor = task["actor"]
             action = task["action"]
-            defaults = action_defaults.get(action, {})
-            required = defaults.get("required_capability", [])
+            params = derive_capability_constraint_params(
+                task_id=task_id,
+                actor=actor,
+                action=action,
+                action_defaults=action_defaults,
+                capability_model=capability_model,
+            )
+            required = params["required"]
             if not required:
                 debug.log(f"  [·] {task_id}: action={action} 无能力要求，跳过")
                 continue
-            actor_info = _get_actor_from_capability_model(capability_model, actor)
-            actor_caps = actor_info.get("capabilities", [])
+            actor_caps = params["actor_capabilities"]
             satisfied = set(required).issubset(set(actor_caps))
             mark = "OK" if satisfied else "FAIL"
             debug.log(f"  [{mark}] {task_id}: actor={actor} "
                       f"needs {required}, has {actor_caps} -> "
                       f"{'matched' if satisfied else 'MISMATCH!'}")
             builder.add_capability_constraint(
-                task_id=task_id,
+                task_id=params["task_id"],
                 required=required,
                 actor_capabilities=actor_caps,
                 source_label=f"capability_{task_id}_{actor}",

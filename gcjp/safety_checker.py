@@ -338,3 +338,162 @@ class _ASTVisitor(ast.NodeVisitor):
 def check_gcjp_code(code: str) -> SafetyCheckResult:
     """对 GCJP 代码做安全检查，返回 SafetyCheckResult"""
     return SafetyChecker().check(code)
+
+
+APIFILL_ALLOWED_BUILDER_METHODS = {
+    "declare_segment_meta",
+    "add_task",
+    "add_dependency",
+    "add_time_window_constraint",
+    "build",
+}
+APIFILL_ALLOWED_ADD_TASK_KEYWORDS = {"task_id", "actor", "action", "target"}
+APIFILL_FORBIDDEN_METHODS = {
+    "add_resource_constraint",
+    "add_capability_constraint",
+}
+APIFILL_SENTINELS = {
+    "FILL_DURATION",
+    "FILL_ENERGY",
+    "FILL_AMMO",
+    "FILL_CAPABILITY",
+    "FILL_MAX_AMMO",
+    "FILL_MAX_ENERGY",
+    "FILL_ACTOR_CAPS",
+}
+
+
+def check_gcjp_apifill_contract(code: str) -> SafetyCheckResult:
+    """Check the stricter exp_01k API-fill GCJP sublanguage contract."""
+    base = check_gcjp_code(code)
+    violations = list(base.violations)
+    warnings = list(base.warnings)
+    structured = list(base.structured_violations)
+    code_lines = code.splitlines()
+
+    def _source_at(lineno: int | None) -> str | None:
+        if lineno is None or not (1 <= lineno <= len(code_lines)):
+            return None
+        return code_lines[lineno - 1]
+
+    def _record(
+        message: str,
+        vcode: str,
+        *,
+        lineno: int | None = None,
+        col_offset: int | None = None,
+    ) -> None:
+        violations.append(message)
+        structured.append(
+            SafetyViolation(
+                code=vcode,
+                message=message,
+                lineno=lineno,
+                col_offset=col_offset,
+                source_line=_source_at(lineno),
+                suggestion=(
+                    "exp_01k API-fill code may only describe task structure; "
+                    "system parameters must come from injected YAML config."
+                ),
+            )
+        )
+
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return SafetyCheckResult(
+            passed=False,
+            violations=violations,
+            warnings=warnings,
+            structured_violations=structured,
+        )
+
+    for sentinel in sorted(APIFILL_SENTINELS):
+        if sentinel not in code:
+            continue
+        first_lineno = None
+        for ln, line in enumerate(code_lines, start=1):
+            if sentinel in line:
+                first_lineno = ln
+                break
+        _record(
+            f"[API-fill违规] 禁止出现 01j sentinel: {sentinel}",
+            "APIFILL_SENTINEL",
+            lineno=first_lineno,
+        )
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            lineno = getattr(node, "lineno", None)
+            col_offset = getattr(node, "col_offset", None)
+            if any(keyword.arg is None for keyword in node.keywords):
+                _record(
+                    "[API-fill违规] 禁止使用 **kwargs",
+                    "APIFILL_KWARGS",
+                    lineno=lineno,
+                    col_offset=col_offset,
+                )
+
+            if isinstance(node.func, ast.Name):
+                if node.func.id in {"getattr", "setattr", "delattr"}:
+                    _record(
+                        f"[API-fill违规] 禁止动态属性调用: {node.func.id}()",
+                        "APIFILL_DYNAMIC_ATTR",
+                        lineno=lineno,
+                        col_offset=col_offset,
+                    )
+                continue
+
+            if not isinstance(node.func, ast.Attribute):
+                continue
+
+            method = node.func.attr
+            if method not in APIFILL_ALLOWED_BUILDER_METHODS:
+                _record(
+                    f"[API-fill违规] 方法 {method}() 不属于 01k API-fill 白名单",
+                    "APIFILL_DISALLOWED_METHOD",
+                    lineno=lineno,
+                    col_offset=col_offset,
+                )
+            if method in APIFILL_FORBIDDEN_METHODS:
+                _record(
+                    f"[API-fill违规] 01k 禁止显式调用 {method}()",
+                    "APIFILL_PARAM_LEAK",
+                    lineno=lineno,
+                    col_offset=col_offset,
+                )
+            if isinstance(node.func.value, ast.Call):
+                _record(
+                    f"[API-fill违规] 禁止动态属性调用 {method}()",
+                    "APIFILL_DYNAMIC_ATTR",
+                    lineno=lineno,
+                    col_offset=col_offset,
+                )
+
+            if method != "add_task":
+                continue
+
+            if len(node.args) > 4:
+                _record(
+                    "[API-fill违规] add_task 只允许最多 4 个位置参数",
+                    "APIFILL_ADD_TASK_POSITIONAL_PARAM_LEAK",
+                    lineno=lineno,
+                    col_offset=col_offset,
+                )
+            for keyword in node.keywords:
+                if keyword.arg is None:
+                    continue
+                if keyword.arg not in APIFILL_ALLOWED_ADD_TASK_KEYWORDS:
+                    _record(
+                        f"[API-fill违规] add_task 禁止关键字参数: {keyword.arg}",
+                        "APIFILL_ADD_TASK_KEYWORD_PARAM_LEAK",
+                        lineno=getattr(keyword.value, "lineno", lineno),
+                        col_offset=getattr(keyword.value, "col_offset", col_offset),
+                    )
+
+    return SafetyCheckResult(
+        passed=len(violations) == 0,
+        violations=violations,
+        warnings=warnings,
+        structured_violations=structured,
+    )
