@@ -62,6 +62,8 @@ header .file-name { color: var(--text2); font-size: 12px; max-width: 300px; over
 }
 .btn:hover { background: var(--border); }
 .btn.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn:disabled:hover { background: var(--surface2); }
 
 /* ── Main Layout ── */
 main {
@@ -110,6 +112,12 @@ aside {
   gap: 4px;
   flex-wrap: wrap;
 }
+.quick-row {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.quick-row .btn { padding: 4px 8px; font-size: 10px; }
 .tag-chip {
   font-size: 10px;
   padding: 2px 8px;
@@ -141,11 +149,15 @@ aside {
 .sample-item.active { background: var(--surface2); border-left-color: var(--accent); }
 .sample-item .sid { font-weight: 600; color: var(--accent); font-size: 11px; }
 .sample-item .meta { color: var(--text2); font-size: 10px; margin-top: 2px; }
+.sample-item .snippet { color: var(--text2); font-size: 10px; margin-top: 3px; line-height: 1.35; }
 .sample-item .tags-row { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 3px; }
 .sample-item .mini-tag {
   font-size: 9px; padding: 1px 6px; border-radius: 8px;
   background: var(--tag-bg); color: var(--text2);
 }
+.result-pass { border-left-color: var(--green) !important; }
+.result-fail { border-left-color: var(--red) !important; }
+.result-error { border-left-color: var(--red) !important; background: rgba(243,139,168,0.06); }
 .result-sat { border-left-color: var(--green) !important; }
 .result-unsat { border-left-color: var(--red) !important; }
 .result-complete { border-left-color: var(--green) !important; }
@@ -214,6 +226,9 @@ aside {
 .badge-complete { background: rgba(166,227,161,0.15); color: var(--green); }
 .badge-incomplete { background: rgba(249,226,175,0.15); color: var(--yellow); }
 .badge-ambiguous { background: rgba(249,226,175,0.15); color: var(--yellow); }
+.badge-pass, .badge-true { background: rgba(166,227,161,0.15); color: var(--green); }
+.badge-fail, .badge-false, .badge-error { background: rgba(243,139,168,0.15); color: var(--red); }
+.badge-neutral { background: var(--tag-bg); color: var(--text2); text-transform: none; }
 .card-body { padding: 4px 0; }
 
 /* ── JSON Tree ── */
@@ -433,6 +448,28 @@ aside {
 }
 .summary-item .label { color: var(--text2); font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; }
 .summary-item .value { color: var(--text); margin-top: 2px; word-break: break-all; }
+.summary-item.pass { border-left: 3px solid var(--green); }
+.summary-item.fail { border-left: 3px solid var(--red); }
+.summary-item.warn { border-left: 3px solid var(--yellow); }
+.summary-value-list { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.kv-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: var(--tag-bg);
+  color: var(--text2);
+  font-size: 10px;
+}
+.kv-pill.true { color: var(--green); background: rgba(166,227,161,0.12); }
+.kv-pill.false { color: var(--red); background: rgba(243,139,168,0.12); }
+.error-text {
+  color: var(--red);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.45;
+}
 
 /* ── Stats bar ── */
 .stats-bar {
@@ -444,6 +481,7 @@ aside {
   font-size: 11px;
   color: var(--text2);
   flex-shrink: 0;
+  flex-wrap: wrap;
 }
 .stats-bar span { white-space: nowrap; }
 .stats-bar .num { color: var(--accent); font-weight: 600; }
@@ -460,6 +498,23 @@ aside {
 .flat-table tr:hover td { background: rgba(255,255,255,0.03); }
 .flat-table .cell-id { color: var(--accent); font-weight: 600; }
 .flat-table .cell-tag { font-size: 9px; padding: 1px 6px; border-radius: 8px; background: var(--tag-bg); color: var(--text2); display: inline-block; margin: 1px; }
+.flat-table .value-cell { max-width: 780px; white-space: pre-wrap; word-break: break-word; }
+.raw-pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 11px;
+  line-height: 1.6;
+  padding: 10px 14px;
+}
+.parse-error-box {
+  padding: 8px 12px;
+  margin: 0 0 8px;
+  border-left: 3px solid var(--yellow);
+  background: rgba(249,226,175,0.08);
+  color: var(--yellow);
+  font-size: 11px;
+  line-height: 1.45;
+}
 </style>
 </head>
 <body>
@@ -472,20 +527,29 @@ aside {
   <button class="btn" id="btn-tree" onclick="setView('tree')">🌳 树形视图</button>
   <button class="btn" id="btn-flat" onclick="setView('flat')">📋 表状视图</button>
   <button class="btn" id="btn-raw" onclick="setView('raw')">{ } Raw JSON</button>
+  <button class="btn" onclick="clearFilters()">清除过滤</button>
   <button class="btn" onclick="exportFiltered()">💾 导出过滤结果</button>
 </header>
 
 <div class="stats-bar" id="stats-bar" style="display:none">
   <span>总计: <span class="num" id="stat-total">0</span> 条</span>
   <span>过滤: <span class="num" id="stat-filtered">0</span> 条</span>
-  <span>SAT: <span class="num" id="stat-sat" style="color:var(--green)">0</span></span>
-  <span>UNSAT: <span class="num" id="stat-unsat" style="color:var(--red)">0</span></span>
+  <span>通过: <span class="num" id="stat-pass" style="color:var(--green)">0</span></span>
+  <span>失败: <span class="num" id="stat-fail" style="color:var(--red)">0</span></span>
+  <span>错误: <span class="num" id="stat-error" style="color:var(--red)">0</span></span>
+  <span>解析错误: <span class="num" id="stat-parse-errors" style="color:var(--yellow)">0</span></span>
 </div>
 
 <main>
   <aside>
     <div class="search-bar">
-      <input type="text" id="search-input" placeholder="搜索 sample_id / 关键词…" oninput="applyFilter()">
+      <input type="text" id="search-input" placeholder="搜索关键词，或 evaluation.first_pass:false / error:ValueError" oninput="applyFilter()">
+      <div class="quick-row">
+        <button class="btn active" id="quick-all" onclick="setQuickFilter('all')">全部</button>
+        <button class="btn" id="quick-pass" onclick="setQuickFilter('pass')">通过</button>
+        <button class="btn" id="quick-fail" onclick="setQuickFilter('fail')">失败</button>
+        <button class="btn" id="quick-error" onclick="setQuickFilter('error')">错误</button>
+      </div>
       <div class="filter-row" id="tag-filters"></div>
     </div>
     <div class="sample-list" id="sample-list"></div>
@@ -494,8 +558,8 @@ aside {
     <div id="content-inner">
       <div class="placeholder drop-zone" id="drop-zone">
         <div style="font-size:48px;margin-bottom:12px;">📁</div>
-        <div>拖拽 .jsonl 文件到此处<br>或点击 <b>📂 打开文件</b> 按钮</div>
-        <div style="font-size:11px;margin-top:8px;color:var(--text2)">支持 datasets/ 目录下的所有 JSONL 数据集</div>
+        <div>拖拽 .jsonl / .json 文件到此处<br>或点击 <b>📂 打开文件</b> 按钮</div>
+        <div style="font-size:11px;margin-top:8px;color:var(--text2)">支持 datasets JSONL、reports JSON、metrics.json records</div>
       </div>
     </div>
   </div>
@@ -509,6 +573,11 @@ let currentIndex = -1;
 let currentView = 'tree';
 let selectedTags = new Set();
 let allTags = new Set();
+let recordSources = [];
+let searchCache = [];
+let lastParseErrors = [];
+let quickFilter = 'all';
+let domIdSeq = 0;
 
 // ── File Loading (bind to content panel: it uses inner wrapper, so listeners survive re-render) ──
 const contentPanel = document.getElementById('content-panel');
@@ -531,53 +600,146 @@ function loadFile(event) {
 
 async function readFile(file) {
   const text = await file.text();
-  const lines = text.trim().split('\n').filter(l => l.trim());
-  allSamples = [];
+  const parsed = parseInputText(text);
+  allSamples = parsed.records;
+  recordSources = parsed.sources;
+  lastParseErrors = parsed.parseErrors;
   allTags.clear();
-  const parseErrors = [];
+  selectedTags.clear();
+  quickFilter = 'all';
+  allSamples.forEach(s => collectSampleTags(s).forEach(t => allTags.add(t)));
+  searchCache = allSamples.map(s => (JSON.stringify(s) + ' ' + [...collectSampleTags(s)].join(' ')).toLowerCase());
 
-  for (let i = 0; i < lines.length; i++) {
-    try {
-      const obj = JSON.parse(lines[i]);
-      allSamples.push(obj);
-      if (Array.isArray(obj.tags)) obj.tags.forEach(t => allTags.add(t));
-      if (obj.expected_result) allTags.add('result:' + obj.expected_result);
-      if (obj.expected_status) allTags.add('status:' + obj.expected_status);
-    } catch (e) {
-      parseErrors.push(`第 ${i+1} 行: ${e.message}`);
-    }
+  if (lastParseErrors.length > 0) {
+    console.warn(`解析失败 ${lastParseErrors.length} 行:`, lastParseErrors);
   }
 
-  if (parseErrors.length > 0) {
-    console.warn(`JSONL 解析失败 ${parseErrors.length}/${lines.length} 行:`, parseErrors);
-  }
-
-  document.getElementById('current-file').textContent = file.name + ` (${allSamples.length} 条)`;
+  document.getElementById('current-file').textContent = file.name + ` (${allSamples.length} 条, ${parsed.kind})`;
   document.getElementById('stats-bar').style.display = 'flex';
+  updateQuickButtons();
   updateStats();
   buildTagFilters();
   applyFilterNow();  // immediate on load (skip debounce)
 }
 
+function parseInputText(text) {
+  const cleaned = text.replace(/^\uFEFF/, '');
+  const trimmed = cleaned.trim();
+  if (!trimmed) return {records: [], sources: [], parseErrors: [], kind: 'empty'};
+
+  if (trimmed[0] === '{' || trimmed[0] === '[') {
+    try {
+      const parsed = JSON.parse(trimmed);
+      const extracted = extractRecordsFromJson(parsed);
+      if (extracted.records.length > 0) {
+        return {
+          records: extracted.records,
+          sources: extracted.sources,
+          parseErrors: [],
+          kind: extracted.kind,
+        };
+      }
+    } catch (e) {
+      // Fall through to JSONL parsing; pretty JSON errors will still be surfaced per line.
+    }
+  }
+
+  const lines = cleaned.split(/\r?\n/);
+  const records = [];
+  const sources = [];
+  const parseErrors = [];
+  lines.forEach((line, lineIndex) => {
+    if (!line.trim()) return;
+    try {
+      records.push(JSON.parse(line));
+      sources.push(`line ${lineIndex + 1}`);
+    } catch (e) {
+      parseErrors.push(`第 ${lineIndex + 1} 行: ${e.message}`);
+    }
+  });
+  return {records, sources, parseErrors, kind: 'jsonl'};
+}
+
+function extractRecordsFromJson(value) {
+  if (Array.isArray(value)) {
+    return {records: value, sources: value.map((_, i) => `$[${i}]`), kind: 'json array'};
+  }
+
+  if (looksLikeRecord(value)) {
+    return {records: [value], sources: ['$'], kind: 'single json record'};
+  }
+
+  const records = [];
+  const sources = [];
+  collectNamedRecords(value, '$', records, sources);
+  if (records.length > 0) {
+    return {records, sources, kind: 'json records'};
+  }
+
+  return {records: [value], sources: ['$'], kind: 'json object'};
+}
+
+function collectNamedRecords(value, path, records, sources) {
+  if (!value || typeof value !== 'object') return;
+  if (Array.isArray(value)) {
+    value.forEach((item, i) => collectNamedRecords(item, `${path}[${i}]`, records, sources));
+    return;
+  }
+
+  for (const [key, val] of Object.entries(value)) {
+    const nextPath = `${path}.${key}`;
+    if (key === 'records' && Array.isArray(val)) {
+      val.forEach((item, i) => {
+        records.push(item);
+        sources.push(`${nextPath}[${i}]`);
+      });
+    } else if (val && typeof val === 'object') {
+      collectNamedRecords(val, nextPath, records, sources);
+    }
+  }
+}
+
+function looksLikeRecord(value) {
+  return !!(value && typeof value === 'object' && !Array.isArray(value) && (
+    value.sample_id ||
+    value.evaluation ||
+    value.case ||
+    value.generation ||
+    value.expected_result ||
+    value.expected_status
+  ));
+}
+
 // ── Stats ──
 function updateStats() {
-  const sat = allSamples.filter(s => s.expected_result === 'sat' || s.expected_status === 'complete').length;
-  const unsat = allSamples.filter(s => s.expected_result === 'unsat' || s.expected_status === 'incomplete' || s.expected_status === 'ambiguous').length;
+  const pass = allSamples.filter(isPass).length;
+  const errors = allSamples.filter(hasHardError).length;
+  const fail = allSamples.filter(isFail).length;
   document.getElementById('stat-total').textContent = allSamples.length;
   document.getElementById('stat-filtered').textContent = filteredIndices.length;
-  document.getElementById('stat-sat').textContent = sat;
-  document.getElementById('stat-unsat').textContent = unsat;
+  document.getElementById('stat-pass').textContent = pass;
+  document.getElementById('stat-fail').textContent = fail;
+  document.getElementById('stat-error').textContent = errors;
+  document.getElementById('stat-parse-errors').textContent = lastParseErrors.length;
 }
 
 // ── Tag Filters ──
 function buildTagFilters() {
   const container = document.getElementById('tag-filters');
   container.innerHTML = '';
-  const sorted = [...allTags].sort();
+  const counts = new Map();
+  allSamples.forEach(s => {
+    collectSampleTags(s).forEach(t => counts.set(t, (counts.get(t) || 0) + 1));
+  });
+  const sorted = [...allTags].sort((a, b) => {
+    const pa = tagPriority(a), pb = tagPriority(b);
+    if (pa !== pb) return pa - pb;
+    return a.localeCompare(b);
+  });
   sorted.forEach(tag => {
     const chip = document.createElement('span');
     chip.className = 'tag-chip' + (selectedTags.has(tag) ? ' selected' : '');
-    chip.textContent = tag;
+    chip.textContent = `${tag} (${counts.get(tag) || 0})`;
     chip.onclick = () => {
       if (selectedTags.has(tag)) selectedTags.delete(tag); else selectedTags.add(tag);
       chip.classList.toggle('selected');
@@ -587,6 +749,15 @@ function buildTagFilters() {
   });
 }
 
+function tagPriority(tag) {
+  if (tag === 'pass' || tag === 'fail') return 0;
+  if (tag.startsWith('error:')) return 1;
+  if (tag.startsWith('ev:first_pass')) return 2;
+  if (tag.startsWith('ev:')) return 3;
+  if (tag.startsWith('result:') || tag.startsWith('status:')) return 4;
+  return 9;
+}
+
 // ── Filter ──
 let filterTimer = null;
 function applyFilter() {
@@ -594,15 +765,16 @@ function applyFilter() {
   filterTimer = setTimeout(applyFilterNow, 200);
 }
 function applyFilterNow() {
-  const query = (document.getElementById('search-input').value || '').toLowerCase();
+  const query = (document.getElementById('search-input').value || '').trim();
   filteredIndices = [];
   allSamples.forEach((s, i) => {
+    if (quickFilter === 'pass' && !isPass(s)) return;
+    if (quickFilter === 'fail' && !isFail(s)) return;
+    if (quickFilter === 'error' && !hasHardError(s)) return;
+
     // tag filter
     if (selectedTags.size > 0) {
-      const sampleTags = new Set();
-      if (Array.isArray(s.tags)) s.tags.forEach(t => sampleTags.add(t));
-      if (s.expected_result) sampleTags.add('result:' + s.expected_result);
-      if (s.expected_status) sampleTags.add('status:' + s.expected_status);
+      const sampleTags = collectSampleTags(s);
       let match = false;
       for (const st of selectedTags) {
         if (sampleTags.has(st)) { match = true; break; }
@@ -610,10 +782,7 @@ function applyFilterNow() {
       if (!match) return;
     }
     // text search
-    if (query) {
-      const flat = JSON.stringify(s).toLowerCase();
-      if (!flat.includes(query)) return;
-    }
+    if (query && !matchesQuery(s, i, query)) return;
     filteredIndices.push(i);
   });
   updateStats();
@@ -622,7 +791,8 @@ function applyFilterNow() {
     selectSample(filteredIndices[0]);
   } else if (filteredIndices.length === 0) {
     currentIndex = -1;
-    document.getElementById('content-inner').innerHTML = '<div class="placeholder">没有匹配的样本</div>';
+    document.getElementById('content-inner').innerHTML =
+      `${lastParseErrors.length ? renderParseErrors() : ''}<div class="placeholder">没有匹配的样本</div>`;
   }
 }
 
@@ -634,12 +804,14 @@ function renderSampleList() {
   show.forEach(idx => {
     const s = allSamples[idx];
     const div = document.createElement('div');
-    const result = s.expected_result || s.expected_status || '';
-    const rs = result.replace(/^status:/, '');
-    div.className = 'sample-item result-' + rs + (idx === currentIndex ? ' active' : '');
-    const tags = (s.tags || []).slice(0, 4).map(t => `<span class="mini-tag">${escHtml(t)}</span>`).join('');
-    div.innerHTML = `<div class="sid">${escHtml(s.sample_id || '(no id)')}</div>
-      <div class="meta">${escHtml(rs)} · ${idx + 1}/${allSamples.length}</div>
+    const status = getStatusClass(s);
+    div.className = `sample-item result-${status}${idx === currentIndex ? ' active' : ''}`;
+    const tags = getDisplayTags(s).slice(0, 5).map(t => `<span class="mini-tag">${escHtml(t)}</span>`).join('');
+    const summary = getRecordSummary(s);
+    const err = getPrimaryError(s);
+    div.innerHTML = `<div class="sid">${escHtml(getSampleId(s, idx))}</div>
+      <div class="meta">${escHtml(summary)} · ${recordSources[idx] || '#' + (idx + 1)}</div>
+      ${err ? `<div class="snippet">${escHtml(truncateText(err, 120))}</div>` : ''}
       ${tags ? '<div class="tags-row">' + tags + '</div>' : ''}`;
     div.onclick = () => selectSample(idx);
     list.appendChild(div);
@@ -666,7 +838,8 @@ function selectSample(idx) {
 function renderContent(idx) {
   const s = allSamples[idx];
   const inner = document.getElementById('content-inner');
-  const result = s.expected_result || s.expected_status || '';
+  const result = getResultLabel(s);
+  domIdSeq = 0;
 
   let bodyHtml = '';
   if (currentView === 'tree') {
@@ -674,45 +847,57 @@ function renderContent(idx) {
   } else if (currentView === 'flat') {
     bodyHtml = renderFlatView(s);
   } else {
-    bodyHtml = `<pre style="white-space:pre-wrap;word-break:break-all;font-size:11px;line-height:1.6;">${escHtml(JSON.stringify(s, null, 2))}</pre>`;
+    bodyHtml = `<pre class="raw-pre">${escHtml(JSON.stringify(s, null, 2))}</pre>`;
   }
 
   // summary
   const summaryItems = [];
-  if (s.sample_id) summaryItems.push({l:'Sample ID', v:s.sample_id});
-  if (s.expected_result) summaryItems.push({l:'Expected Result', v:s.expected_result, cls: s.expected_result});
-  if (s.expected_status) summaryItems.push({l:'Status', v:s.expected_status, cls: s.expected_status});
-  if (s.tags) summaryItems.push({l:'Tags', v:s.tags.join(', ')});
+  summaryItems.push({l:'Sample ID', v:getSampleId(s, idx)});
+  if (recordSources[idx]) summaryItems.push({l:'Source', v:recordSources[idx]});
+  if (getPath(s, 'expected_result') || getPath(s, 'case.expected_result')) summaryItems.push({l:'Expected Result', v:getPath(s, 'expected_result') ?? getPath(s, 'case.expected_result')});
+  if (getPath(s, 'expected_status') || getPath(s, 'case.expected_status')) summaryItems.push({l:'Status', v:getPath(s, 'expected_status') ?? getPath(s, 'case.expected_status')});
+  if (getDisplayTags(s).length) summaryItems.push({l:'Tags', v:getDisplayTags(s).join(', ')});
+  if (getPrimaryError(s)) summaryItems.push({l:'Error', v:getPrimaryError(s), state:'fail', error:true});
+
+  const evaluation = getEvaluation(s);
+  const evaluationHtml = evaluation ? renderEvaluationSummary(evaluation) : '';
+
   // add pattern summaries if present
-  if (s.expected_patterns) {
-    if (s.expected_patterns.node_count != null) summaryItems.push({l:'节点数', v:s.expected_patterns.node_count});
-    if (s.expected_patterns.edge_relations) summaryItems.push({l:'边关系', v:s.expected_patterns.edge_relations.join(', ')});
-    if (s.expected_patterns.constraint_types) summaryItems.push({l:'约束类型', v:s.expected_patterns.constraint_types.join(', ')});
+  const expectedPatterns = getPath(s, 'expected_patterns') || getPath(s, 'case.expected_patterns');
+  if (expectedPatterns) {
+    if (expectedPatterns.node_count != null) summaryItems.push({l:'节点数', v:expectedPatterns.node_count});
+    if (expectedPatterns.edge_relations) summaryItems.push({l:'边关系', v:expectedPatterns.edge_relations.join(', ')});
+    if (expectedPatterns.constraint_types) summaryItems.push({l:'约束类型', v:expectedPatterns.constraint_types.join(', ')});
   }
-  if (s.expected_fix_patterns) {
-    if (s.expected_fix_patterns.node_count != null) summaryItems.push({l:'节点数', v:s.expected_fix_patterns.node_count});
-    if (s.expected_fix_patterns.edge_relations) summaryItems.push({l:'边关系', v:s.expected_fix_patterns.edge_relations.join(', ')});
-    if (s.expected_fix_patterns.constraint_types) summaryItems.push({l:'约束类型', v:s.expected_fix_patterns.constraint_types.join(', ')});
+  const expectedFixPatterns = getPath(s, 'expected_fix_patterns') || getPath(s, 'case.expected_fix_patterns');
+  if (expectedFixPatterns) {
+    if (expectedFixPatterns.node_count != null) summaryItems.push({l:'修复节点数', v:expectedFixPatterns.node_count});
+    if (expectedFixPatterns.edge_relations) summaryItems.push({l:'修复边关系', v:expectedFixPatterns.edge_relations.join(', ')});
+    if (expectedFixPatterns.constraint_types) summaryItems.push({l:'修复约束类型', v:expectedFixPatterns.constraint_types.join(', ')});
   }
 
   const summaryHtml = summaryItems.map(item =>
-    `<div class="summary-item"><div class="label">${item.l}</div><div class="value ${item.cls ? 'badge-text-' + item.cls : ''}">${escHtml(String(item.v))}</div></div>`
+    `<div class="summary-item ${item.state || ''}"><div class="label">${item.l}</div><div class="value ${item.error ? 'error-text' : ''}">${escHtml(String(item.v))}</div></div>`
   ).join('');
 
   inner.innerHTML = `
+    ${lastParseErrors.length ? renderParseErrors() : ''}
     <div class="nav-row">
       <button class="btn" onclick="navPrev()" ${filteredIndices.indexOf(idx) <= 0 ? 'disabled' : ''}>◀ 上一条</button>
       <span class="pos">${filteredIndices.indexOf(idx) + 1} / ${filteredIndices.length}</span>
       <button class="btn" onclick="navNext()" ${filteredIndices.indexOf(idx) >= filteredIndices.length - 1 ? 'disabled' : ''}>下一条 ▶</button>
-      <button class="btn" onclick="if(confirm('将此样本复制到剪贴板？')) copySample(${idx})">📋 复制 JSON</button>
+      <button class="btn" onclick="copySample(${idx})">📋 复制 JSON</button>
+      <button class="btn" onclick="toggleAllNodes(false)" ${currentView !== 'tree' ? 'disabled' : ''}>展开全部</button>
+      <button class="btn" onclick="toggleAllNodes(true)" ${currentView !== 'tree' ? 'disabled' : ''}>折叠全部</button>
     </div>
     <div class="summary-grid">${summaryHtml}</div>
+    ${evaluationHtml}
     <div class="sample-card">
       <div class="card-header">
         <span class="card-title">📄 完整数据</span>
         <div class="card-badges">
-          ${result ? `<span class="badge badge-${result}">${result}</span>` : ''}
-          ${(s.tags||[]).slice(0,6).map(t=>`<span class="badge" style="background:var(--tag-bg);color:var(--text2);text-transform:none">${escHtml(t)}</span>`).join('')}
+          ${result ? `<span class="badge badge-${getStatusClass(s)}">${escHtml(result)}</span>` : ''}
+          ${getDisplayTags(s).slice(0,6).map(t=>`<span class="badge badge-neutral">${escHtml(t)}</span>`).join('')}
         </div>
       </div>
       <div class="card-body">${bodyHtml}</div>
@@ -720,7 +905,7 @@ function renderContent(idx) {
 }
 
 // ── JSON Tree Renderer ──
-function renderJsonTree(obj) {
+function renderJsonTree(obj, depth = 0, path = '$') {
   // ── primitives ──
   if (obj === null) return '<span class="json-val-null">null</span>';
   if (typeof obj === 'boolean') return `<span class="json-val-bool">${obj}</span>`;
@@ -733,7 +918,7 @@ function renderJsonTree(obj) {
     const isLong = obj.length > 200;
     if (!isLong) return `<span class="json-val-string">"${escHtml(obj)}"</span>`;
     // Long string — render expandable preview + hidden full block
-    const id = 'str_' + Math.random().toString(36).slice(2, 8);
+    const id = nextDomId('str');
     const preview = escHtml(obj.slice(0, 160)) + '<span class="json-trunc-hint">…</span>';
     const full = escHtml(obj);
     return `<span class="json-str-wrapper" id="${id}">`
@@ -747,11 +932,12 @@ function renderJsonTree(obj) {
   // ── array ──
   if (Array.isArray(obj)) {
     if (obj.length === 0) return '<span class="json-bracket json-bracket-empty">[ ]</span>';
-    const id = 'node_' + Math.random().toString(36).slice(2, 8);
-    let html = `<div class="json-node" id="${id}">`;
+    const id = nextDomId('node');
+    const collapsed = depth >= 2 && obj.length > 12 ? ' collapsed' : '';
+    let html = `<div class="json-node${collapsed}" id="${id}">`;
     // opening line
-    html += `<div class="json-line json-line-open">`;
-    html += `<span class="json-toggle" onclick="toggleNode('${id}')"></span>`;
+    html += `<div class="json-line json-line-open" title="${escHtml(path)}">`;
+    html += `<span class="json-toggle" onclick="event.stopPropagation(); toggleNode('${id}')"></span>`;
     html += `<span class="json-bracket">[</span>`;
     html += `<span class="json-type-pill">${obj.length} items</span>`;
     html += `</div>`;
@@ -759,9 +945,9 @@ function renderJsonTree(obj) {
     html += '<div class="json-children">';
     obj.forEach((item, i) => {
       html += '<div class="json-line json-line-entry">';
-      html += `<span class="json-key json-key-index">${i}</span>`;
+      html += `<span class="json-key json-key-index" title="${escHtml(`${path}[${i}]`)}">${i}</span>`;
       html += `<span class="json-kv-sep">:</span>`;
-      html += renderJsonTree(item);
+      html += renderJsonTree(item, depth + 1, `${path}[${i}]`);
       if (i < obj.length - 1) html += '<span class="json-comma">,</span>';
       html += '</div>';
     });
@@ -774,23 +960,25 @@ function renderJsonTree(obj) {
 
   // ── object ──
   if (typeof obj === 'object') {
-    const keys = Object.keys(obj);
+    const keys = orderObjectKeys(Object.keys(obj));
     if (keys.length === 0) return '<span class="json-bracket json-bracket-empty">{ }</span>';
-    const id = 'node_' + Math.random().toString(36).slice(2, 8);
-    let html = `<div class="json-node" id="${id}">`;
+    const id = nextDomId('node');
+    const collapsed = depth >= 2 && keys.length > 10 ? ' collapsed' : '';
+    let html = `<div class="json-node${collapsed}" id="${id}">`;
     // opening line
-    html += `<div class="json-line json-line-open">`;
-    html += `<span class="json-toggle" onclick="toggleNode('${id}')"></span>`;
+    html += `<div class="json-line json-line-open" title="${escHtml(path)}">`;
+    html += `<span class="json-toggle" onclick="event.stopPropagation(); toggleNode('${id}')"></span>`;
     html += `<span class="json-bracket">{</span>`;
     html += `<span class="json-type-pill">${keys.length} keys</span>`;
     html += `</div>`;
     // children
     html += '<div class="json-children">';
     keys.forEach((key, i) => {
+      const keyPath = `${path}.${key}`;
       html += '<div class="json-line json-line-entry">';
-      html += `<span class="json-key">"${escHtml(key)}"</span>`;
+      html += `<span class="json-key" title="${escHtml(keyPath)}">"${escHtml(key)}"</span>`;
       html += `<span class="json-kv-sep">:</span>`;
-      html += renderJsonTree(obj[key]);
+      html += renderJsonTree(obj[key], depth + 1, keyPath);
       if (i < keys.length - 1) html += '<span class="json-comma">,</span>';
       html += '</div>';
     });
@@ -810,7 +998,7 @@ function renderFlatView(sample) {
   let html = '<table class="flat-table"><thead><tr><th>Key Path</th><th>Value</th><th>Type</th></tr></thead><tbody>';
   for (const [key, val] of Object.entries(flat)) {
     const type = val === null ? 'null' : Array.isArray(val) ? 'array' : typeof val;
-    html += `<tr><td style="color:var(--key)">${escHtml(key)}</td><td>${escHtml(String(val))}</td><td style="color:var(--text2)">${type}</td></tr>`;
+    html += `<tr><td style="color:var(--key)">${escHtml(key)}</td><td class="value-cell">${escHtml(formatFlatValue(val))}</td><td style="color:var(--text2)">${type}</td></tr>`;
   }
   html += '</tbody></table>';
   return html;
@@ -843,6 +1031,8 @@ function flattenObject(obj, prefix = '') {
             result[`${fullKey}[${i}]`] = item;
           }
         });
+      } else if (Array.isArray(val)) {
+        result[fullKey] = val;
       } else {
         result[fullKey] = val;
       }
@@ -851,13 +1041,293 @@ function flattenObject(obj, prefix = '') {
   return result;
 }
 
+function nextDomId(prefix) {
+  domIdSeq += 1;
+  return `${prefix}_${domIdSeq}`;
+}
+
+function orderObjectKeys(keys) {
+  const priority = [
+    'sample_id', 'case', 'standard_instruction', 'nl_instruction',
+    'expected_result', 'expected_status', 'tags', 'generation', 'parsed_plan',
+    'evaluation', 'build_error', 'execution_error_type', 'error', 'report',
+  ];
+  return [...keys].sort((a, b) => {
+    const ia = priority.indexOf(a);
+    const ib = priority.indexOf(b);
+    if (ia !== -1 || ib !== -1) {
+      return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+    }
+    return a.localeCompare(b);
+  });
+}
+
+function collectSampleTags(sample) {
+  const tags = new Set();
+  const tagSources = [sample.tags, getPath(sample, 'case.tags')];
+  tagSources.forEach(list => {
+    if (Array.isArray(list)) list.forEach(t => tags.add(String(t)));
+  });
+
+  const expectedResult = getPath(sample, 'expected_result') ?? getPath(sample, 'case.expected_result');
+  const expectedStatus = getPath(sample, 'expected_status') ?? getPath(sample, 'case.expected_status');
+  if (expectedResult) tags.add(`result:${expectedResult}`);
+  if (expectedStatus) tags.add(`status:${expectedStatus}`);
+
+  const evaluation = getEvaluation(sample);
+  if (evaluation && typeof evaluation === 'object') {
+    for (const [key, val] of Object.entries(evaluation)) {
+      if (typeof val === 'boolean') tags.add(`ev:${key}:${val}`);
+    }
+  }
+
+  if (isPass(sample)) tags.add('pass');
+  if (isFail(sample)) tags.add('fail');
+  const errorType = getErrorType(sample);
+  if (errorType) tags.add(`error:${errorType}`);
+  return tags;
+}
+
+function getEvaluation(sample) {
+  const ev = getPath(sample, 'evaluation');
+  return ev && typeof ev === 'object' ? ev : null;
+}
+
+function getSampleId(sample, idx) {
+  return String(
+    sample.sample_id ||
+    getPath(sample, 'case.sample_id') ||
+    getPath(sample, 'generation.sample_id') ||
+    getPath(sample, 'plan_id') ||
+    `#${idx + 1}`
+  );
+}
+
+function getResultLabel(sample) {
+  if (hasHardError(sample)) return getErrorType(sample) || 'error';
+  if (isPass(sample)) return 'pass';
+  if (isFail(sample)) return 'fail';
+  return String(
+    getPath(sample, 'expected_result') ||
+    getPath(sample, 'case.expected_result') ||
+    getPath(sample, 'expected_status') ||
+    getPath(sample, 'case.expected_status') ||
+    ''
+  );
+}
+
+function getStatusClass(sample) {
+  if (hasHardError(sample)) return 'error';
+  if (isPass(sample)) return 'pass';
+  if (isFail(sample)) return 'fail';
+  const label = getResultLabel(sample).toLowerCase();
+  return label || 'neutral';
+}
+
+function getRecordSummary(sample) {
+  const parts = [];
+  const ev = getEvaluation(sample);
+  if (ev && typeof ev.first_pass === 'boolean') parts.push(`first_pass=${ev.first_pass}`);
+  if (ev && typeof ev.json_parse_ok === 'boolean') parts.push(`json=${ev.json_parse_ok}`);
+  if (ev && typeof ev.schema_valid === 'boolean') parts.push(`schema=${ev.schema_valid}`);
+  if (ev && typeof ev.build_success === 'boolean') parts.push(`build=${ev.build_success}`);
+  if (!parts.length) {
+    const result = getResultLabel(sample);
+    if (result) parts.push(result);
+  }
+  return parts.length ? parts.join(' · ') : 'record';
+}
+
+function hasHardError(sample) {
+  return !!getPrimaryError(sample);
+}
+
+function isPass(sample) {
+  const ev = getEvaluation(sample);
+  if (!ev) return false;
+  if (typeof ev.first_pass === 'boolean') return ev.first_pass;
+  const bools = Object.values(ev).filter(v => typeof v === 'boolean');
+  return bools.length > 0 && bools.every(Boolean);
+}
+
+function isFail(sample) {
+  if (hasHardError(sample)) return true;
+  const ev = getEvaluation(sample);
+  if (!ev) return false;
+  if (typeof ev.first_pass === 'boolean') return !ev.first_pass;
+  return Object.values(ev).some(v => v === false);
+}
+
+function getErrorType(sample) {
+  const value = sample.execution_error_type || sample.error_type || getPath(sample, 'generation.error_type');
+  if (!value) return '';
+  const normalized = String(value);
+  return normalized.toUpperCase() === 'SUCCESS' ? '' : normalized;
+}
+
+function getPrimaryError(sample) {
+  const direct = sample.error || sample.build_error || getPath(sample, 'generation.error') || getPath(sample, 'generation.build_error');
+  if (direct) return String(direct);
+  const errorType = getErrorType(sample);
+  return errorType || '';
+}
+
+function getDisplayTags(sample) {
+  return [...collectSampleTags(sample)].filter(tag => !tag.startsWith('ev:')).sort((a, b) => {
+    const pa = tagPriority(a), pb = tagPriority(b);
+    if (pa !== pb) return pa - pb;
+    return a.localeCompare(b);
+  });
+}
+
+function getPath(obj, path) {
+  if (!obj || !path) return undefined;
+  const normalized = String(path).replace(/\[(\d+)\]/g, '.$1');
+  const parts = normalized.split('.').filter(Boolean);
+  let cur = obj;
+  for (const part of parts) {
+    if (cur == null || typeof cur !== 'object' || !(part in cur)) return undefined;
+    cur = cur[part];
+  }
+  return cur;
+}
+
+function findValuesByKey(obj, key, limit = 20) {
+  const values = [];
+  const seen = new Set();
+  function walk(value) {
+    if (values.length >= limit || !value || typeof value !== 'object' || seen.has(value)) return;
+    seen.add(value);
+    if (Array.isArray(value)) {
+      value.forEach(walk);
+      return;
+    }
+    for (const [k, v] of Object.entries(value)) {
+      if (k === key) values.push(v);
+      walk(v);
+    }
+  }
+  walk(obj);
+  return values;
+}
+
+function matchesQuery(sample, idx, query) {
+  const tokens = tokenizeQuery(query);
+  return tokens.every(token => tokenMatches(sample, idx, token));
+}
+
+function tokenizeQuery(query) {
+  return query.match(/"[^"]+"|'[^']+'|\S+/g)?.map(t => t.replace(/^['"]|['"]$/g, '')) || [];
+}
+
+function tokenMatches(sample, idx, token) {
+  const negated = token.startsWith('!');
+  const raw = negated ? token.slice(1) : token;
+  let matched = false;
+
+  if (raw === 'pass') matched = isPass(sample);
+  else if (raw === 'fail' || raw === 'failed') matched = isFail(sample);
+  else if (raw === 'error') matched = hasHardError(sample);
+  else {
+    const fieldMatch = raw.match(/^([A-Za-z0-9_.\[\]-]+)(:|=)(.*)$/);
+    if (fieldMatch) {
+      matched = fieldMatches(sample, fieldMatch[1], fieldMatch[3]);
+    } else {
+      matched = (searchCache[idx] || '').includes(raw.toLowerCase());
+    }
+  }
+  return negated ? !matched : matched;
+}
+
+function fieldMatches(sample, field, expected) {
+  const expectedLower = String(expected).toLowerCase();
+  let values = [];
+  const exact = getPath(sample, field);
+  if (exact !== undefined) values = [exact];
+  else if (!field.includes('.') && !field.includes('[')) values = findValuesByKey(sample, field);
+  return values.some(value => stringifyValue(value).toLowerCase().includes(expectedLower));
+}
+
+function stringifyValue(value) {
+  if (value === null) return 'null';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
+function formatFlatValue(value) {
+  return truncateText(stringifyValue(value), 1200);
+}
+
+function truncateText(text, limit) {
+  const s = String(text);
+  return s.length > limit ? s.slice(0, limit) + '...' : s;
+}
+
+function renderEvaluationSummary(evaluation) {
+  const priority = [
+    'first_pass', 'json_parse_ok', 'schema_valid', 'build_success',
+    'builtgraph_success', 'l2_graph_pass', 'l3_expected_result',
+    'node_complete', 'edge_complete', 'constraint_complete',
+  ];
+  const keys = Object.keys(evaluation).sort((a, b) => {
+    const ia = priority.indexOf(a), ib = priority.indexOf(b);
+    if (ia !== -1 || ib !== -1) return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+    return a.localeCompare(b);
+  });
+  const pills = keys.map(key => {
+    const val = evaluation[key];
+    const cls = typeof val === 'boolean' ? String(val) : '';
+    return `<span class="kv-pill ${cls}">${escHtml(key)}=${escHtml(String(val))}</span>`;
+  }).join('');
+  return `<div class="sample-card">
+    <div class="card-header"><span class="card-title">Evaluation</span></div>
+    <div class="card-body" style="padding:10px 14px"><div class="summary-value-list">${pills}</div></div>
+  </div>`;
+}
+
+function renderParseErrors() {
+  const preview = lastParseErrors.slice(0, 5).map(escHtml).join('<br>');
+  const more = lastParseErrors.length > 5 ? `<br>... 还有 ${lastParseErrors.length - 5} 条` : '';
+  return `<div class="parse-error-box">部分行解析失败 (${lastParseErrors.length})<br>${preview}${more}</div>`;
+}
+
+function setQuickFilter(next) {
+  quickFilter = next;
+  updateQuickButtons();
+  applyFilterNow();
+}
+
+function updateQuickButtons() {
+  ['all', 'pass', 'fail', 'error'].forEach(name => {
+    const el = document.getElementById(`quick-${name}`);
+    if (el) el.classList.toggle('active', quickFilter === name);
+  });
+}
+
+function clearFilters() {
+  document.getElementById('search-input').value = '';
+  selectedTags.clear();
+  quickFilter = 'all';
+  updateQuickButtons();
+  buildTagFilters();
+  applyFilterNow();
+}
+
 // ── Helpers ──
 function toggleNode(id) {
-  document.getElementById(id).classList.toggle('collapsed');
+  const node = document.getElementById(id);
+  if (node) node.classList.toggle('collapsed');
 }
 
 function toggleString(id) {
-  document.getElementById(id).classList.toggle('expanded');
+  const node = document.getElementById(id);
+  if (node) node.classList.toggle('expanded');
+}
+
+function toggleAllNodes(collapse) {
+  document.querySelectorAll('#content-inner .json-node').forEach(node => {
+    node.classList.toggle('collapsed', collapse);
+  });
 }
 
 function escHtml(s) {
@@ -882,7 +1352,22 @@ function navNext() {
 }
 
 function copySample(idx) {
-  navigator.clipboard.writeText(JSON.stringify(allSamples[idx], null, 2));
+  copyText(JSON.stringify(allSamples[idx], null, 2));
+}
+
+function copyText(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text);
+    return;
+  }
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand('copy');
+  textarea.remove();
 }
 
 function exportFiltered() {
