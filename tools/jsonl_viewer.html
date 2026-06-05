@@ -523,7 +523,7 @@ aside {
   <h1>📊 JSONL Dataset Viewer</h1>
   <span class="file-name" id="current-file">— 未加载文件 —</span>
   <button class="btn" onclick="document.getElementById('file-input').click()" title="选择 JSONL 文件">📂 打开文件</button>
-  <input type="file" id="file-input" accept=".jsonl,.json" hidden onchange="loadFile(event)">
+  <input type="file" id="file-input" accept=".jsonl,.json,.yaml,.yml" hidden onchange="loadFile(event)">
   <button class="btn" id="btn-tree" onclick="setView('tree')">🌳 树形视图</button>
   <button class="btn" id="btn-flat" onclick="setView('flat')">📋 表状视图</button>
   <button class="btn" id="btn-raw" onclick="setView('raw')">{ } Raw JSON</button>
@@ -558,8 +558,8 @@ aside {
     <div id="content-inner">
       <div class="placeholder drop-zone" id="drop-zone">
         <div style="font-size:48px;margin-bottom:12px;">📁</div>
-        <div>拖拽 .jsonl / .json 文件到此处<br>或点击 <b>📂 打开文件</b> 按钮</div>
-        <div style="font-size:11px;margin-top:8px;color:var(--text2)">支持 datasets JSONL、reports JSON、metrics.json records</div>
+        <div>拖拽 .jsonl / .json / .yaml 文件到此处<br>或点击 <b>📂 打开文件</b> 按钮</div>
+        <div style="font-size:11px;margin-top:8px;color:var(--text2)">支持 datasets JSONL、reports JSON、metrics.json records、YAML cases</div>
       </div>
     </div>
   </div>
@@ -600,7 +600,7 @@ function loadFile(event) {
 
 async function readFile(file) {
   const text = await file.text();
-  const parsed = parseInputText(text);
+  const parsed = parseInputText(text, file.name);
   allSamples = parsed.records;
   recordSources = parsed.sources;
   lastParseErrors = parsed.parseErrors;
@@ -622,15 +622,37 @@ async function readFile(file) {
   applyFilterNow();  // immediate on load (skip debounce)
 }
 
-function parseInputText(text) {
+function parseInputText(text, fileName = '') {
   const cleaned = text.replace(/^\uFEFF/, '');
   const trimmed = cleaned.trim();
   if (!trimmed) return {records: [], sources: [], parseErrors: [], kind: 'empty'};
+  const ext = fileName.toLowerCase().split('.').pop();
+  const yamlLike = ext === 'yaml' || ext === 'yml' || looksLikeYamlText(trimmed);
+
+  if (yamlLike) {
+    try {
+      const parsed = parseYamlSubset(cleaned);
+      const extracted = extractRecordsFromJson(parsed, 'yaml');
+      return {
+        records: extracted.records,
+        sources: extracted.sources,
+        parseErrors: [],
+        kind: extracted.kind,
+      };
+    } catch (e) {
+      return {
+        records: [],
+        sources: [],
+        parseErrors: [`YAML 解析失败: ${e.message}`],
+        kind: 'yaml',
+      };
+    }
+  }
 
   if (trimmed[0] === '{' || trimmed[0] === '[') {
     try {
       const parsed = JSON.parse(trimmed);
-      const extracted = extractRecordsFromJson(parsed);
+      const extracted = extractRecordsFromJson(parsed, 'json');
       if (extracted.records.length > 0) {
         return {
           records: extracted.records,
@@ -660,23 +682,31 @@ function parseInputText(text) {
   return {records, sources, parseErrors, kind: 'jsonl'};
 }
 
-function extractRecordsFromJson(value) {
+function extractRecordsFromJson(value, kindHint = 'json') {
   if (Array.isArray(value)) {
-    return {records: value, sources: value.map((_, i) => `$[${i}]`), kind: 'json array'};
+    return {records: value, sources: value.map((_, i) => `$[${i}]`), kind: `${kindHint} array`};
   }
 
   if (looksLikeRecord(value)) {
-    return {records: [value], sources: ['$'], kind: 'single json record'};
+    return {records: [value], sources: ['$'], kind: `single ${kindHint} record`};
+  }
+
+  if (value && typeof value === 'object' && Array.isArray(value.cases)) {
+    return {
+      records: value.cases,
+      sources: value.cases.map((_, i) => `$.cases[${i}]`),
+      kind: `${kindHint} cases`,
+    };
   }
 
   const records = [];
   const sources = [];
   collectNamedRecords(value, '$', records, sources);
   if (records.length > 0) {
-    return {records, sources, kind: 'json records'};
+    return {records, sources, kind: `${kindHint} records`};
   }
 
-  return {records: [value], sources: ['$'], kind: 'json object'};
+  return {records: [value], sources: ['$'], kind: `${kindHint} object`};
 }
 
 function collectNamedRecords(value, path, records, sources) {
@@ -708,6 +738,263 @@ function looksLikeRecord(value) {
     value.expected_result ||
     value.expected_status
   ));
+}
+
+function looksLikeYamlText(trimmed) {
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) return false;
+  return /^(cases|records|[A-Za-z_][\w-]*)\s*:/m.test(trimmed);
+}
+
+function parseYamlSubset(text) {
+  const lines = prepareYamlLines(text);
+  if (lines.length === 0) return {};
+  const parsed = parseYamlBlock(lines, 0, lines[0].indent);
+  if (parsed.index < lines.length) {
+    throw new Error(`第 ${lines[parsed.index].line} 行附近存在无法归属的缩进块`);
+  }
+  return parsed.value ?? {};
+}
+
+function prepareYamlLines(text) {
+  return text.split(/\r?\n/).map((raw, i) => {
+    const withoutComment = stripYamlComment(raw).replace(/\s+$/, '');
+    if (!withoutComment.trim()) return null;
+    if (/^\t+/.test(withoutComment)) {
+      throw new Error(`第 ${i + 1} 行使用了 tab 缩进`);
+    }
+    return {
+      indent: withoutComment.match(/^ */)[0].length,
+      text: withoutComment.trim(),
+      line: i + 1,
+    };
+  }).filter(Boolean);
+}
+
+function parseYamlBlock(lines, index, indent) {
+  if (index >= lines.length) return {value: null, index};
+  if (lines[index].text.startsWith('- ')) {
+    return parseYamlArray(lines, index, indent);
+  }
+  return parseYamlObject(lines, index, indent);
+}
+
+function parseYamlArray(lines, index, indent) {
+  const arr = [];
+  let i = index;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (line.indent < indent) break;
+    if (line.indent > indent || !line.text.startsWith('- ')) break;
+
+    const rest = line.text.slice(2).trim();
+    i += 1;
+    if (!rest) {
+      if (i < lines.length && lines[i].indent > line.indent) {
+        const child = parseYamlBlock(lines, i, lines[i].indent);
+        arr.push(child.value);
+        i = child.index;
+      } else {
+        arr.push(null);
+      }
+      continue;
+    }
+
+    const colon = findTopLevelChar(rest, ':');
+    if (colon >= 0) {
+      const obj = {};
+      const key = parseYamlKey(rest.slice(0, colon), line.line);
+      const valueText = rest.slice(colon + 1).trim();
+      obj[key] = valueText ? parseYamlValue(valueText, line.line) : null;
+
+      if (i < lines.length && lines[i].indent > line.indent) {
+        const child = parseYamlBlock(lines, i, lines[i].indent);
+        if (child.value && typeof child.value === 'object' && !Array.isArray(child.value)) {
+          Object.assign(obj, child.value);
+        } else {
+          obj.value = child.value;
+        }
+        i = child.index;
+      }
+      arr.push(obj);
+    } else {
+      arr.push(parseYamlValue(rest, line.line));
+    }
+  }
+  return {value: arr, index: i};
+}
+
+function parseYamlObject(lines, index, indent) {
+  const obj = {};
+  let i = index;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (line.indent < indent) break;
+    if (line.indent > indent || line.text.startsWith('- ')) break;
+
+    const {key, valueText} = splitYamlKeyValue(line.text, line.line);
+    i += 1;
+    if (valueText) {
+      obj[key] = parseYamlValue(valueText, line.line);
+    } else if (i < lines.length && lines[i].indent > line.indent) {
+      const child = parseYamlBlock(lines, i, lines[i].indent);
+      obj[key] = child.value;
+      i = child.index;
+    } else {
+      obj[key] = null;
+    }
+  }
+  return {value: obj, index: i};
+}
+
+function splitYamlKeyValue(text, lineNo) {
+  const colon = findTopLevelChar(text, ':');
+  if (colon < 0) throw new Error(`第 ${lineNo} 行缺少键值冒号`);
+  return {
+    key: parseYamlKey(text.slice(0, colon), lineNo),
+    valueText: text.slice(colon + 1).trim(),
+  };
+}
+
+function parseYamlKey(text, lineNo) {
+  const key = parseYamlValue(text.trim(), lineNo);
+  if (key == null || typeof key === 'object') {
+    throw new Error(`第 ${lineNo} 行存在不支持的 YAML key`);
+  }
+  return String(key);
+}
+
+function parseYamlValue(text, lineNo) {
+  const value = text.trim();
+  if (value === '') return null;
+  if (value === '[]') return [];
+  if (value === '{}') return {};
+  if (value.startsWith('[')) return parseYamlFlowArray(value, lineNo);
+  if (value.startsWith('{')) return parseYamlFlowObject(value, lineNo);
+  if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+    return parseYamlQuoted(value, lineNo);
+  }
+
+  const lower = value.toLowerCase();
+  if (lower === 'true') return true;
+  if (lower === 'false') return false;
+  if (lower === 'null' || lower === '~') return null;
+  if (/^[+-]?\d+(?:\.\d+)?(?:e[+-]?\d+)?$/i.test(value)) return Number(value);
+  return value;
+}
+
+function parseYamlFlowArray(text, lineNo) {
+  if (!text.endsWith(']')) throw new Error(`第 ${lineNo} 行存在未闭合的 flow list`);
+  const inner = text.slice(1, -1).trim();
+  if (!inner) return [];
+  return splitTopLevel(inner, ',').map(part => parseYamlValue(part, lineNo));
+}
+
+function parseYamlFlowObject(text, lineNo) {
+  if (!text.endsWith('}')) throw new Error(`第 ${lineNo} 行存在未闭合的 flow object`);
+  const inner = text.slice(1, -1).trim();
+  if (!inner) return {};
+  const obj = {};
+  splitTopLevel(inner, ',').forEach(part => {
+    const colon = findTopLevelChar(part, ':');
+    if (colon < 0) throw new Error(`第 ${lineNo} 行 flow object 缺少冒号`);
+    const key = parseYamlKey(part.slice(0, colon), lineNo);
+    obj[key] = parseYamlValue(part.slice(colon + 1), lineNo);
+  });
+  return obj;
+}
+
+function parseYamlQuoted(value, lineNo) {
+  if (value.startsWith('"')) {
+    try {
+      return JSON.parse(value);
+    } catch (e) {
+      throw new Error(`第 ${lineNo} 行双引号字符串不合法: ${e.message}`);
+    }
+  }
+  return value.slice(1, -1).replace(/''/g, "'");
+}
+
+function stripYamlComment(line) {
+  let quote = '';
+  let escape = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (quote) {
+      if (quote === '"' && c === '\\' && !escape) {
+        escape = true;
+        continue;
+      }
+      if (c === quote && !escape) quote = '';
+      escape = false;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      quote = c;
+      continue;
+    }
+    if (c === '#') return line.slice(0, i);
+  }
+  return line;
+}
+
+function splitTopLevel(text, delimiter) {
+  const parts = [];
+  let start = 0;
+  let depth = 0;
+  let quote = '';
+  let escape = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (quote) {
+      if (quote === '"' && c === '\\' && !escape) {
+        escape = true;
+        continue;
+      }
+      if (c === quote && !escape) quote = '';
+      escape = false;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      quote = c;
+    } else if (c === '[' || c === '{') {
+      depth += 1;
+    } else if (c === ']' || c === '}') {
+      depth -= 1;
+    } else if (c === delimiter && depth === 0) {
+      parts.push(text.slice(start, i).trim());
+      start = i + 1;
+    }
+  }
+  parts.push(text.slice(start).trim());
+  return parts.filter(part => part.length > 0);
+}
+
+function findTopLevelChar(text, target) {
+  let depth = 0;
+  let quote = '';
+  let escape = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (quote) {
+      if (quote === '"' && c === '\\' && !escape) {
+        escape = true;
+        continue;
+      }
+      if (c === quote && !escape) quote = '';
+      escape = false;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      quote = c;
+    } else if (c === '[' || c === '{') {
+      depth += 1;
+    } else if (c === ']' || c === '}') {
+      depth -= 1;
+    } else if (c === target && depth === 0) {
+      return i;
+    }
+  }
+  return -1;
 }
 
 // ── Stats ──
