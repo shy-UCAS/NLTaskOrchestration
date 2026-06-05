@@ -13,6 +13,7 @@ from pathlib import Path
 
 from agents.code_extraction import extract_gcjp_code
 from agents.llm_client import (
+    LLMConfigError,
     LLMProviderConfig,
     effective_headers_preview,
     load_provider_config,
@@ -63,6 +64,38 @@ def test_base_url_compat_preset() -> None:
     assert cfg.auth_header == "bearer"
     assert cfg.compat_preset == "uuapi_anthropic_gateway"
     assert cfg.user_agent == "claude-cli/2.0.76 (external, cli)"
+
+
+def test_separate_thinking_budget_gate() -> None:
+    cfg = LLMProviderConfig(
+        protocol="anthropic_messages",
+        base_url="https://example.test",
+        api_key="sk-secret",
+        model="model-x",
+        max_tokens=64000,
+        thinking_budget_tokens=256000,
+        thinking_budget_separate_from_output=True,
+        max_thinking_budget_tokens=256000,
+    )
+    cfg.validate()
+    summary = cfg.safe_summary()
+    assert summary["thinking_budget_separate_from_output"] is True
+    assert summary["max_thinking_budget_tokens"] == 256000
+
+    strict_cfg = LLMProviderConfig(
+        protocol="anthropic_messages",
+        base_url="https://example.test",
+        api_key="sk-secret",
+        model="model-x",
+        max_tokens=64000,
+        thinking_budget_tokens=256000,
+    )
+    try:
+        strict_cfg.validate()
+    except LLMConfigError:
+        pass
+    else:
+        raise AssertionError("expected strict thinking budget validation to fail")
 
 
 def test_code_extraction() -> None:
@@ -129,6 +162,7 @@ def main() -> int:
         test_effective_headers_preview_openai,
         test_effective_headers_preview_anthropic_bearer,
         test_base_url_compat_preset,
+        test_separate_thinking_budget_gate,
         test_code_extraction,
         test_prompt_contracts,
         test_repair_prompt_contract,

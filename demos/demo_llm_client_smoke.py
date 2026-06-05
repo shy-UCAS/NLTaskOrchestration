@@ -85,7 +85,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--thinking-budget-tokens",
         type=int,
-        help="Anthropic Messages thinking.budget_tokens value; must be less than max_tokens",
+        help=(
+            "Anthropic Messages thinking.budget_tokens value; must be less "
+            "than max_tokens unless a profile declares separate thinking budget"
+        ),
+    )
+    parser.add_argument(
+        "--thinking-budget-separate-from-output",
+        action="store_true",
+        help=(
+            "Allow thinking_budget_tokens to exceed max_tokens for providers "
+            "with separate thinking/output quotas"
+        ),
+    )
+    parser.add_argument(
+        "--max-thinking-budget-tokens",
+        type=int,
+        help="Provider-declared upper bound for separate thinking budget",
     )
     parser.add_argument(
         "--reasoning-effort",
@@ -190,6 +206,10 @@ def _overrides_from_args(args: argparse.Namespace) -> dict[str, Any]:
         "max_tokens": args.max_tokens,
         "thinking": args.thinking,
         "thinking_budget_tokens": args.thinking_budget_tokens,
+        "thinking_budget_separate_from_output": (
+            args.thinking_budget_separate_from_output or None
+        ),
+        "max_thinking_budget_tokens": args.max_thinking_budget_tokens,
         "reasoning_effort": args.reasoning_effort,
         "output_effort": args.output_effort,
         "retry_attempts": args.retry_attempts,

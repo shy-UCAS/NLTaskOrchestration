@@ -80,6 +80,8 @@ class LLMProviderConfig:
     max_tokens: int = 4096
     thinking: str | None = DEFAULT_THINKING  # "enabled" / "disabled"，对应 Anthropic thinking.type
     thinking_budget_tokens: int | None = None  # Anthropic thinking.budget_tokens，需 < max_tokens
+    thinking_budget_separate_from_output: bool = False
+    max_thinking_budget_tokens: int | None = None
     reasoning_effort: str | None = DEFAULT_REASONING_EFFORT  # "low"/"medium"/"high"/"max"，OpenAI reasoning_effort
     output_effort: str | None = DEFAULT_OUTPUT_EFFORT  # Anthropic-style output_config.effort
     headers: dict[str, str] = field(default_factory=dict)
@@ -139,6 +141,18 @@ class LLMProviderConfig:
             raise LLMConfigError(
                 "thinking=adaptive 仅支持 transport=official_sdk 且 protocol=anthropic_messages"
             )
+        if self.thinking_budget_separate_from_output:
+            if self.protocol != PROTOCOL_ANTHROPIC_MESSAGES:
+                raise LLMConfigError(
+                    "thinking_budget_separate_from_output 仅支持 protocol=anthropic_messages"
+                )
+            if self.max_thinking_budget_tokens is None:
+                raise LLMConfigError(
+                    "thinking_budget_separate_from_output=true 时必须设置 max_thinking_budget_tokens"
+                )
+        if self.max_thinking_budget_tokens is not None:
+            if self.max_thinking_budget_tokens <= 0:
+                raise LLMConfigError("max_thinking_budget_tokens 必须大于 0")
         if self.thinking_budget_tokens is not None:
             if self.thinking != "enabled":
                 raise LLMConfigError(
@@ -146,7 +160,17 @@ class LLMProviderConfig:
                 )
             if self.thinking_budget_tokens <= 0:
                 raise LLMConfigError("thinking_budget_tokens 必须大于 0")
-            if self.thinking_budget_tokens >= self.max_tokens:
+            if (
+                self.max_thinking_budget_tokens is not None
+                and self.thinking_budget_tokens > self.max_thinking_budget_tokens
+            ):
+                raise LLMConfigError(
+                    "thinking_budget_tokens 不得大于 max_thinking_budget_tokens"
+                )
+            if (
+                not self.thinking_budget_separate_from_output
+                and self.thinking_budget_tokens >= self.max_tokens
+            ):
                 raise LLMConfigError(
                     "thinking_budget_tokens 必须小于 max_tokens"
                 )
@@ -226,6 +250,12 @@ def load_provider_config(
         max_tokens=int(data.get("max_tokens", 4096)),
         thinking=_normalize_optional_string(data.get("thinking")) or DEFAULT_THINKING,
         thinking_budget_tokens=_normalize_optional_int(data.get("thinking_budget_tokens")),
+        thinking_budget_separate_from_output=_truthy(
+            data.get("thinking_budget_separate_from_output")
+        ),
+        max_thinking_budget_tokens=_normalize_optional_int(
+            data.get("max_thinking_budget_tokens")
+        ),
         reasoning_effort=(
             _normalize_optional_string(data.get("reasoning_effort"))
             or DEFAULT_REASONING_EFFORT
@@ -299,6 +329,10 @@ def _load_phase1_env() -> dict[str, Any]:
         "max_tokens": "PHASE1_LLM_MAX_TOKENS",
         "thinking": "PHASE1_LLM_THINKING",
         "thinking_budget_tokens": "PHASE1_LLM_THINKING_BUDGET_TOKENS",
+        "thinking_budget_separate_from_output": (
+            "PHASE1_LLM_THINKING_BUDGET_SEPARATE_FROM_OUTPUT"
+        ),
+        "max_thinking_budget_tokens": "PHASE1_LLM_MAX_THINKING_BUDGET_TOKENS",
         "reasoning_effort": "PHASE1_LLM_REASONING_EFFORT",
         "output_effort": "PHASE1_LLM_OUTPUT_EFFORT",
         "auth_header": "PHASE1_LLM_AUTH_HEADER",
@@ -448,6 +482,8 @@ def provider_summary_items(
         "max_tokens",
         "thinking",
         "thinking_budget_tokens",
+        "thinking_budget_separate_from_output",
+        "max_thinking_budget_tokens",
         "reasoning_effort",
         "output_effort",
         "pre_headers",
