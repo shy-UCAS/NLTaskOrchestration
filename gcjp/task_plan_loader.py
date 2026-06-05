@@ -563,6 +563,12 @@ def build_graph_from_task_plan(
     else:
         debug.log("  未提供 capability_model，跳过能力约束")
 
+    # -------------------------------------------------------------------------
+    # 6. 添加显式约束
+    # -------------------------------------------------------------------------
+    debug.log(f"\n[DEBUG] === 阶段 6: 显式约束 ===")
+    _add_explicit_constraints(builder, plan)
+
     graph = builder.build()
 
     # 打印最终构建的图摘要
@@ -591,6 +597,67 @@ def build_graph_from_task_plan(
         debug.log(f"      applies_to={c.applies_to}")
 
     return graph
+
+
+def _add_explicit_constraints(
+    builder: TaskGraphBuilder,
+    plan: dict[str, Any],
+) -> None:
+    constraints = list(plan.get("explicit_constraints") or [])
+    constraints.extend(plan.get("constraints") or [])
+    if not constraints:
+        debug.log("  无显式约束")
+        return
+
+    for constraint in constraints:
+        ctype = constraint.get("type") or constraint.get("constraint_type")
+        if ctype == "group_sync":
+            task_ids = list(constraint.get("task_ids") or [])
+            debug.log(f"  [+] group_sync: task_ids={task_ids}")
+            builder.add_group_sync_constraint(
+                task_ids=task_ids,
+                tolerance=float(constraint.get("tolerance", 1.0)),
+                mode=str(constraint.get("mode", "start")),
+                source_label=constraint.get("source_label"),
+            )
+        elif ctype == "physical_feasibility":
+            debug.log(f"  [+] physical_feasibility: task_id={constraint.get('task_id')}")
+            builder.add_physical_feasibility_constraint(
+                task_id=str(constraint["task_id"]),
+                from_position=str(constraint.get("from_position", "")),
+                to_position=str(constraint.get("to_position", "")),
+                distance_km=float(constraint["distance_km"]),
+                actor_speed_kmh=float(
+                    constraint.get("actor_speed_kmh", constraint.get("speed_kmh"))
+                ),
+                time_unit_minutes=float(constraint.get("time_unit_minutes", 1.0)),
+                source_label=constraint.get("source_label"),
+            )
+        elif ctype == "time_window":
+            debug.log(f"  [+] time_window: task_id={constraint.get('task_id')}")
+            builder.add_time_window_constraint(
+                task_id=str(constraint["task_id"]),
+                earliest=constraint.get("earliest"),
+                latest=constraint.get("latest"),
+                deadline=constraint.get("deadline"),
+                source_label=constraint.get("source_label"),
+            )
+        elif ctype in {"resource", "capability"}:
+            debug.log(
+                f"  [·] {ctype}: 保留为数据集元数据，实际约束由配置自动注入"
+            )
+        elif ctype == "global_deadline":
+            deadline = float(constraint["deadline"])
+            task_ids = constraint.get("task_ids") or _get_sink_tasks(plan)
+            debug.log(f"  [+] global_deadline={deadline}: task_ids={task_ids}")
+            for task_id in task_ids:
+                builder.add_time_window_constraint(
+                    task_id=str(task_id),
+                    deadline=deadline,
+                    source_label=constraint.get("source_label") or f"global_deadline_{deadline}_{task_id}",
+                )
+        else:
+            raise ValueError(f"Unsupported explicit constraint type: {ctype!r}")
 
 
 def build_graph_from_task_plan_file(
