@@ -1,0 +1,564 @@
+# Phase 1 standard_complete expansion batch (38 cases) authored with make_case.
+# Together with the 12 migrated 1b_* cases this reaches the section 13.4 target
+# of 50 standard_complete cases. Every case is gated by make_case's Z3 self-check.
+#
+#   python -m tools.dataset.make_case \
+#       --template tools/dataset/templates/phase1_standard_expand.yaml \
+#       --out datasets/v2/phase1_master_cases.jsonl
+#
+# Capability reminders (configs/capability_model.yaml):
+#   recon  -> fleet 1,3,4,5,7,8,9,11,12   strike -> 1,2,4,6,8,9,10,12   jam -> 3,7,11,12
+#   max_ammo: fleet_1=4 fleet_2=6 fleet_4=5 fleet_9=2 ...   strike costs 1 ammo each.
+cases:
+  # ===================== single_task (5, all sat) =====================
+  - sample_id: std_single_recon_001
+    plan_id: seg_std_single_001
+    standard_instruction: "Segment seg_std_single_001 uses actor fleet_5. fleet_5 performs reconnaissance on area_alpha as task t1_recon_alpha."
+    participants: [{actor_id: fleet_5, type: fleet}]
+    tasks:
+      - {task_id: t1_recon_alpha, actor: fleet_5, action: reconnaissance, target: area_alpha}
+    relations: []
+    constraint_types: [capability]
+    expected_result: sat
+    tags: [standard_nl, single_task, recon, sat]
+
+  - sample_id: std_single_strike_002
+    plan_id: seg_std_single_002
+    standard_instruction: "Segment seg_std_single_002 uses actor fleet_2. fleet_2 performs strike on target_alpha as task t1_strike_alpha."
+    participants: [{actor_id: fleet_2, type: fleet}]
+    tasks:
+      - {task_id: t1_strike_alpha, actor: fleet_2, action: strike, target: target_alpha}
+    relations: []
+    constraint_types: [capability, resource]
+    expected_result: sat
+    tags: [standard_nl, single_task, strike, sat]
+
+  - sample_id: std_single_jam_003
+    plan_id: seg_std_single_003
+    standard_instruction: "Segment seg_std_single_003 uses actor fleet_3. fleet_3 performs jam on site_alpha as task t1_jam_alpha."
+    participants: [{actor_id: fleet_3, type: fleet}]
+    tasks:
+      - {task_id: t1_jam_alpha, actor: fleet_3, action: jam, target: site_alpha}
+    relations: []
+    constraint_types: [capability]
+    expected_result: sat
+    tags: [standard_nl, single_task, jam, sat]
+
+  - sample_id: std_single_track_004
+    plan_id: seg_std_single_004
+    standard_instruction: "Segment seg_std_single_004 uses actor fleet_8. fleet_8 performs track on convoy_alpha as task t1_track_alpha."
+    participants: [{actor_id: fleet_8, type: fleet}]
+    tasks:
+      - {task_id: t1_track_alpha, actor: fleet_8, action: track, target: convoy_alpha}
+    relations: []
+    constraint_types: [capability]
+    expected_result: sat
+    tags: [standard_nl, single_task, track, sat]
+
+  - sample_id: std_single_standby_005
+    plan_id: seg_std_single_005
+    standard_instruction: "Segment seg_std_single_005 uses actor fleet_4. fleet_4 performs standby at point_alpha as task t1_standby_alpha."
+    participants: [{actor_id: fleet_4, type: fleet}]
+    tasks:
+      - {task_id: t1_standby_alpha, actor: fleet_4, action: standby, target: point_alpha}
+    relations: []
+    constraint_types: []
+    expected_result: sat
+    tags: [standard_nl, single_task, standby, sat]
+
+  # ===================== sequence two-step (5, all sat) =====================
+  - sample_id: std_seq2_recon_strike_001
+    plan_id: seg_std_seq2_001
+    standard_instruction: "Segment seg_std_seq2_001 uses actor fleet_4. fleet_4 first performs reconnaissance on area_beta as task t1_recon_beta. Then fleet_4 performs strike on target_beta as task t2_strike_beta. Add a sequence dependency from t1_recon_beta to t2_strike_beta."
+    participants: [{actor_id: fleet_4, type: fleet}]
+    tasks:
+      - {task_id: t1_recon_beta, actor: fleet_4, action: reconnaissance, target: area_beta}
+      - {task_id: t2_strike_beta, actor: fleet_4, action: strike, target: target_beta}
+    relations:
+      - {source: t1_recon_beta, target: t2_strike_beta, type: sequence}
+    constraint_types: [time_order, capability, resource]
+    expected_result: sat
+    tags: [standard_nl, sequence, sat]
+
+  - sample_id: std_seq2_recon_strike_002
+    plan_id: seg_std_seq2_002
+    standard_instruction: "Segment seg_std_seq2_002 uses actor fleet_8. fleet_8 first performs reconnaissance on area_gamma as task t1_recon_gamma. Then fleet_8 performs strike on target_gamma as task t2_strike_gamma. Add a sequence dependency from t1_recon_gamma to t2_strike_gamma."
+    participants: [{actor_id: fleet_8, type: fleet}]
+    tasks:
+      - {task_id: t1_recon_gamma, actor: fleet_8, action: reconnaissance, target: area_gamma}
+      - {task_id: t2_strike_gamma, actor: fleet_8, action: strike, target: target_gamma}
+    relations:
+      - {source: t1_recon_gamma, target: t2_strike_gamma, type: sequence}
+    constraint_types: [time_order, capability, resource]
+    expected_result: sat
+    tags: [standard_nl, sequence, sat]
+
+  - sample_id: std_seq2_flyto_jam_003
+    plan_id: seg_std_seq2_003
+    standard_instruction: "Segment seg_std_seq2_003 uses actor fleet_12. fleet_12 first performs fly_to on hq_delta as task t1_flyto_delta. Then fleet_12 performs jam on hq_delta as task t2_jam_delta. Add a sequence dependency from t1_flyto_delta to t2_jam_delta."
+    participants: [{actor_id: fleet_12, type: fleet}]
+    tasks:
+      - {task_id: t1_flyto_delta, actor: fleet_12, action: fly_to, target: hq_delta}
+      - {task_id: t2_jam_delta, actor: fleet_12, action: jam, target: hq_delta}
+    relations:
+      - {source: t1_flyto_delta, target: t2_jam_delta, type: sequence}
+    constraint_types: [time_order, capability]
+    expected_result: sat
+    tags: [standard_nl, sequence, jam, sat]
+
+  - sample_id: std_seq2_recon_strike_004
+    plan_id: seg_std_seq2_004
+    standard_instruction: "Segment seg_std_seq2_004 uses actor fleet_9. fleet_9 first performs reconnaissance on area_epsilon as task t1_recon_epsilon. Then fleet_9 performs strike on target_epsilon as task t2_strike_epsilon. Add a sequence dependency from t1_recon_epsilon to t2_strike_epsilon."
+    participants: [{actor_id: fleet_9, type: fleet}]
+    tasks:
+      - {task_id: t1_recon_epsilon, actor: fleet_9, action: reconnaissance, target: area_epsilon}
+      - {task_id: t2_strike_epsilon, actor: fleet_9, action: strike, target: target_epsilon}
+    relations:
+      - {source: t1_recon_epsilon, target: t2_strike_epsilon, type: sequence}
+    constraint_types: [time_order, capability, resource]
+    expected_result: sat
+    tags: [standard_nl, sequence, sat]
+
+  - sample_id: std_seq2_recon_strike_deadline_005
+    plan_id: seg_std_seq2_005
+    standard_instruction: "Segment seg_std_seq2_005 uses actor fleet_1. fleet_1 first performs reconnaissance on area_zeta as task t1_recon_zeta. Then fleet_1 performs strike on target_zeta as task t2_strike_zeta. Add a sequence dependency from t1_recon_zeta to t2_strike_zeta. Add a deadline of 12.0 for t2_strike_zeta."
+    participants: [{actor_id: fleet_1, type: fleet}]
+    tasks:
+      - {task_id: t1_recon_zeta, actor: fleet_1, action: reconnaissance, target: area_zeta}
+      - {task_id: t2_strike_zeta, actor: fleet_1, action: strike, target: target_zeta, time_window: {deadline: 12.0}}
+    relations:
+      - {source: t1_recon_zeta, target: t2_strike_zeta, type: sequence}
+    constraint_types: [time_order, time_window, capability, resource]
+    expected_result: sat
+    tags: [standard_nl, sequence, time_window, sat]
+
+  # ===================== sequence three-or-more (9, all sat) =====================
+  - sample_id: std_seq3_recon_strike_standby_001
+    plan_id: seg_std_seq3_001
+    standard_instruction: "Segment seg_std_seq3_001 uses actor fleet_1. fleet_1 performs reconnaissance on area_a1 as t1_recon, then strike on target_a1 as t2_strike, then standby at point_a1 as t3_standby. Add sequence dependencies t1_recon->t2_strike and t2_strike->t3_standby."
+    participants: [{actor_id: fleet_1, type: fleet}]
+    tasks:
+      - {task_id: t1_recon, actor: fleet_1, action: reconnaissance, target: area_a1}
+      - {task_id: t2_strike, actor: fleet_1, action: strike, target: target_a1}
+      - {task_id: t3_standby, actor: fleet_1, action: standby, target: point_a1}
+    relations:
+      - {source: t1_recon, target: t2_strike, type: sequence}
+      - {source: t2_strike, target: t3_standby, type: sequence}
+    constraint_types: [time_order, capability, resource]
+    expected_result: sat
+    tags: [standard_nl, sequence, sat]
+
+  - sample_id: std_seq3_recon_strike_strike_002
+    plan_id: seg_std_seq3_002
+    standard_instruction: "Segment seg_std_seq3_002 uses actor fleet_4. fleet_4 performs reconnaissance on area_a2 as t1_recon, then strike on target_a2 as t2_strike, then strike on target_b2 as t3_strike. Add sequence dependencies t1_recon->t2_strike and t2_strike->t3_strike."
+    participants: [{actor_id: fleet_4, type: fleet}]
+    tasks:
+      - {task_id: t1_recon, actor: fleet_4, action: reconnaissance, target: area_a2}
+      - {task_id: t2_strike, actor: fleet_4, action: strike, target: target_a2}
+      - {task_id: t3_strike, actor: fleet_4, action: strike, target: target_b2}
+    relations:
+      - {source: t1_recon, target: t2_strike, type: sequence}
+      - {source: t2_strike, target: t3_strike, type: sequence}
+    constraint_types: [time_order, capability, resource]
+    expected_result: sat
+    tags: [standard_nl, sequence, sat]
+
+  - sample_id: std_seq3_four_step_003
+    plan_id: seg_std_seq3_003
+    standard_instruction: "Segment seg_std_seq3_003 uses actor fleet_8. fleet_8 performs reconnaissance on area_a3 as t1_recon, strike on target_a3 as t2_strike, reconnaissance on area_b3 as t3_recon, then strike on target_b3 as t4_strike. Add sequence dependencies t1_recon->t2_strike, t2_strike->t3_recon, t3_recon->t4_strike."
+    participants: [{actor_id: fleet_8, type: fleet}]
+    tasks:
+      - {task_id: t1_recon, actor: fleet_8, action: reconnaissance, target: area_a3}
+      - {task_id: t2_strike, actor: fleet_8, action: strike, target: target_a3}
+      - {task_id: t3_recon, actor: fleet_8, action: reconnaissance, target: area_b3}
+      - {task_id: t4_strike, actor: fleet_8, action: strike, target: target_b3}
+    relations:
+      - {source: t1_recon, target: t2_strike, type: sequence}
+      - {source: t2_strike, target: t3_recon, type: sequence}
+      - {source: t3_recon, target: t4_strike, type: sequence}
+    constraint_types: [time_order, capability, resource]
+    expected_result: sat
+    tags: [standard_nl, sequence, sat]
+
+  - sample_id: std_seq3_flyto_jam_recon_004
+    plan_id: seg_std_seq3_004
+    standard_instruction: "Segment seg_std_seq3_004 uses actor fleet_12. fleet_12 performs fly_to on hq_a4 as t1_flyto, jam on hq_a4 as t2_jam, then reconnaissance on hq_a4 as t3_recon. Add sequence dependencies t1_flyto->t2_jam and t2_jam->t3_recon."
+    participants: [{actor_id: fleet_12, type: fleet}]
+    tasks:
+      - {task_id: t1_flyto, actor: fleet_12, action: fly_to, target: hq_a4}
+      - {task_id: t2_jam, actor: fleet_12, action: jam, target: hq_a4}
+      - {task_id: t3_recon, actor: fleet_12, action: reconnaissance, target: hq_a4}
+    relations:
+      - {source: t1_flyto, target: t2_jam, type: sequence}
+      - {source: t2_jam, target: t3_recon, type: sequence}
+    constraint_types: [time_order, capability]
+    expected_result: sat
+    tags: [standard_nl, sequence, jam, sat]
+
+  - sample_id: std_seq3_triple_strike_005
+    plan_id: seg_std_seq3_005
+    standard_instruction: "Segment seg_std_seq3_005 uses actor fleet_2. fleet_2 performs strike on target_a5 as t1_strike, strike on target_b5 as t2_strike, then strike on target_c5 as t3_strike. Add sequence dependencies t1_strike->t2_strike and t2_strike->t3_strike."
+    participants: [{actor_id: fleet_2, type: fleet}]
+    tasks:
+      - {task_id: t1_strike, actor: fleet_2, action: strike, target: target_a5}
+      - {task_id: t2_strike, actor: fleet_2, action: strike, target: target_b5}
+      - {task_id: t3_strike, actor: fleet_2, action: strike, target: target_c5}
+    relations:
+      - {source: t1_strike, target: t2_strike, type: sequence}
+      - {source: t2_strike, target: t3_strike, type: sequence}
+    constraint_types: [time_order, capability, resource]
+    expected_result: sat
+    tags: [standard_nl, sequence, sat]
+
+  - sample_id: std_seq3_quad_strike_006
+    plan_id: seg_std_seq3_006
+    standard_instruction: "Segment seg_std_seq3_006 uses actor fleet_6. fleet_6 performs strike on target_a6 as t1, strike on target_b6 as t2, strike on target_c6 as t3, then strike on target_d6 as t4. Add sequence dependencies t1->t2, t2->t3, t3->t4."
+    participants: [{actor_id: fleet_6, type: fleet}]
+    tasks:
+      - {task_id: t1, actor: fleet_6, action: strike, target: target_a6}
+      - {task_id: t2, actor: fleet_6, action: strike, target: target_b6}
+      - {task_id: t3, actor: fleet_6, action: strike, target: target_c6}
+      - {task_id: t4, actor: fleet_6, action: strike, target: target_d6}
+    relations:
+      - {source: t1, target: t2, type: sequence}
+      - {source: t2, target: t3, type: sequence}
+      - {source: t3, target: t4, type: sequence}
+    constraint_types: [time_order, capability, resource]
+    expected_result: sat
+    tags: [standard_nl, sequence, sat]
+
+  - sample_id: std_seq3_recon_triple_strike_007
+    plan_id: seg_std_seq3_007
+    standard_instruction: "Segment seg_std_seq3_007 uses actor fleet_1. fleet_1 performs reconnaissance on area_a7 as t1_recon, strike on target_a7 as t2_strike, strike on target_b7 as t3_strike, then strike on target_c7 as t4_strike. Add sequence dependencies t1_recon->t2_strike, t2_strike->t3_strike, t3_strike->t4_strike."
+    participants: [{actor_id: fleet_1, type: fleet}]
+    tasks:
+      - {task_id: t1_recon, actor: fleet_1, action: reconnaissance, target: area_a7}
+      - {task_id: t2_strike, actor: fleet_1, action: strike, target: target_a7}
+      - {task_id: t3_strike, actor: fleet_1, action: strike, target: target_b7}
+      - {task_id: t4_strike, actor: fleet_1, action: strike, target: target_c7}
+    relations:
+      - {source: t1_recon, target: t2_strike, type: sequence}
+      - {source: t2_strike, target: t3_strike, type: sequence}
+      - {source: t3_strike, target: t4_strike, type: sequence}
+    constraint_types: [time_order, capability, resource]
+    expected_result: sat
+    tags: [standard_nl, sequence, sat]
+
+  - sample_id: std_seq3_recon_track_strike_008
+    plan_id: seg_std_seq3_008
+    standard_instruction: "Segment seg_std_seq3_008 uses actor fleet_8. fleet_8 performs reconnaissance on area_a8 as t1_recon, track on convoy_a8 as t2_track, strike on target_a8 as t3_strike, then strike on target_b8 as t4_strike. Add sequence dependencies t1_recon->t2_track, t2_track->t3_strike, t3_strike->t4_strike."
+    participants: [{actor_id: fleet_8, type: fleet}]
+    tasks:
+      - {task_id: t1_recon, actor: fleet_8, action: reconnaissance, target: area_a8}
+      - {task_id: t2_track, actor: fleet_8, action: track, target: convoy_a8}
+      - {task_id: t3_strike, actor: fleet_8, action: strike, target: target_a8}
+      - {task_id: t4_strike, actor: fleet_8, action: strike, target: target_b8}
+    relations:
+      - {source: t1_recon, target: t2_track, type: sequence}
+      - {source: t2_track, target: t3_strike, type: sequence}
+      - {source: t3_strike, target: t4_strike, type: sequence}
+    constraint_types: [time_order, capability, resource]
+    expected_result: sat
+    tags: [standard_nl, sequence, track, sat]
+
+  - sample_id: std_seq3_five_step_mixed_009
+    plan_id: seg_std_seq3_009
+    standard_instruction: "Segment seg_std_seq3_009 uses actor fleet_12. fleet_12 performs reconnaissance on area_a9 as t1_recon, jam on site_a9 as t2_jam, strike on target_a9 as t3_strike, reconnaissance on area_b9 as t4_recon, then strike on target_b9 as t5_strike. Chain them with sequence dependencies t1->t2->t3->t4->t5."
+    participants: [{actor_id: fleet_12, type: fleet}]
+    tasks:
+      - {task_id: t1_recon, actor: fleet_12, action: reconnaissance, target: area_a9}
+      - {task_id: t2_jam, actor: fleet_12, action: jam, target: site_a9}
+      - {task_id: t3_strike, actor: fleet_12, action: strike, target: target_a9}
+      - {task_id: t4_recon, actor: fleet_12, action: reconnaissance, target: area_b9}
+      - {task_id: t5_strike, actor: fleet_12, action: strike, target: target_b9}
+    relations:
+      - {source: t1_recon, target: t2_jam, type: sequence}
+      - {source: t2_jam, target: t3_strike, type: sequence}
+      - {source: t3_strike, target: t4_recon, type: sequence}
+      - {source: t4_recon, target: t5_strike, type: sequence}
+    constraint_types: [time_order, capability, resource]
+    expected_result: sat
+    tags: [standard_nl, sequence, jam, sat]
+
+  # ===================== parallel multi-actor (5, all sat) =====================
+  - sample_id: std_parallel_recon_strike_001
+    plan_id: seg_std_parallel_001
+    standard_instruction: "Segment seg_std_parallel_001 uses actors fleet_1 and fleet_2. fleet_1 performs reconnaissance on area_p1 as t1_recon. fleet_2 performs strike on target_p1 as t2_strike. Add a parallel dependency between t1_recon and t2_strike."
+    participants: [{actor_id: fleet_1, type: fleet}, {actor_id: fleet_2, type: fleet}]
+    tasks:
+      - {task_id: t1_recon, actor: fleet_1, action: reconnaissance, target: area_p1}
+      - {task_id: t2_strike, actor: fleet_2, action: strike, target: target_p1}
+    relations:
+      - {source: t1_recon, target: t2_strike, type: parallel}
+    constraint_types: [capability, resource]
+    expected_result: sat
+    tags: [standard_nl, parallel, sat]
+
+  - sample_id: std_parallel_recon_strike_002
+    plan_id: seg_std_parallel_002
+    standard_instruction: "Segment seg_std_parallel_002 uses actors fleet_4 and fleet_6. fleet_4 performs reconnaissance on area_p2 as t1_recon. fleet_6 performs strike on target_p2 as t2_strike. Add a parallel dependency between t1_recon and t2_strike."
+    participants: [{actor_id: fleet_4, type: fleet}, {actor_id: fleet_6, type: fleet}]
+    tasks:
+      - {task_id: t1_recon, actor: fleet_4, action: reconnaissance, target: area_p2}
+      - {task_id: t2_strike, actor: fleet_6, action: strike, target: target_p2}
+    relations:
+      - {source: t1_recon, target: t2_strike, type: parallel}
+    constraint_types: [capability, resource]
+    expected_result: sat
+    tags: [standard_nl, parallel, sat]
+
+  - sample_id: std_parallel_jam_strike_003
+    plan_id: seg_std_parallel_003
+    standard_instruction: "Segment seg_std_parallel_003 uses actors fleet_3 and fleet_8. fleet_3 performs jam on site_p3 as t1_jam. fleet_8 performs strike on target_p3 as t2_strike. Add a parallel dependency between t1_jam and t2_strike."
+    participants: [{actor_id: fleet_3, type: fleet}, {actor_id: fleet_8, type: fleet}]
+    tasks:
+      - {task_id: t1_jam, actor: fleet_3, action: jam, target: site_p3}
+      - {task_id: t2_strike, actor: fleet_8, action: strike, target: target_p3}
+    relations:
+      - {source: t1_jam, target: t2_strike, type: parallel}
+    constraint_types: [capability, resource]
+    expected_result: sat
+    tags: [standard_nl, parallel, jam, sat]
+
+  - sample_id: std_parallel_three_actor_004
+    plan_id: seg_std_parallel_004
+    standard_instruction: "Segment seg_std_parallel_004 uses actors fleet_1, fleet_2 and fleet_3. fleet_1 performs reconnaissance on area_p4 as t1_recon. fleet_2 performs strike on target_p4 as t2_strike. fleet_3 performs jam on site_p4 as t3_jam. Add parallel dependencies between t1_recon and t2_strike, and between t2_strike and t3_jam."
+    participants: [{actor_id: fleet_1, type: fleet}, {actor_id: fleet_2, type: fleet}, {actor_id: fleet_3, type: fleet}]
+    tasks:
+      - {task_id: t1_recon, actor: fleet_1, action: reconnaissance, target: area_p4}
+      - {task_id: t2_strike, actor: fleet_2, action: strike, target: target_p4}
+      - {task_id: t3_jam, actor: fleet_3, action: jam, target: site_p4}
+    relations:
+      - {source: t1_recon, target: t2_strike, type: parallel}
+      - {source: t2_strike, target: t3_jam, type: parallel}
+    constraint_types: [capability, resource]
+    expected_result: sat
+    tags: [standard_nl, parallel, sat]
+
+  - sample_id: std_parallel_recon_strike_005
+    plan_id: seg_std_parallel_005
+    standard_instruction: "Segment seg_std_parallel_005 uses actors fleet_5 and fleet_10. fleet_5 performs reconnaissance on area_p5 as t1_recon. fleet_10 performs strike on target_p5 as t2_strike. Add a parallel dependency between t1_recon and t2_strike."
+    participants: [{actor_id: fleet_5, type: fleet}, {actor_id: fleet_10, type: fleet}]
+    tasks:
+      - {task_id: t1_recon, actor: fleet_5, action: reconnaissance, target: area_p5}
+      - {task_id: t2_strike, actor: fleet_10, action: strike, target: target_p5}
+    relations:
+      - {source: t1_recon, target: t2_strike, type: parallel}
+    constraint_types: [capability, resource]
+    expected_result: sat
+    tags: [standard_nl, parallel, sat]
+
+  # ===================== sync / group_sync (3, all sat) =====================
+  - sample_id: std_sync_binary_001
+    plan_id: seg_std_sync_001
+    standard_instruction: "Segment seg_std_sync_001 uses actors fleet_1 and fleet_4. fleet_1 performs rendezvous at point_s1 as t1_rdv. fleet_4 performs rendezvous at point_s1 as t2_rdv. Synchronize t1_rdv and t2_rdv within a tolerance of 0.5."
+    participants: [{actor_id: fleet_1, type: fleet}, {actor_id: fleet_4, type: fleet}]
+    tasks:
+      - {task_id: t1_rdv, actor: fleet_1, action: rendezvous, target: point_s1}
+      - {task_id: t2_rdv, actor: fleet_4, action: rendezvous, target: point_s1}
+    relations:
+      - {source: t1_rdv, target: t2_rdv, type: sync, sync_tolerance: 0.5}
+    constraint_types: [sync]
+    expected_result: sat
+    tags: [standard_nl, sync, sat]
+
+  - sample_id: std_group_sync_triple_002
+    plan_id: seg_std_groupsync_002
+    standard_instruction: "Segment seg_std_groupsync_002 uses actors fleet_1, fleet_2 and fleet_8. Each performs rendezvous at point_s2 (tasks t1_rdv, t2_rdv, t3_rdv). The three formations must start synchronized within a tolerance of 0.5."
+    participants: [{actor_id: fleet_1, type: fleet}, {actor_id: fleet_2, type: fleet}, {actor_id: fleet_8, type: fleet}]
+    tasks:
+      - {task_id: t1_rdv, actor: fleet_1, action: rendezvous, target: point_s2}
+      - {task_id: t2_rdv, actor: fleet_2, action: rendezvous, target: point_s2}
+      - {task_id: t3_rdv, actor: fleet_8, action: rendezvous, target: point_s2}
+    relations: []
+    explicit_constraints:
+      - {type: group_sync, task_ids: [t1_rdv, t2_rdv, t3_rdv], tolerance: 0.5, mode: start, source_label: group_sync_s2_start}
+    constraint_types: [group_sync]
+    expected_result: sat
+    tags: [standard_nl, group_sync, sync, sat]
+
+  - sample_id: std_group_sync_deadline_003
+    plan_id: seg_std_groupsync_003
+    standard_instruction: "Segment seg_std_groupsync_003 uses actors fleet_1, fleet_4 and fleet_8. Each performs rendezvous at point_s3 (tasks t1_rdv, t2_rdv, t3_rdv) by a deadline of 8.0. The three formations must start synchronized within a tolerance of 0.5."
+    participants: [{actor_id: fleet_1, type: fleet}, {actor_id: fleet_4, type: fleet}, {actor_id: fleet_8, type: fleet}]
+    tasks:
+      - {task_id: t1_rdv, actor: fleet_1, action: rendezvous, target: point_s3, time_window: {deadline: 8.0}}
+      - {task_id: t2_rdv, actor: fleet_4, action: rendezvous, target: point_s3, time_window: {deadline: 8.0}}
+      - {task_id: t3_rdv, actor: fleet_8, action: rendezvous, target: point_s3, time_window: {deadline: 8.0}}
+    relations: []
+    explicit_constraints:
+      - {type: group_sync, task_ids: [t1_rdv, t2_rdv, t3_rdv], tolerance: 0.5, mode: start, source_label: group_sync_s3_start}
+    constraint_types: [group_sync, time_window]
+    expected_result: sat
+    tags: [standard_nl, group_sync, time_window, sat]
+
+  # ===================== condition_trigger (4, all sat) =====================
+  - sample_id: std_cond_recon_strike_001
+    plan_id: seg_std_cond_001
+    standard_instruction: "Segment seg_std_cond_001 uses actor fleet_1. fleet_1 performs reconnaissance on target_c1 as t1_recon. Once target_c1 is confirmed, fleet_1 performs strike on target_c1 as t2_strike. Add a condition_trigger dependency from t1_recon to t2_strike gated on target_c1_confirmed."
+    participants: [{actor_id: fleet_1, type: fleet}]
+    tasks:
+      - {task_id: t1_recon, actor: fleet_1, action: reconnaissance, target: target_c1}
+      - {task_id: t2_strike, actor: fleet_1, action: strike, target: target_c1, condition: target_c1_confirmed}
+    relations:
+      - {source: t1_recon, target: t2_strike, type: condition_trigger, condition: target_c1_confirmed}
+    constraint_types: [time_order, capability, resource]
+    expected_result: sat
+    tags: [standard_nl, condition_trigger, sat]
+
+  - sample_id: std_cond_recon_strike_002
+    plan_id: seg_std_cond_002
+    standard_instruction: "Segment seg_std_cond_002 uses actor fleet_4. fleet_4 performs reconnaissance on target_c2 as t1_recon. Once target_c2 is confirmed, fleet_4 performs strike on target_c2 as t2_strike. Add a condition_trigger dependency from t1_recon to t2_strike gated on target_c2_confirmed."
+    participants: [{actor_id: fleet_4, type: fleet}]
+    tasks:
+      - {task_id: t1_recon, actor: fleet_4, action: reconnaissance, target: target_c2}
+      - {task_id: t2_strike, actor: fleet_4, action: strike, target: target_c2, condition: target_c2_confirmed}
+    relations:
+      - {source: t1_recon, target: t2_strike, type: condition_trigger, condition: target_c2_confirmed}
+    constraint_types: [time_order, capability, resource]
+    expected_result: sat
+    tags: [standard_nl, condition_trigger, sat]
+
+  - sample_id: std_cond_then_sequence_003
+    plan_id: seg_std_cond_003
+    standard_instruction: "Segment seg_std_cond_003 uses actor fleet_8. fleet_8 performs reconnaissance on area_c3 as t1_recon. Once target_c3 is confirmed, fleet_8 performs strike on target_c3 as t2_strike, then strike on target_d3 as t3_strike. Add a condition_trigger from t1_recon to t2_strike gated on target_c3_confirmed and a sequence from t2_strike to t3_strike."
+    participants: [{actor_id: fleet_8, type: fleet}]
+    tasks:
+      - {task_id: t1_recon, actor: fleet_8, action: reconnaissance, target: area_c3}
+      - {task_id: t2_strike, actor: fleet_8, action: strike, target: target_c3, condition: target_c3_confirmed}
+      - {task_id: t3_strike, actor: fleet_8, action: strike, target: target_d3}
+    relations:
+      - {source: t1_recon, target: t2_strike, type: condition_trigger, condition: target_c3_confirmed}
+      - {source: t2_strike, target: t3_strike, type: sequence}
+    constraint_types: [time_order, capability, resource]
+    expected_result: sat
+    tags: [standard_nl, condition_trigger, sequence, sat]
+
+  - sample_id: std_cond_recon_jam_004
+    plan_id: seg_std_cond_004
+    standard_instruction: "Segment seg_std_cond_004 uses actor fleet_12. fleet_12 performs reconnaissance on site_c4 as t1_recon. Once emitter_c4 is detected, fleet_12 performs jam on site_c4 as t2_jam. Add a condition_trigger dependency from t1_recon to t2_jam gated on emitter_c4_detected."
+    participants: [{actor_id: fleet_12, type: fleet}]
+    tasks:
+      - {task_id: t1_recon, actor: fleet_12, action: reconnaissance, target: site_c4}
+      - {task_id: t2_jam, actor: fleet_12, action: jam, target: site_c4, condition: emitter_c4_detected}
+    relations:
+      - {source: t1_recon, target: t2_jam, type: condition_trigger, condition: emitter_c4_detected}
+    constraint_types: [time_order, capability]
+    expected_result: sat
+    tags: [standard_nl, condition_trigger, jam, sat]
+
+  # ===================== resource unsat (2) =====================
+  - sample_id: std_resource_unsat_fleet9_001
+    plan_id: seg_std_resource_unsat_001
+    standard_instruction: "Segment seg_std_resource_unsat_001 uses actor fleet_9. fleet_9 strikes target_r1, then target_r2, then target_r3 in sequence (tasks t1_strike, t2_strike, t3_strike). fleet_9 carries enough ammunition for only two strikes."
+    participants: [{actor_id: fleet_9, type: fleet}]
+    tasks:
+      - {task_id: t1_strike, actor: fleet_9, action: strike, target: target_r1}
+      - {task_id: t2_strike, actor: fleet_9, action: strike, target: target_r2}
+      - {task_id: t3_strike, actor: fleet_9, action: strike, target: target_r3}
+    relations:
+      - {source: t1_strike, target: t2_strike, type: sequence}
+      - {source: t2_strike, target: t3_strike, type: sequence}
+    constraint_types: [time_order, resource]
+    expected_result: unsat
+    expected_unsat_reason: resource_exceeded
+    tags: [standard_nl, resource, unsat]
+
+  - sample_id: std_resource_unsat_fleet4_002
+    plan_id: seg_std_resource_unsat_002
+    standard_instruction: "Segment seg_std_resource_unsat_002 uses actor fleet_4. fleet_4 strikes target_r4 as t1, target_r5 as t2, target_r6 as t3, target_r7 as t4, target_r8 as t5, then target_r9 as t6 in sequence. fleet_4 cannot carry ammunition for six strikes."
+    participants: [{actor_id: fleet_4, type: fleet}]
+    tasks:
+      - {task_id: t1, actor: fleet_4, action: strike, target: target_r4}
+      - {task_id: t2, actor: fleet_4, action: strike, target: target_r5}
+      - {task_id: t3, actor: fleet_4, action: strike, target: target_r6}
+      - {task_id: t4, actor: fleet_4, action: strike, target: target_r7}
+      - {task_id: t5, actor: fleet_4, action: strike, target: target_r8}
+      - {task_id: t6, actor: fleet_4, action: strike, target: target_r9}
+    relations:
+      - {source: t1, target: t2, type: sequence}
+      - {source: t2, target: t3, type: sequence}
+      - {source: t3, target: t4, type: sequence}
+      - {source: t4, target: t5, type: sequence}
+      - {source: t5, target: t6, type: sequence}
+    constraint_types: [time_order, resource]
+    expected_result: unsat
+    expected_unsat_reason: resource_exceeded
+    tags: [standard_nl, resource, unsat]
+
+  # ===================== deadline / time_window unsat (4) =====================
+  - sample_id: std_deadline_unsat_recon_strike_001
+    plan_id: seg_std_deadline_unsat_001
+    standard_instruction: "Segment seg_std_deadline_unsat_001 uses actor fleet_1. fleet_1 performs reconnaissance on area_d1 as t1_recon, then strike on target_d1 as t2_strike. Add a sequence dependency t1_recon->t2_strike and a deadline of 3.0 for t2_strike."
+    participants: [{actor_id: fleet_1, type: fleet}]
+    tasks:
+      - {task_id: t1_recon, actor: fleet_1, action: reconnaissance, target: area_d1}
+      - {task_id: t2_strike, actor: fleet_1, action: strike, target: target_d1, time_window: {deadline: 3.0}}
+    relations:
+      - {source: t1_recon, target: t2_strike, type: sequence}
+    constraint_types: [time_order, time_window]
+    expected_result: unsat
+    expected_unsat_reason: deadline_too_tight
+    tags: [standard_nl, time_window, unsat]
+
+  - sample_id: std_deadline_unsat_triple_strike_002
+    plan_id: seg_std_deadline_unsat_002
+    standard_instruction: "Segment seg_std_deadline_unsat_002 uses actor fleet_2. fleet_2 strikes target_d2, target_e2, then target_f2 in sequence (t1, t2, t3). Add a deadline of 4.0 for t3."
+    participants: [{actor_id: fleet_2, type: fleet}]
+    tasks:
+      - {task_id: t1, actor: fleet_2, action: strike, target: target_d2}
+      - {task_id: t2, actor: fleet_2, action: strike, target: target_e2}
+      - {task_id: t3, actor: fleet_2, action: strike, target: target_f2, time_window: {deadline: 4.0}}
+    relations:
+      - {source: t1, target: t2, type: sequence}
+      - {source: t2, target: t3, type: sequence}
+    constraint_types: [time_order, time_window]
+    expected_result: unsat
+    expected_unsat_reason: deadline_too_tight
+    tags: [standard_nl, time_window, unsat]
+
+  - sample_id: std_deadline_unsat_double_jam_003
+    plan_id: seg_std_deadline_unsat_003
+    standard_instruction: "Segment seg_std_deadline_unsat_003 uses actor fleet_3. fleet_3 jams site_d3 as t1_jam, then jams site_e3 as t2_jam. Add a sequence dependency t1_jam->t2_jam and a deadline of 5.0 for t2_jam."
+    participants: [{actor_id: fleet_3, type: fleet}]
+    tasks:
+      - {task_id: t1_jam, actor: fleet_3, action: jam, target: site_d3}
+      - {task_id: t2_jam, actor: fleet_3, action: jam, target: site_e3, time_window: {deadline: 5.0}}
+    relations:
+      - {source: t1_jam, target: t2_jam, type: sequence}
+    constraint_types: [time_order, time_window]
+    expected_result: unsat
+    expected_unsat_reason: deadline_too_tight
+    tags: [standard_nl, time_window, jam, unsat]
+
+  - sample_id: std_deadline_unsat_recon_double_strike_004
+    plan_id: seg_std_deadline_unsat_004
+    standard_instruction: "Segment seg_std_deadline_unsat_004 uses actor fleet_8. fleet_8 performs reconnaissance on area_d4 as t1_recon, strike on target_d4 as t2_strike, then strike on target_e4 as t3_strike. Chain them with sequence dependencies and add a deadline of 4.0 for t3_strike."
+    participants: [{actor_id: fleet_8, type: fleet}]
+    tasks:
+      - {task_id: t1_recon, actor: fleet_8, action: reconnaissance, target: area_d4}
+      - {task_id: t2_strike, actor: fleet_8, action: strike, target: target_d4}
+      - {task_id: t3_strike, actor: fleet_8, action: strike, target: target_e4, time_window: {deadline: 4.0}}
+    relations:
+      - {source: t1_recon, target: t2_strike, type: sequence}
+      - {source: t2_strike, target: t3_strike, type: sequence}
+    constraint_types: [time_order, time_window]
+    expected_result: unsat
+    expected_unsat_reason: deadline_too_tight
+    tags: [standard_nl, time_window, unsat]
+
+  # ===================== physical_feasibility (1, sat) =====================
+  - sample_id: std_physical_flyto_recon_001
+    plan_id: seg_std_physical_001
+    standard_instruction: "Segment seg_std_physical_001 uses actor fleet_7. fleet_7 performs fly_to on hq_ph1 as t1_flyto, then reconnaissance on hq_ph1 as t2_recon. The flight from hq_base to hq_ph1 covers 10.0 km at 70.0 km/h. Add a sequence dependency from t1_flyto to t2_recon."
+    participants: [{actor_id: fleet_7, type: fleet}]
+    tasks:
+      - {task_id: t1_flyto, actor: fleet_7, action: fly_to, target: hq_ph1}
+      - {task_id: t2_recon, actor: fleet_7, action: reconnaissance, target: hq_ph1}
+    relations:
+      - {source: t1_flyto, target: t2_recon, type: sequence}
+    explicit_constraints:
+      - {type: physical_feasibility, task_id: t1_flyto, from_position: hq_base, to_position: hq_ph1, distance_km: 10.0, actor_speed_kmh: 70.0, time_unit_minutes: 1.0}
+    constraint_types: [time_order, physical_feasibility]
+    expected_result: sat
+    tags: [standard_nl, physical_feasibility, sat]

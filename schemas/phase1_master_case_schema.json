@@ -1,0 +1,297 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "phase1_master_case_schema",
+  "title": "Phase1MasterCase",
+  "description": "Unified Phase 1 dataset case schema for standard NL, raw NL normalization, verification stress, and contract checks.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "sample_id",
+    "split",
+    "case_type",
+    "difficulty",
+    "task_family",
+    "language",
+    "raw_instruction",
+    "standard_instruction",
+    "normalization",
+    "canonical_task_plan",
+    "expected_graph",
+    "expected_verification",
+    "generation_contract",
+    "tags",
+    "source_refs",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "phase1_v2"
+    },
+    "sample_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "split": {
+      "type": "string",
+      "enum": ["train", "dev", "eval", "test"]
+    },
+    "case_type": {
+      "type": "string",
+      "enum": [
+        "standard_complete",
+        "raw_complete",
+        "raw_incomplete",
+        "verification_stress",
+        "adversarial_contract"
+      ]
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": ["easy", "medium", "hard", "unknown"]
+    },
+    "task_family": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true
+    },
+    "language": {
+      "type": "string",
+      "enum": ["en", "zh", "mixed"]
+    },
+    "raw_instruction": {
+      "type": ["string", "null"]
+    },
+    "standard_instruction": {
+      "type": ["string", "null"]
+    },
+    "normalization": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": [
+        "expected_status",
+        "expected_missing_fields",
+        "expected_ambiguity_spans",
+        "scripted_clarifications",
+        "expected_status_after_clarification",
+        "standard_instruction_after_clarification"
+      ],
+      "properties": {
+        "expected_status": {
+          "type": "string",
+          "enum": ["complete", "incomplete", "ambiguous", "rejected"]
+        },
+        "expected_missing_fields": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "expected_ambiguity_spans": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["span", "reason", "field"],
+            "properties": {
+              "span": {"type": "string"},
+              "reason": {"type": "string"},
+              "field": {"type": "string"}
+            }
+          }
+        },
+        "scripted_clarifications": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "expected_status_after_clarification": {
+          "type": ["string", "null"],
+          "enum": ["complete", "incomplete", "ambiguous", "rejected", null]
+        },
+        "standard_instruction_after_clarification": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "canonical_task_plan": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["plan_id", "participants", "tasks", "relations", "global_constraints", "explicit_constraints"],
+      "properties": {
+        "plan_id": {"type": "string"},
+        "participants": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["actor_id", "type"],
+            "properties": {
+              "actor_id": {"type": "string"},
+              "type": {"type": "string"}
+            }
+          }
+        },
+        "tasks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["task_id", "actor", "action", "target", "condition", "time_window", "metadata"],
+            "properties": {
+              "task_id": {"type": "string"},
+              "actor": {"type": "string"},
+              "action": {"type": "string"},
+              "target": {"type": "string"},
+              "condition": {"type": ["string", "null"]},
+              "time_window": {
+                "type": ["object", "null"],
+                "additionalProperties": false,
+                "properties": {
+                  "earliest": {"type": ["number", "null"]},
+                  "latest": {"type": ["number", "null"]},
+                  "deadline": {"type": ["number", "null"]}
+                }
+              },
+              "metadata": {"type": "object"},
+              "is_coalition": {"type": "boolean"},
+              "coalition_members": {
+                "type": ["array", "null"],
+                "items": {"type": "string"}
+              }
+            }
+          }
+        },
+        "relations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["source", "target", "type", "sync_tolerance", "condition"],
+            "properties": {
+              "source": {"type": "string"},
+              "target": {"type": "string"},
+              "type": {"type": "string"},
+              "sync_tolerance": {"type": ["number", "null"]},
+              "condition": {"type": ["string", "null"]}
+            }
+          }
+        },
+        "global_constraints": {"type": "object"},
+        "explicit_constraints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["type"],
+            "properties": {
+              "type": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+    "expected_graph": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node_count", "nodes", "edge_count", "edges", "constraint_types"],
+      "properties": {
+        "node_count": {"type": "integer", "minimum": 0},
+        "nodes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["task_id", "actor", "action", "target"],
+            "properties": {
+              "task_id": {"type": "string"},
+              "actor": {"type": "string"},
+              "action": {"type": "string"},
+              "target": {"type": "string"}
+            }
+          }
+        },
+        "edge_count": {"type": "integer", "minimum": 0},
+        "edges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": ["source", "target", "relation"],
+            "properties": {
+              "source": {"type": "string"},
+              "target": {"type": "string"},
+              "relation": {"type": "string"}
+            }
+          }
+        },
+        "constraint_types": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "expected_verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expected_result",
+        "expected_unsat_reason",
+        "expected_unsat_core_contains",
+        "z3_relevant_constraints",
+        "notes"
+      ],
+      "properties": {
+        "expected_result": {
+          "type": "string",
+          "enum": ["sat", "unsat", "unknown"]
+        },
+        "expected_unsat_reason": {
+          "type": ["string", "null"]
+        },
+        "expected_unsat_core_contains": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "z3_relevant_constraints": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "notes": {"type": "string"}
+      }
+    },
+    "generation_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "forbid_system_params",
+        "forbid_resource_capability_calls",
+        "expected_param_leak",
+        "contract_profile"
+      ],
+      "properties": {
+        "forbid_system_params": {"type": "boolean"},
+        "forbid_resource_capability_calls": {"type": "boolean"},
+        "expected_param_leak": {"type": "boolean"},
+        "contract_profile": {"type": ["string", "null"]}
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true
+    },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sample_id"],
+        "properties": {
+          "path": {"type": "string"},
+          "sample_id": {"type": "string"}
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,71 @@
+# Example make_case template.
+#
+#   python -m tools.dataset.make_case \
+#       --template tools/dataset/templates/sequence_recon_strike.yaml \
+#       --out datasets/v2/new_cases.jsonl --dry-run
+#
+# A spec only carries task semantics. make_case derives expected_graph,
+# expected_verification, difficulty, language, task_family and the generation
+# contract, then schema-validates and runs a Z3 self-check before writing.
+# Use a top-level `cases:` list for multiple cases in one file.
+cases:
+  # ---- sat: two-step sequence with a deadline ----
+  - sample_id: std_seq_demo_001
+    case_type: standard_complete
+    split: dev
+    plan_id: seg_std_seq_demo_001
+    standard_instruction: >-
+      Segment seg_std_seq_demo_001 uses actor fleet_1. fleet_1 first performs
+      reconnaissance on area_A as task t1_recon_area_a. Then fleet_1 performs
+      strike on target_A as task t2_strike_target_a. Add a sequence dependency
+      from t1_recon_area_a to t2_strike_target_a. Add a deadline of 10.0 for
+      t2_strike_target_a.
+    participants:
+      - {actor_id: fleet_1, type: fleet}
+    tasks:
+      - {task_id: t1_recon_area_a, actor: fleet_1, action: reconnaissance, target: area_A}
+      - task_id: t2_strike_target_a
+        actor: fleet_1
+        action: strike
+        target: target_A
+        time_window: {deadline: 10.0}
+    relations:
+      - {source: t1_recon_area_a, target: t2_strike_target_a, type: sequence}
+    constraint_types: [time_order, time_window]
+    expected_result: sat
+    tags: [standard_nl, sequence, time_window, sat]
+
+  # ---- unsat: ammo budget exceeded by five sequential strikes ----
+  # Two structural rules to remember when authoring unsat resource cases:
+  #   1. Every task must be reachable by a relation (or group_sync), otherwise the
+  #      structural layer rejects the graph as isolated nodes before Z3 runs.
+  #   2. Resource limits are derived from configs/capability_model.yaml (fleet_1
+  #      has max_ammo: 4). The explicit_constraints `resource` entry is descriptive
+  #      metadata only -- it does NOT bind in Z3. To force a resource unsat, demand
+  #      more strikes than the actor's configured max_ammo (5 strikes > 4 ammo).
+  - sample_id: std_resource_unsat_demo_001
+    case_type: standard_complete
+    split: dev
+    plan_id: seg_std_resource_unsat_demo_001
+    standard_instruction: >-
+      Segment seg_std_resource_unsat_demo_001 uses actor fleet_1. fleet_1 strikes
+      target_A, then target_B, then target_C, then target_D, then target_E in
+      sequence (tasks t1_strike_a..t5_strike_e). fleet_1 cannot carry enough
+      ammunition for five strikes.
+    participants:
+      - {actor_id: fleet_1, type: fleet}
+    tasks:
+      - {task_id: t1_strike_a, actor: fleet_1, action: strike, target: target_A}
+      - {task_id: t2_strike_b, actor: fleet_1, action: strike, target: target_B}
+      - {task_id: t3_strike_c, actor: fleet_1, action: strike, target: target_C}
+      - {task_id: t4_strike_d, actor: fleet_1, action: strike, target: target_D}
+      - {task_id: t5_strike_e, actor: fleet_1, action: strike, target: target_E}
+    relations:
+      - {source: t1_strike_a, target: t2_strike_b, type: sequence}
+      - {source: t2_strike_b, target: t3_strike_c, type: sequence}
+      - {source: t3_strike_c, target: t4_strike_d, type: sequence}
+      - {source: t4_strike_d, target: t5_strike_e, type: sequence}
+    constraint_types: [time_order, resource]
+    expected_result: unsat
+    expected_unsat_reason: resource_exceeded
+    tags: [standard_nl, resource, unsat]
