@@ -743,20 +743,158 @@ def _node_complete(graph: BuiltGraph | None, expected: dict[str, Any]) -> bool:
     return True
 
 
+# 同步语义等价类:同一“任务集起始同步”语义在 GCJP 中有三种可证等价的写法 ——
+#   add_dependency(relation="sync") → sync 边 + sync 约束
+#   add_sync_constraint            → sync 约束(无边)
+#   add_group_sync_constraint      → group_sync 约束(两两同步语义,2 任务时与 sync 完全等价)
+# 三者产出的 Z3 约束相同,故评分按语义而非 API 写法比较,互相承认。
+_SYNC_EQUIV = {"sync", "group_sync"}
+
+
+def _sync_realized(graph: BuiltGraph) -> bool:
+    """图是否表达了“同步”语义(无论实现为 sync 边 / sync 约束 / group_sync 约束)。"""
+    if any(edge.relation == "sync" for edge in graph.edges):
+        return True
+    return any(c.constraint_type in _SYNC_EQUIV for c in graph.constraints)
+
+
 def _edge_complete(graph: BuiltGraph | None, expected: dict[str, Any]) -> bool:
     if not graph:
         return False
-    expected_relations = expected.get("edge_relations") or []
-    actual_relations = [edge.relation for edge in graph.edges]
-    return all(rel in actual_relations for rel in expected_relations)
+    actual_relations = {edge.relation for edge in graph.edges}
+    for rel in (expected.get("edge_relations") or []):
+        if rel == "sync":
+            # sync 是对称定时关系,不是有向前驱边:实现为同步约束亦视为满足。
+            if not _sync_realized(graph):
+                return False
+        elif rel not in actual_relations:
+            return False
+    return True
 
 
 def _constraint_complete(graph: BuiltGraph | None, expected: dict[str, Any]) -> bool:
     if not graph:
         return False
-    expected_types = expected.get("constraint_types") or []
-    actual_types = [constraint.constraint_type for constraint in graph.constraints]
-    return all(ctype in actual_types for ctype in expected_types)
+    actual_types = {
+        ("SYNC" if c.constraint_type in _SYNC_EQUIV else c.constraint_type)
+        for c in graph.constraints
+    }
+    if _sync_realized(graph):
+        actual_types.add("SYNC")
+    for ctype in (expected.get("constraint_types") or []):
+        token = "SYNC" if ctype in _SYNC_EQUIV else ctype
+        if token not in actual_types:
+            return False
+    return True
+
+
+# --------------------------------------------------------------------------- #
+# DAG 精确匹配(第 8 项指标,最严口径)
+#
+# 七项 expected_patterns 评分对结构只做类型/计数级检查(节点数、关系类型出现性、
+# 约束类型出现性),不比边的端点与方向。以下函数对照 master 数据集的完整真值
+# (expected_graph + canonical_task_plan)做逐节点映射、逐边端点、同步组的精确比较。
+# 同步沿用 _SYNC_EQUIV 语义等价:sync 边 / sync 约束 / group_sync 约束互认,
+# 展开为无序任务对集合后对比(含 tolerance 数值)。
+# --------------------------------------------------------------------------- #
+def gt_dag_structures(case: dict[str, Any]) -> dict[str, Any] | None:
+    """从 master 真值提取 {nodes, edges, sync};case 无 expected_graph 时返回 None。"""
+    graph = case.get("expected_graph")
+    if not graph:
+        return None
+    plan = case.get("canonical_task_plan") or {}
+
+    nodes = {
+        n["task_id"]: (n["actor"], n["action"], n["target"])
+        for n in graph.get("nodes", [])
+    }
+    plain_edges: set[tuple[str, str, str]] = set()
+    sync_pairs: dict[frozenset, float | None] = {}
+    for e in graph.get("edges", []):
+        if e["relation"] == "sync":
+            sync_pairs[frozenset((e["source"], e["target"]))] = None
+        else:
+            plain_edges.add((e["source"], e["target"], e["relation"]))
+    # sync 边的 tolerance 不在 expected_graph 里,需回 plan 的 relations 补
+    for r in plan.get("relations", []):
+        if r.get("type") == "sync":
+            key = frozenset((r["source"], r["target"]))
+            if key in sync_pairs:
+                sync_pairs[key] = r.get("sync_tolerance")
+    for c in plan.get("explicit_constraints", []):
+        if c.get("type") == "group_sync":
+            tol = c.get("tolerance")
+            ids = c.get("task_ids", [])
+            for i in range(len(ids)):
+                for j in range(i + 1, len(ids)):
+                    sync_pairs[frozenset((ids[i], ids[j]))] = tol
+    return {"nodes": nodes, "edges": plain_edges, "sync": sync_pairs}
+
+
+def built_dag_structures(graph: BuiltGraph) -> dict[str, Any]:
+    """从 BuiltGraph 提取与 gt_dag_structures 同构的 {nodes, edges, sync}。"""
+    nodes = {tid: (n.actor, n.action, n.target) for tid, n in graph.nodes.items()}
+    plain_edges: set[tuple[str, str, str]] = set()
+    sync_pairs: dict[frozenset, float | None] = {}
+    for e in graph.edges:
+        if e.relation == "sync":
+            sync_pairs[frozenset((e.source, e.target))] = getattr(e, "sync_tolerance", None)
+        else:
+            plain_edges.add((e.source, e.target, e.relation))
+    for c in graph.constraints:
+        params = getattr(c, "params", None) or {}
+        if c.constraint_type == "sync":
+            key = frozenset((params.get("task_i"), params.get("task_j")))
+            sync_pairs.setdefault(key, params.get("tolerance"))
+        elif c.constraint_type == "group_sync":
+            tol = params.get("tolerance")
+            ids = params.get("task_ids", [])
+            for i in range(len(ids)):
+                for j in range(i + 1, len(ids)):
+                    sync_pairs.setdefault(frozenset((ids[i], ids[j])), tol)
+    return {"nodes": nodes, "edges": plain_edges, "sync": sync_pairs}
+
+
+def diff_dag_structures(gt: dict[str, Any], got: dict[str, Any]) -> dict[str, Any]:
+    """三级精确 diff:节点映射 / 非同步边集合 / 同步对集合(含 tolerance)。"""
+    node_missing = {t: v for t, v in gt["nodes"].items() if got["nodes"].get(t) != v}
+    node_extra = {t: v for t, v in got["nodes"].items() if t not in gt["nodes"]}
+    edge_missing = gt["edges"] - got["edges"]
+    edge_extra = got["edges"] - gt["edges"]
+    gt_pairs, got_pairs = set(gt["sync"]), set(got["sync"])
+    sync_missing = gt_pairs - got_pairs
+    sync_extra = got_pairs - gt_pairs
+    tol_mismatch = {
+        pair: (gt["sync"][pair], got["sync"][pair])
+        for pair in gt_pairs & got_pairs
+        if gt["sync"][pair] is not None
+        and got["sync"][pair] is not None
+        and float(gt["sync"][pair]) != float(got["sync"][pair])
+    }
+    return {
+        "node_ok": not node_missing and not node_extra,
+        "edge_ok": not edge_missing and not edge_extra,
+        "sync_ok": not sync_missing and not sync_extra,
+        "tol_ok": not tol_mismatch,
+        "node_missing": node_missing,
+        "node_extra": node_extra,
+        "edge_missing": sorted(edge_missing),
+        "edge_extra": sorted(edge_extra),
+        "sync_missing": [sorted(p) for p in sync_missing],
+        "sync_extra": [sorted(p) for p in sync_extra],
+        "tol_mismatch": {"|".join(sorted(k)): v for k, v in tol_mismatch.items()},
+    }
+
+
+def dag_exact_match(case: dict[str, Any], graph: BuiltGraph | None) -> bool | None:
+    """整图精确匹配:True/False;case 不含完整真值时返回 None(不可评)。"""
+    gt = gt_dag_structures(case)
+    if gt is None:
+        return None
+    if graph is None:
+        return False
+    d = diff_dag_structures(gt, built_dag_structures(graph))
+    return d["node_ok"] and d["edge_ok"] and d["sync_ok"] and d["tol_ok"]
 
 
 DEFAULT_RATE_KEYS = [
