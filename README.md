@@ -111,8 +111,18 @@ NLTaskOrchestration/
 │   ├── demo_llm_client_smoke.py
 │   └── demo_phase1_nonlive_regression.py
 │
-├── tools/                             # JSON / 配置校验 + UTM 坐标转换脚本
-│   └── get_local_api_config.py        # 读取本地 Codex/Claude provider 配置
+├── tools/
+│   ├── dataset/
+│   │   ├── generate_cases.py            # Phase 1 v2 程序化样本生成器 (spec 前端)
+│   │   ├── make_case.py                 # spec → master case 组装 + Z3 自检闸门
+│   │   ├── common.py                    # 共享工具 (canonical plan 转换、difficulty 推导等)
+│   │   ├── validate_cases.py            # 数据集全量校验 (schema + 约束可实现性 + Z3)
+│   │   ├── check_semantics.py           # NL↔plan 语义漂移检测 (Tier-1 确定性 / Tier-2 LLM)
+│   │   ├── summarize_coverage.py        # 家族/难度/sat:unsat 覆盖分布统计
+│   │   ├── export_phase1_views.py       # master → generated views 导出
+│   │   ├── review_sheet.py              # 人工审查辅助
+│   │   └── templates/                   # 生成器模板 / make_case 模板
+│   └── jsonl_viewer.html               # JSONL 数据集浏览器 (支持 YAML / cases)
 │
 ├── docs/
 │   ├── phase1_baseline_report.md      # 阶段 1A/1B/1C 脱敏 baseline 摘要
@@ -331,6 +341,37 @@ Layer 4: 语义反向校验（预留接口）
 | `experiments/exp_01c_repair_loop.py` | 1C：固定坏代码或已有失败 report → LLM 修复 → 再验证 |
 
 当前 zero-shot prompt 是 baseline；`*_fewshot.md` 用作对照实验，不替代 baseline。
+
+---
+
+### 3.13 `tools/dataset/` — 数据集生成与校验工具链
+
+Phase 1 v2 数据集由 **master JSONL** (`datasets/v2/phase1_master_cases.jsonl`) 作为唯一真源，通过程序化生成 + 多道闸门保证质量。完整工具链如下：
+
+| 工具 | 作用 |
+|------|------|
+| `generate_cases.py` | **程序化样本生成器**。按 11 种结构家族 (motif) 批量产出 compact spec YAML，支持 synthetic / environment 两种 target 来源、启发式与 Z3 标定两种难度模式。**零 LLM**，全部由确定性规则 + Z3 完成。 |
+| `make_case.py` | **spec → master case 的组装 + 校验闸门**。补全派生字段 (canonical_task_plan / expected_graph / expected_verification / difficulty / language 等)，过 schema / 系统参数泄漏 / 引用 / Z3 标签确认四道闸后才写入 master。 |
+| `validate_cases.py` | **全量校验**。对已有 master 数据集逐条检查 schema、引用、约束类型合法性与可实现性 (`expected ⊆ actual`)、Z3 标签一致性。 |
+| `check_semantics.py` | **NL↔plan 语义漂移检测**。Tier-1 做确定性词项/关系交叉核对，Tier-2 可选 LLM 裁判。输出 advisory 报告，永不阻塞写入。 |
+| `export_phase1_views.py` | **视图导出**。从 master JSONL 按 case_type/split 过滤并导出 `datasets/generated/*.jsonl`，供实验直接使用。 |
+| `summarize_coverage.py` | **覆盖分布统计**。按家族/难度/sat:unsat/约束类型输出分布矩阵。 |
+
+**数据管线:**
+
+```
+generate_cases  ──产出 spec YAML──▶  make_case  ──组装+校验──▶  master JSONL
+                                                         │
+                              ┌──────────────────────────┘
+                              ▼
+                       validate_cases  ←── 全量校验
+                       check_semantics ←── NL↔plan 漂移审计
+                              │
+                              ▼
+                      export_phase1_views  ──▶  generated/*.jsonl  ──▶  exp_01b / 01i / 01j / 01k
+```
+
+详细文档见 [`docs/generate_cases_reference.md`](docs/generate_cases_reference.md)。
 
 ---
 

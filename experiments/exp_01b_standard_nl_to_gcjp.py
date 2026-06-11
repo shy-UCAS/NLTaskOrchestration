@@ -3,6 +3,8 @@ experiments/exp_01b_standard_nl_to_gcjp.py
 用法：
   # 默认从 configs/llm_providers.local.yaml 读取 profile
   python -m experiments.exp_01b_standard_nl_to_gcjp --provider-profile <profile_name> --limit 1 --workers 8
+  # 覆盖dataset路径
+  --dataset datasets/generated/phase1_standard_nl_cases.v2.jsonl
 
   # 覆盖标准自然语言数据集 / prompt / 配置表
   python -m experiments.exp_01b_standard_nl_to_gcjp --provider-profile <profile_name> \
