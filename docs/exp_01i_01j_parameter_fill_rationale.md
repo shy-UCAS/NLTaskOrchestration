@@ -3,7 +3,7 @@
 > 主题:为什么要把"系统参数填写"从大模型手里收回,改由 Python 从配置文件确定性注入;
 > 以及由此设计的两个并列实验 exp_01i(JSON 骨架)与 exp_01j(骨架代码)的具体方案。
 >
-> 关联文档:[exp_01b_semantic_contract_refactor_rationale.md](exp_01b_semantic_contract_refactor_rationale.md)
+> 关联文档:[exp_01b_semantic_contract_rationale.md](exp_01b_semantic_contract_rationale.md)
 
 ---
 

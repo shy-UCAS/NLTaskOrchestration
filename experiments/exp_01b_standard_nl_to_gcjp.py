@@ -22,7 +22,7 @@ Phase 1B：1F-complete 标准语义自然语言 → 配置注入 → LLM 生成 
   generation_context 一并注入 prompt（复用 1G 的 _build_generation_config_context）。
   LLM 据此生成 GCJP 代码，再执行安全检查 + 受限执行 + 验证管道，统计各阶段通过率。
 
-与旧版 1B 的区别（见 docs/exp_01b_semantic_contract_refactor_rationale.md）：
+与旧版 1B 的区别（见 docs/exp_01b_semantic_contract_rationale.md）：
   旧版 standard_instruction 把 duration / energy / ammo / required_capability /
   资源上限等系统参数写进自然语言，使数据集成为第二套参数真源，Z3 容易形成
   “自定义消耗 + 自定义上限”的自洽验证。改造后这些系统参数一律由配置表注入，

@@ -259,5 +259,5 @@ conda run -n llm python -u -m experiments.exp_01l_standard_nl_to_gcjp_with_repai
 - 本文档关联的核心实验代码：[experiments/exp_01l_standard_nl_to_gcjp_with_repair.py](experiments/exp_01l_standard_nl_to_gcjp_with_repair.py)
 - L2 修复位置：[verifier/pipeline.py:218-232](verifier/pipeline.py#L218-L232)
 - 回归测试：[tests/test_layer2_sync_connectivity.py](tests/test_layer2_sync_connectivity.py)
-- 设计决策（generate_cases 部分）：[docs/design_decisions_generate_cases.md](docs/design_decisions_generate_cases.md)
-- 使用参考（generate_cases 部分）：[docs/generate_cases_reference.md](docs/generate_cases_reference.md)
+- 设计决策（generate_cases 部分）：[docs/dataset_v2_generate_cases_rationale.md](docs/dataset_v2_generate_cases_rationale.md)
+- 使用参考（generate_cases 部分）：[docs/dataset_v2_generate_cases_reference.md](docs/dataset_v2_generate_cases_reference.md)

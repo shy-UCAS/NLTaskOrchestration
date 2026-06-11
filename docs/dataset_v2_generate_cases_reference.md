@@ -509,4 +509,4 @@ python -m tools.dataset.generate_cases --n 24 --target-source synthetic --out sy
 | `configs/environment_facilities.yaml` | 地图设施/坐标源 |
 | `gcjp/environment_model.py` | 环境引用与坐标距离计算 |
 | `tests/test_generate_cases.py` | 生成器测试 (15 个，含不变式 + 环境 + Z3 gate) |
-| `docs/phase1_dataset_v2_standardization_progress_20260604.md` | 数据集建设进展与改进指引 |
+| `docs/dataset_v2_standardization_progress_20260604.md` | 数据集建设进展与改进指引 |

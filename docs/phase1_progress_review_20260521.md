@@ -696,8 +696,8 @@ broken_only              repair_success_rate = 0.3636
    - 用于分析修复是否引入新错误
 
 2. 把 Phase 1D strict ablation 结果写入正式文档
-   - 建议更新 `docs/phase1c_repair_loop_results.md`
-   - 或新增 `docs/phase1d_feedback_ablation_results.md`
+   - 建议更新 `docs/exp_01c_repair_loop_results.md`
+   - 或新增 `docs/exp_01d_feedback_ablation_results.md`
 
 3. 明确 Phase 1 当前里程碑状态
    - M-0：已通过

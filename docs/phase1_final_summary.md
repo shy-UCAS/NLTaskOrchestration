@@ -4,7 +4,7 @@
 >
 > 对应论文：v4.5 研究任务2 / v4.6 研究计划1
 >
-> 核对来源：各实验 metrics.json + phase1_baseline_report + phase1_plan_progress_review
+> 核对来源：各实验 metrics.json + phase1_baseline_report + phase1_progress_review
 
 ---
 
@@ -146,6 +146,6 @@ Phase 1 实验体系已完成，下一步进入工程清单 Layer 2-3：
 
 ### 文档
 - `docs/phase1_baseline_report.md`
-- `docs/phase1c_repair_loop_results.md`
-- `docs/phase1d_feedback_ablation_results.md`
-- `docs/phase1_plan_progress_review_20260521.md`
+- `docs/exp_01c_repair_loop_results.md`
+- `docs/exp_01d_feedback_ablation_results.md`
+- `docs/phase1_progress_review_20260521.md`

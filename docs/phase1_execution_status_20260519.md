@@ -273,7 +273,7 @@ out/phase1_generation/
 
 - `README.md`
 - `docs/phase1_baseline_report.md`
-- `docs/phase1_execution_status.md`
+- `docs/phase1_execution_status_20260519.md`
 
 README 已更新：
 

@@ -126,7 +126,7 @@ NLTaskOrchestration/
 │
 ├── docs/
 │   ├── phase1_baseline_report.md      # 阶段 1A/1B/1C 脱敏 baseline 摘要
-│   └── phase1_execution_status.md     # 阶段 1 执行状态快照
+│   └── phase1_execution_status_20260519.md     # 阶段 1 执行状态快照
 └── research/                          # 研究计划文档
 ```
 
@@ -371,7 +371,7 @@ generate_cases  ──产出 spec YAML──▶  make_case  ──组装+校验�
                       export_phase1_views  ──▶  generated/*.jsonl  ──▶  exp_01b / 01i / 01j / 01k
 ```
 
-详细文档见 [`docs/generate_cases_reference.md`](docs/generate_cases_reference.md)。
+详细文档见 [`docs/dataset_v2_generate_cases_reference.md`](docs/dataset_v2_generate_cases_reference.md)。
 
 ---
 
