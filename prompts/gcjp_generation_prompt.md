@@ -92,9 +92,18 @@ Only include `earliest`, `latest`, or `deadline` arguments that exist in the inp
 g.add_dependency("<source>", "<target>", relation="<relation>")
 ```
 
-- If a relation has `sync_tolerance` or `condition`, pass those keyword arguments to `add_dependency`.
-- For `sequence`, `sync`, `fork`, `join`, and `conditional` relations, call `add_dependency` only. Do not also add `add_time_order_constraint` or `add_sync_constraint` for the same relation; the builder registers relation-derived constraints automatically.
-- Use `add_time_order_constraint`, `add_sync_constraint`, or `add_group_sync_constraint` only when the input contains an explicit standalone constraint that is not already represented as a relation.
+- If a relation has `sync_tolerance` or `condition`, pass those keyword arguments to `add_dependency`. Only `add_dependency` accepts `sync_tolerance`.
+- Valid `relation` values are: `sequence`, `parallel`, `sync`, `barrier`, `condition_trigger`, `handoff`, `fork`, `join`. `conditional` is accepted as an alias of `condition_trigger`; prefer `condition_trigger`.
+- For any of those relations, call `add_dependency` only. Do not also add `add_time_order_constraint` or `add_sync_constraint` for the same relation; the builder registers relation-derived constraints automatically.
+- Use `add_time_order_constraint`, `add_sync_constraint`, or `add_group_sync_constraint` only when the input contains an explicit standalone constraint that is not already represented as a relation:
+
+```python
+g.add_time_order_constraint("<before_task_id>", "<after_task_id>")
+g.add_sync_constraint("<task_i>", "<task_j>", tolerance=<tolerance>)
+g.add_group_sync_constraint(["<task_id>", "<task_id>", "<task_id>"], tolerance=<tolerance>, mode="start")
+```
+
+The standalone sync constraints use `tolerance=` (a float). Never pass `sync_tolerance=` to `add_sync_constraint` or `add_group_sync_constraint`; `sync_tolerance` is only valid on `add_dependency`. `mode` for `add_group_sync_constraint` is one of `start`, `end`, `both`.
 - For resource constraints, use:
 
 ```python
@@ -117,6 +126,15 @@ g.add_physical_feasibility_constraint(
     distance_km=<distance_km>,
     actor_speed_kmh=<actor_speed_kmh>,
 )
+```
+
+Use `actor_speed_kmh=` for `add_physical_feasibility_constraint`; never `speed_kmh=`.
+
+- The exit-state declarations below are rarely needed; include them only when the input explicitly requires an exit resource state or interface fulfillment:
+
+```python
+g.declare_resource_state("<actor>", remaining_ammo=<remaining_ammo>, remaining_energy=<remaining_energy>, position="<position>")
+g.declare_interface_fulfillment("<interface_id>", exit_node="<task_id>", resource_state={...}, guaranteed_conditions=[...])
 ```
 
 Minimal syntax skeleton:

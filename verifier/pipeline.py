@@ -216,20 +216,20 @@ class Layer2GraphVerifier:
             issues.append(f"图中存在环路: {cycles}")
 
         # 2. 孤立节点检测（无入边且无出边的节点，除非图只有1个节点）
-        # group_sync 是多任务关系约束，不写入二元图边，但应避免被误判为孤立。
+        # sync / group_sync 是多任务关系约束，不写入二元图边，但应避免被误判为孤立。
         if len(g.nodes) > 1:
-            group_sync_linked = {
+            sync_constraint_linked = {
                 tid
                 for c in graph.constraints
-                if c.constraint_type == "group_sync"
+                if c.constraint_type in {"sync", "group_sync"}
                 for tid in c.applies_to
             }
             isolated = [n for n in g.nodes
                         if (g.in_degree(n) == 0
                             and g.out_degree(n) == 0
-                            and n not in group_sync_linked)]
+                            and n not in sync_constraint_linked)]
             if isolated:
-                issues.append(f"存在孤立节点（无依赖边或组同步约束）: {isolated}")
+                issues.append(f"存在孤立节点（无依赖边或同步约束）: {isolated}")
 
         # 3. 节点覆盖：检查所有任务是否都在图中
         missing = set(graph.task_ids) - set(g.nodes)

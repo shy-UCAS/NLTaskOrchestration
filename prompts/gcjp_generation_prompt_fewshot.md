@@ -44,6 +44,10 @@ API contract:
 - For task relations, call `g.add_dependency("<source>", "<target>", relation="<relation>")`.
 - For physical feasibility, call `g.add_physical_feasibility_constraint("<task_id>", from_position="<from>", to_position="<to>", distance_km=<distance>, actor_speed_kmh=<speed>, time_unit_minutes=<minutes>)`. Never use `speed_kmh`.
 - Do not duplicate relation-derived time/sync constraints unless the input contains a standalone explicit constraint.
+- Valid `relation` values: `sequence`, `parallel`, `sync`, `barrier`, `condition_trigger`, `handoff`, `fork`, `join` (`conditional` is an accepted alias of `condition_trigger`; prefer `condition_trigger`).
+- For a capability constraint, call `g.add_capability_constraint("<task_id>", required=[...], actor_capabilities=[...])`.
+- For standalone constraints not already implied by a relation, call `g.add_time_order_constraint("<before_task_id>", "<after_task_id>")`, `g.add_sync_constraint("<task_i>", "<task_j>", tolerance=<tolerance>)`, or `g.add_group_sync_constraint(["<task_id>", "<task_id>"], tolerance=<tolerance>, mode="start")`. These use `tolerance=`; never pass `sync_tolerance=` (only `add_dependency` accepts `sync_tolerance`). `mode` is one of `start`, `end`, `both`.
+- Only when the input explicitly requires an exit resource state or interface fulfillment, call `g.declare_resource_state("<actor>", remaining_ammo=<remaining_ammo>, remaining_energy=<remaining_energy>, position="<position>")` or `g.declare_interface_fulfillment("<interface_id>", exit_node="<task_id>", resource_state={...}, guaranteed_conditions=[...])`.
 - End with exactly one exported graph variable: `built = g.build()`.
 
 Few-shot example 1:

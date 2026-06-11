@@ -99,9 +99,28 @@ Only include `earliest`, `latest`, or `deadline` arguments that are explicitly s
 g.add_dependency("<source>", "<target>", relation="<relation>")
 ```
 
-- If a relation has `sync_tolerance` or `condition`, pass those keyword arguments to `add_dependency`.
-- For `sequence`, `sync`, `fork`, `join`, and `conditional` relations, call `add_dependency` only. Do not also add `add_time_order_constraint` or `add_sync_constraint` for the same relation; the builder registers relation-derived constraints automatically.
-- Use `add_time_order_constraint`, `add_sync_constraint`, or `add_group_sync_constraint` only when the instruction contains an explicit standalone constraint that is not already represented as a relation.
+- If a relation has `sync_tolerance` or `condition`, pass those keyword arguments to `add_dependency`. Only `add_dependency` accepts `sync_tolerance`.
+- Valid `relation` values are: `sequence`, `parallel`, `barrier`, `condition_trigger`, `handoff`, `fork`, `join`. `conditional` is accepted as an alias of `condition_trigger`; prefer `condition_trigger`. Do NOT use `relation="sync"`; synchronization is encoded with `add_group_sync_constraint` (see the synchronization rule below).
+- For any of those relations, call `add_dependency` only. Do not also add `add_time_order_constraint` or `add_sync_constraint` for the same relation; the builder registers relation-derived constraints automatically.
+- Synchronization (prefer the group form): when the instruction says that some tasks are synchronized or must start synchronized (e.g. "Tasks A and B are synchronized within a tolerance of 0.5", "Tasks A, B, C must start synchronized within a tolerance of 1.0"), register it as a standalone synchronization constraint over the listed tasks. Synchronization is a symmetric timing constraint, not a dependency edge — do NOT model it with `add_dependency(..., relation="sync")`. Prefer a single `add_group_sync_constraint` over ALL the listed tasks, including the two-task case:
+
+```python
+g.add_group_sync_constraint(["<task_id>", "<task_id>"], tolerance=<tolerance>, mode="start")
+```
+
+`add_sync_constraint` is the exact two-task equivalent and is also accepted:
+
+```python
+g.add_sync_constraint("<task_i>", "<task_j>", tolerance=<tolerance>)
+```
+
+- Use `add_time_order_constraint` only when the instruction contains an explicit standalone ordering constraint that is not already represented as a relation:
+
+```python
+g.add_time_order_constraint("<before_task_id>", "<after_task_id>")
+```
+
+Standalone sync constraints use `tolerance=` (a float); never pass `sync_tolerance=` to them (`sync_tolerance` is valid only on `add_dependency`). `mode` for `add_group_sync_constraint` is one of `start`, `end`, `both` — use `start` for "start synchronized".
 - For resource constraints, use:
 
 ```python
@@ -128,6 +147,15 @@ g.add_physical_feasibility_constraint(
     distance_km=<distance_km>,
     actor_speed_kmh=<actor_speed_kmh>,
 )
+```
+
+Use `actor_speed_kmh=` for `add_physical_feasibility_constraint`; never `speed_kmh=`.
+
+- The exit-state declarations below are rarely needed; include them only when the instruction explicitly requires an exit resource state or interface fulfillment:
+
+```python
+g.declare_resource_state("<actor>", remaining_ammo=<remaining_ammo>, remaining_energy=<remaining_energy>, position="<position>")
+g.declare_interface_fulfillment("<interface_id>", exit_node="<task_id>", resource_state={...}, guaranteed_conditions=[...])
 ```
 
 Minimal syntax skeleton:
