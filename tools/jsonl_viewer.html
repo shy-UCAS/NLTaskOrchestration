@@ -6,64 +6,113 @@
 <title>JSONL Dataset Viewer</title>
 <style>
 :root {
-  --bg: #1e1e2e;
-  --surface: #282840;
-  --surface2: #32325a;
+  --bg: #181826;
+  --bg-deep: #11111b;
+  --surface: #1e1e2e;
+  --surface2: #282839;
+  --elevated: #313244;
   --text: #cdd6f4;
-  --text2: #a6adc8;
+  --text2: #9399b2;
   --accent: #89b4fa;
+  --accent2: #b4befe;
   --green: #a6e3a1;
   --red: #f38ba8;
   --yellow: #f9e2af;
-  --border: #45475a;
+  --border: #2c2c3f;
+  --border2: #45475a;
   --key: #89b4fa;
   --string: #a6e3a1;
   --number: #fab387;
   --bool: #cba6f7;
   --null: #6c7086;
-  --tag-bg: #363654;
+  --tag-bg: #2f2f44;
   --scrollbar: #45475a;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 999px;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.25);
+  --shadow: 0 4px 16px rgba(0,0,0,.35);
+  --shadow-lg: 0 12px 34px rgba(0,0,0,.45);
+  --accent-grad: linear-gradient(135deg, #89b4fa 0%, #b4befe 100%);
+  --focus-ring: 0 0 0 3px rgba(137,180,250,.25);
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
   font-family: 'Segoe UI', 'SF Mono', 'Cascadia Code', Consolas, monospace;
-  background: var(--bg);
+  background:
+    radial-gradient(1200px 600px at 15% -10%, rgba(137,180,250,.06), transparent 60%),
+    radial-gradient(1000px 500px at 100% 0%, rgba(180,190,254,.05), transparent 55%),
+    var(--bg);
   color: var(--text);
   height: 100vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 /* ── Header ── */
 header {
-  background: var(--surface);
+  background: linear-gradient(180deg, var(--surface) 0%, rgba(30,30,46,.92) 100%);
   border-bottom: 1px solid var(--border);
-  padding: 10px 16px;
+  padding: 11px 18px;
   display: flex;
   align-items: center;
   gap: 12px;
   flex-shrink: 0;
   flex-wrap: wrap;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  z-index: 5;
 }
-header h1 { font-size: 16px; font-weight: 600; white-space: nowrap; }
-header .file-name { color: var(--text2); font-size: 12px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+header h1 {
+  font-size: 16px;
+  font-weight: 700;
+  white-space: nowrap;
+  letter-spacing: .2px;
+  background: var(--accent-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+header .file-name {
+  color: var(--text2);
+  font-size: 12px;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 3px 10px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+}
 .btn {
   background: var(--surface2);
   color: var(--text);
-  border: 1px solid var(--border);
-  padding: 6px 12px;
-  border-radius: 6px;
+  border: 1px solid var(--border2);
+  padding: 6px 13px;
+  border-radius: var(--radius);
   cursor: pointer;
   font-size: 12px;
   font-family: inherit;
   white-space: nowrap;
-  transition: background .15s;
+  transition: background .15s, border-color .15s, transform .08s, box-shadow .15s;
 }
-.btn:hover { background: var(--border); }
-.btn.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
-.btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.btn:disabled:hover { background: var(--surface2); }
+.btn:hover { background: var(--elevated); border-color: var(--accent); }
+.btn:active { transform: translateY(1px); }
+.btn:focus-visible { outline: none; box-shadow: var(--focus-ring); border-color: var(--accent); }
+.btn.active {
+  background: var(--accent-grad);
+  color: var(--bg-deep);
+  border-color: transparent;
+  font-weight: 600;
+  box-shadow: 0 2px 10px rgba(137,180,250,.35);
+}
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn:disabled:hover { background: var(--surface2); border-color: var(--border2); }
 
 /* ── Main Layout ── */
 main {
@@ -97,16 +146,18 @@ aside {
 }
 .search-bar input {
   width: 100%;
-  background: var(--bg);
-  border: 1px solid var(--border);
+  background: var(--bg-deep);
+  border: 1px solid var(--border2);
   color: var(--text);
-  padding: 6px 10px;
-  border-radius: 6px;
+  padding: 7px 11px;
+  border-radius: var(--radius);
   font-size: 12px;
   font-family: inherit;
   outline: none;
+  transition: border-color .15s, box-shadow .15s;
 }
-.search-bar input:focus { border-color: var(--accent); }
+.search-bar input::placeholder { color: var(--null); }
+.search-bar input:focus { border-color: var(--accent); box-shadow: var(--focus-ring); }
 .filter-row {
   display: flex;
   gap: 4px;
@@ -120,16 +171,17 @@ aside {
 .quick-row .btn { padding: 4px 8px; font-size: 10px; }
 .tag-chip {
   font-size: 10px;
-  padding: 2px 8px;
-  border-radius: 10px;
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
   background: var(--tag-bg);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border2);
   color: var(--text2);
   cursor: pointer;
   white-space: nowrap;
   transition: all .15s;
 }
-.tag-chip.selected { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.tag-chip:hover { border-color: var(--accent); color: var(--text); }
+.tag-chip.selected { background: var(--accent-grad); color: var(--bg-deep); border-color: transparent; font-weight: 600; }
 .sample-list {
   flex: 1;
   min-height: 0;    /* fix flexbox scroll */
@@ -137,23 +189,29 @@ aside {
   padding: 4px;
 }
 .sample-item {
-  padding: 8px 10px;
-  border-radius: 6px;
+  padding: 8px 11px;
+  border-radius: var(--radius);
   cursor: pointer;
   font-size: 11px;
+  border: 1px solid transparent;
   border-left: 3px solid transparent;
-  margin: 2px 0;
-  transition: background .1s;
+  margin: 3px 0;
+  transition: background .12s, border-color .12s, transform .08s;
 }
-.sample-item:hover { background: var(--surface2); }
-.sample-item.active { background: var(--surface2); border-left-color: var(--accent); }
+.sample-item:hover { background: var(--surface2); transform: translateX(1px); }
+.sample-item.active {
+  background: linear-gradient(90deg, rgba(137,180,250,.12), var(--surface2) 60%);
+  border-color: var(--border2);
+  border-left-color: var(--accent);
+  box-shadow: var(--shadow-sm);
+}
 .sample-item .sid { font-weight: 600; color: var(--accent); font-size: 11px; }
 .sample-item .meta { color: var(--text2); font-size: 10px; margin-top: 2px; }
 .sample-item .snippet { color: var(--text2); font-size: 10px; margin-top: 3px; line-height: 1.35; }
 .sample-item .tags-row { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 3px; }
 .sample-item .mini-tag {
-  font-size: 9px; padding: 1px 6px; border-radius: 8px;
-  background: var(--tag-bg); color: var(--text2);
+  font-size: 9px; padding: 1px 7px; border-radius: var(--radius-pill);
+  background: var(--tag-bg); color: var(--text2); border: 1px solid var(--border);
 }
 .result-pass { border-left-color: var(--green) !important; }
 .result-fail { border-left-color: var(--red) !important; }
@@ -189,26 +247,29 @@ aside {
   line-height: 1.8;
 }
 .drop-zone {
-  border: 2px dashed var(--border);
-  border-radius: 12px;
-  padding: 40px;
+  border: 2px dashed var(--border2);
+  border-radius: var(--radius-lg);
+  padding: 48px;
   text-align: center;
   color: var(--text2);
-  transition: border-color .2s;
+  background: rgba(255,255,255,.015);
+  transition: border-color .2s, color .2s, background .2s;
 }
-.drop-zone.drag-over { border-color: var(--accent); color: var(--accent); }
+.drop-zone.drag-over { border-color: var(--accent); color: var(--accent); background: rgba(137,180,250,.06); }
 #content-panel.drag-over { outline: 3px dashed var(--accent); outline-offset: -8px; }
 
 /* ── Sample Card ── */
 .sample-card {
   background: var(--surface);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   overflow: hidden;
+  box-shadow: var(--shadow);
 }
 .card-header {
   padding: 12px 16px;
   border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, var(--surface2), transparent);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -218,8 +279,9 @@ aside {
 .card-title { font-size: 14px; font-weight: 600; }
 .card-badges { display: flex; gap: 6px; flex-wrap: wrap; }
 .badge {
-  font-size: 10px; padding: 3px 10px; border-radius: 10px;
-  font-weight: 600; text-transform: uppercase;
+  font-size: 10px; padding: 3px 10px; border-radius: var(--radius-pill);
+  font-weight: 600; text-transform: uppercase; letter-spacing: .3px;
+  border: 1px solid transparent;
 }
 .badge-sat { background: rgba(166,227,161,0.15); color: var(--green); }
 .badge-unsat { background: rgba(243,139,168,0.15); color: var(--red); }
@@ -429,10 +491,11 @@ aside {
 .nav-row .pos { color: var(--text2); font-size: 12px; }
 
 /* ── Scrollbar ── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar { width: 9px; height: 9px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text2); }
+::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: var(--radius-pill); border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--text2); background-clip: padding-box; }
+* { scrollbar-width: thin; scrollbar-color: var(--scrollbar) transparent; }
 
 /* ── Summary view ── */
 .summary-grid {
@@ -442,12 +505,15 @@ aside {
 }
 .summary-item {
   background: var(--surface2);
-  padding: 8px 12px;
-  border-radius: 6px;
+  padding: 9px 13px;
+  border-radius: var(--radius);
   font-size: 11px;
+  border: 1px solid var(--border);
+  transition: border-color .12s, transform .08s;
 }
+.summary-item:hover { border-color: var(--border2); transform: translateY(-1px); }
 .summary-item .label { color: var(--text2); font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; }
-.summary-item .value { color: var(--text); margin-top: 2px; word-break: break-all; }
+.summary-item .value { color: var(--text); margin-top: 3px; word-break: break-all; }
 .summary-item.pass { border-left: 3px solid var(--green); }
 .summary-item.fail { border-left: 3px solid var(--red); }
 .summary-item.warn { border-left: 3px solid var(--yellow); }
@@ -456,14 +522,15 @@ aside {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 7px;
-  border-radius: 10px;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
   background: var(--tag-bg);
   color: var(--text2);
   font-size: 10px;
+  border: 1px solid var(--border);
 }
-.kv-pill.true { color: var(--green); background: rgba(166,227,161,0.12); }
-.kv-pill.false { color: var(--red); background: rgba(243,139,168,0.12); }
+.kv-pill.true { color: var(--green); background: rgba(166,227,161,0.12); border-color: rgba(166,227,161,0.25); }
+.kv-pill.false { color: var(--red); background: rgba(243,139,168,0.12); border-color: rgba(243,139,168,0.25); }
 .error-text {
   color: var(--red);
   white-space: pre-wrap;
@@ -473,18 +540,28 @@ aside {
 
 /* ── Stats bar ── */
 .stats-bar {
-  padding: 6px 12px;
-  background: var(--surface);
+  padding: 8px 14px;
+  background: linear-gradient(180deg, var(--surface) 0%, rgba(30,30,46,.85) 100%);
   border-bottom: 1px solid var(--border);
   display: flex;
-  gap: 16px;
+  gap: 8px;
   font-size: 11px;
   color: var(--text2);
   flex-shrink: 0;
   flex-wrap: wrap;
+  align-items: center;
 }
-.stats-bar span { white-space: nowrap; }
-.stats-bar .num { color: var(--accent); font-weight: 600; }
+.stats-bar > span {
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 11px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+}
+.stats-bar .num { color: var(--accent); font-weight: 700; font-variant-numeric: tabular-nums; }
 
 @media (max-width: 768px) {
   aside { width: 100% !important; min-width: 0; max-height: 40vh; }
@@ -493,7 +570,7 @@ aside {
 
 /* FLATTENED TABLE VIEW */
 .flat-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-.flat-table th { text-align: left; padding: 6px 8px; border-bottom: 2px solid var(--border); color: var(--text2); font-size: 10px; text-transform: uppercase; position: sticky; top: 0; background: var(--surface); z-index: 1; }
+.flat-table th { text-align: left; padding: 8px 8px; border-bottom: 2px solid var(--border2); color: var(--text2); font-size: 10px; text-transform: uppercase; letter-spacing: .4px; position: sticky; top: 0; background: var(--surface2); z-index: 1; }
 .flat-table td { padding: 5px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
 .flat-table tr:hover td { background: rgba(255,255,255,0.03); }
 .flat-table .cell-id { color: var(--accent); font-weight: 600; }
@@ -515,6 +592,146 @@ aside {
   font-size: 11px;
   line-height: 1.45;
 }
+
+/* ════════ Verification Report Dashboard ════════ */
+.report-dashboard { display: flex; flex-direction: column; gap: 16px; padding: 14px 16px; }
+.report-empty { color: var(--text2); padding: 28px; text-align: center; font-size: 13px; line-height: 1.7; }
+.report-section { display: flex; flex-direction: column; gap: 8px; }
+.report-section > .sec-title {
+  font-size: 11px; font-weight: 700; color: var(--text2);
+  text-transform: uppercase; letter-spacing: .5px;
+  display: flex; align-items: center; gap: 6px;
+}
+
+/* ── Overall banner ── */
+.report-banner {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 14px 18px; border-radius: var(--radius-lg);
+  border: 1px solid var(--border); background: var(--surface2);
+  border-left: 5px solid var(--border2);
+}
+.report-banner.pass { border-left-color: var(--green); background: linear-gradient(90deg, rgba(166,227,161,.10), var(--surface2) 55%); }
+.report-banner.fail { border-left-color: var(--red);   background: linear-gradient(90deg, rgba(243,139,168,.10), var(--surface2) 55%); }
+.report-banner .verdict { font-size: 22px; font-weight: 800; letter-spacing: .5px; }
+.report-banner.pass .verdict { color: var(--green); }
+.report-banner.fail .verdict { color: var(--red); }
+.report-banner .seg { font-size: 13px; color: var(--text); font-weight: 600; word-break: break-all; }
+.report-banner .meta-pills { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+
+/* ── Layer pipeline ── */
+.layer-pipe { display: flex; gap: 6px; flex-wrap: wrap; align-items: stretch; }
+.layer-arrow { display: flex; align-items: center; color: var(--border2); font-size: 12px; flex: 0 0 auto; }
+.layer-card {
+  flex: 1 1 150px; min-width: 150px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-top: 3px solid var(--green); border-radius: var(--radius);
+  padding: 10px 12px;
+}
+.layer-card.failed { border-top-color: var(--red); background: rgba(243,139,168,.06); }
+.layer-card .lc-head { display: flex; align-items: center; gap: 6px; }
+.layer-card .lc-icon { font-weight: 800; }
+.layer-card.passed .lc-icon { color: var(--green); }
+.layer-card.failed .lc-icon { color: var(--red); }
+.layer-card .lc-name { font-size: 11.5px; font-weight: 600; color: var(--text); line-height: 1.3; }
+.layer-card .lc-detail { font-size: 10.5px; color: var(--text2); margin-top: 6px; line-height: 1.5; word-break: break-word; }
+.layer-card .lc-err { font-size: 10.5px; color: var(--red); margin-top: 5px; word-break: break-word; line-height: 1.45; }
+.layer-card .lc-time { font-size: 9.5px; color: var(--null); margin-top: 5px; }
+
+/* ── Gantt schedule ── */
+.gantt { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; }
+.gantt-axis { position: relative; height: 16px; margin-bottom: 6px; }
+.gantt-tick { position: absolute; top: 0; transform: translateX(-50%); font-size: 9px; color: var(--text2); white-space: nowrap; }
+.gantt-tick::after { content: ''; position: absolute; left: 50%; top: 13px; width: 1px; height: 5px; background: var(--border2); }
+.gantt-body { position: relative; display: flex; flex-direction: column; gap: 5px; }
+.gantt-row { display: grid; grid-template-columns: 140px 1fr; align-items: center; height: 22px; }
+.gantt-label { font-size: 11px; color: var(--text); padding-right: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gantt-track { position: relative; height: 18px; background: var(--bg-deep); border-radius: 4px; }
+.gantt-bar {
+  position: absolute; top: 0; height: 18px; border-radius: 4px;
+  display: flex; align-items: center; padding: 0 6px; box-sizing: border-box;
+  font-size: 9.5px; color: var(--bg-deep); font-weight: 700;
+  white-space: nowrap; overflow: hidden; box-shadow: var(--shadow-sm);
+}
+.gantt-bar.critical { outline: 2px solid var(--accent2); }
+.gantt-makespan { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px dashed var(--yellow); pointer-events: none; }
+.gantt-makespan .ms-label { position: absolute; top: -2px; left: 4px; font-size: 9px; color: var(--yellow); white-space: nowrap; }
+.gantt-empty { color: var(--text2); font-size: 12px; padding: 18px; text-align: center; }
+
+/* ── UNSAT attribution ── */
+.attribution-list { display: flex; flex-direction: column; gap: 8px; }
+.attribution-card {
+  display: flex; gap: 10px; padding: 10px 12px;
+  background: rgba(243,139,168,.07); border: 1px solid rgba(243,139,168,.25);
+  border-left: 3px solid var(--red); border-radius: var(--radius);
+  font-size: 12px; color: var(--text); line-height: 1.5; word-break: break-word;
+}
+.attribution-card .ac-icon { color: var(--red); flex: 0 0 auto; }
+.unsat-sub { font-size: 10px; color: var(--text2); margin: 8px 0 2px; text-transform: uppercase; letter-spacing: .4px; }
+.unsat-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.unsat-chip {
+  font-size: 10px; padding: 3px 9px; border-radius: var(--radius-pill);
+  border: 1px solid var(--border2); background: var(--tag-bg); color: var(--text2);
+  font-family: 'Cascadia Code', monospace; word-break: break-all;
+}
+.unsat-chip.semantic { color: var(--red); background: rgba(243,139,168,.12); border-color: rgba(243,139,168,.30); }
+.unsat-chip.framework { color: var(--null); }
+
+/* ── Task dependency DAG ── */
+.dag-wrap { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; overflow-x: auto; }
+.dag-wrap svg { display: block; }
+.dag-node-rect { stroke: var(--border2); stroke-width: 1; }
+.dag-node.critical .dag-node-rect { stroke: var(--accent2); stroke-width: 2; }
+.dag-node-id { fill: var(--text); font-size: 11px; font-weight: 600; font-family: 'Cascadia Code', monospace; }
+.dag-node-sub { fill: var(--text2); font-size: 9px; }
+.dag-edge { fill: none; stroke: var(--border2); stroke-width: 1.5; }
+.dag-edge.critical { stroke: var(--accent2); stroke-width: 2; }
+.dag-edge-label { fill: var(--text2); font-size: 8.5px; font-family: 'Cascadia Code', monospace; }
+.dag-chain { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.dag-chain-node { padding: 5px 10px; border-radius: var(--radius); background: var(--elevated); border: 1px solid var(--border2); font-size: 11px; font-family: 'Cascadia Code', monospace; }
+.dag-chain-arrow { color: var(--text2); }
+/* sync constraints & model-vs-GT diff */
+.dag-edge.sync { stroke: #ff7f0e; stroke-dasharray: 5 4; stroke-width: 1.6; }
+.dag-edge.extra { stroke: var(--red); stroke-width: 2.2; }
+.dag-edge.missing { stroke: #ff7f0e; stroke-dasharray: 6 4; stroke-width: 2.2; opacity: .9; }
+.dag-edge-label.sync { fill: #ff7f0e; }
+.dag-edge-label.extra { fill: var(--red); font-weight: 700; }
+.dag-edge-label.missing { fill: #ff7f0e; font-weight: 700; }
+.dag-compare { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
+.dag-panel { flex: 1 1 380px; min-width: 0; }
+.dag-panel-title { font-size: 11px; font-weight: 700; color: var(--text2); margin: 0 0 6px 2px; display: flex; gap: 8px; align-items: baseline; }
+.dag-panel-title .dag-src { font-weight: 400; opacity: .65; }
+.dag-verdict-row { margin: 0 0 10px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.dag-legend { font-size: 10px; color: var(--text2); display: flex; gap: 14px; flex-wrap: wrap; margin-top: 8px; }
+.dag-legend .sw { display: inline-block; width: 20px; height: 0; border-top: 2px solid var(--border2); margin-right: 5px; vertical-align: middle; }
+.dag-legend .sw.sync { border-top: 2px dashed #ff7f0e; }
+.dag-legend .sw.extra { border-top: 2px solid var(--red); }
+.dag-legend .sw.missing { border-top: 2px dashed #ff7f0e; opacity: .9; }
+
+/* ── Generated code block ── */
+.code-block { position: relative; }
+.code-block pre {
+  margin: 0; padding: 12px 14px; padding-right: 70px;
+  background: var(--bg-deep); border: 1px solid var(--border); border-radius: var(--radius);
+  font-family: 'Cascadia Code', 'SF Mono', Consolas, monospace;
+  font-size: 11.5px; line-height: 1.6; color: var(--text);
+  white-space: pre; overflow-x: auto; max-height: 420px; overflow-y: auto;
+}
+.code-block .copy-btn { position: absolute; top: 8px; right: 8px; padding: 4px 9px; font-size: 10px; }
+
+/* ── Repair-loop attempts ── */
+.repair-timeline { display: flex; gap: 8px; flex-wrap: wrap; }
+.repair-chip {
+  display: flex; flex-direction: column; gap: 3px; padding: 8px 12px; min-width: 92px;
+  border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface2);
+  border-top: 3px solid var(--border2); cursor: pointer; transition: border-color .12s, transform .08s;
+}
+.repair-chip:hover { border-color: var(--accent); transform: translateY(-1px); }
+.repair-chip.pass { border-top-color: var(--green); }
+.repair-chip.fail { border-top-color: var(--red); }
+.repair-chip .rc-title { font-size: 11px; font-weight: 600; color: var(--text); }
+.repair-chip .rc-status { font-size: 10px; color: var(--text2); }
+.repair-detail { display: none; margin-top: 8px; }
+.repair-detail.open { display: block; }
 </style>
 </head>
 <body>
@@ -522,11 +739,14 @@ aside {
 <header>
   <h1>📊 JSONL Dataset Viewer</h1>
   <span class="file-name" id="current-file">— 未加载文件 —</span>
-  <button class="btn" onclick="document.getElementById('file-input').click()" title="选择 JSONL 文件">📂 打开文件</button>
-  <input type="file" id="file-input" accept=".jsonl,.json,.yaml,.yml" hidden onchange="loadFile(event)">
+  <button class="btn" onclick="document.getElementById('file-input').click()" title="选择一个或多个 JSONL/JSON/YAML 文件">📂 打开文件</button>
+  <button class="btn" onclick="document.getElementById('dir-input').click()" title="选择整个目录（如某次 run 的 reports/）">🗂 打开目录</button>
+  <input type="file" id="file-input" accept=".jsonl,.json,.yaml,.yml" multiple hidden onchange="loadFile(event)">
+  <input type="file" id="dir-input" webkitdirectory hidden onchange="loadFile(event)">
   <button class="btn" id="btn-tree" onclick="setView('tree')">🌳 树形视图</button>
   <button class="btn" id="btn-flat" onclick="setView('flat')">📋 表状视图</button>
   <button class="btn" id="btn-raw" onclick="setView('raw')">{ } Raw JSON</button>
+  <button class="btn" id="btn-report" onclick="setView('report')">🔬 报告视图</button>
   <button class="btn" onclick="clearFilters()">清除过滤</button>
   <button class="btn" onclick="exportFiltered()">💾 导出过滤结果</button>
 </header>
@@ -558,8 +778,8 @@ aside {
     <div id="content-inner">
       <div class="placeholder drop-zone" id="drop-zone">
         <div style="font-size:48px;margin-bottom:12px;">📁</div>
-        <div>拖拽 .jsonl / .json / .yaml 文件到此处<br>或点击 <b>📂 打开文件</b> 按钮</div>
-        <div style="font-size:11px;margin-top:8px;color:var(--text2)">支持 datasets JSONL、reports JSON、metrics.json records、YAML cases</div>
+        <div>拖拽 .jsonl / .json / .yaml 文件<b>或整个目录</b>到此处<br>或点击 <b>📂 打开文件</b> / <b>🗂 打开目录</b> 按钮</div>
+        <div style="font-size:11px;margin-top:8px;color:var(--text2)">支持 datasets JSONL、reports/ 目录（逐样本 JSON）、metrics.json records、YAML cases</div>
       </div>
     </div>
   </div>
@@ -589,36 +809,107 @@ contentPanel.addEventListener('dragleave', e => {
 contentPanel.addEventListener('drop', e => {
   e.preventDefault();
   contentPanel.classList.remove('drag-over');
-  const file = e.dataTransfer.files[0];
-  if (file) readFile(file);
+  const items = e.dataTransfer.items;
+  if (items && items.length && typeof items[0].webkitGetAsEntry === 'function') {
+    collectDroppedFiles(items).then(files => { if (files.length) readFiles(files); });
+  } else {
+    const files = [...e.dataTransfer.files];
+    if (files.length) readFiles(files);
+  }
 });
 
-function loadFile(event) {
-  const file = event.target.files[0];
-  if (file) readFile(file);
+const LOADABLE_EXT_RE = /\.(jsonl|json|ya?ml)$/i;
+// Run output subdirs that hold projections of reports/ — skipped during recursive
+// walk so dropping a whole run dir does not double-count samples. A directory
+// dropped DIRECTLY (depth 0) is always honored, so dropping final_dag/ itself works.
+const WALK_SKIP_DIRS = new Set(['initial_code', 'final_code', 'raw_outputs', 'repair_attempts', 'final_dag']);
+
+async function collectDroppedFiles(items) {
+  const entries = [...items].map(it => it.webkitGetAsEntry()).filter(Boolean);
+  const out = [];
+  async function walk(entry, depth) {
+    if (entry.isFile) {
+      if (LOADABLE_EXT_RE.test(entry.name)) {
+        const f = await new Promise((res, rej) => entry.file(res, rej));
+        out.push(f);
+      }
+    } else if (entry.isDirectory) {
+      if (depth > 0 && WALK_SKIP_DIRS.has(entry.name)) return;
+      const reader = entry.createReader();
+      let batch;
+      do {  // readEntries returns ≤100 per call; must drain
+        batch = await new Promise((res, rej) => reader.readEntries(res, rej));
+        for (const en of batch) await walk(en, depth + 1);
+      } while (batch.length);
+    }
+  }
+  for (const en of entries) await walk(en, 0);
+  return out;
 }
 
-async function readFile(file) {
-  const text = await file.text();
-  const parsed = parseInputText(text, file.name);
-  allSamples = parsed.records;
-  recordSources = parsed.sources;
-  lastParseErrors = parsed.parseErrors;
+function loadFile(event) {
+  const files = [...event.target.files];
+  event.target.value = '';  // allow re-selecting the same path
+  if (files.length) readFiles(files);
+}
+
+function readFile(file) { return readFiles([file]); }
+
+async function readFiles(fileList) {
+  const files = [...fileList].filter(f => LOADABLE_EXT_RE.test(f.name));
+  if (!files.length) return;
+  files.sort((a, b) => a.name.localeCompare(b.name));
+
+  const records = [], sources = [], errors = [];
+  const kinds = new Set();
+  for (const f of files) {
+    const text = await f.text();
+    const parsed = parseInputText(text, f.name);
+    parsed.records.forEach((r, i) => {
+      records.push(r);
+      sources.push(files.length > 1 ? f.name : (parsed.sources[i] || f.name));
+    });
+    parsed.parseErrors.forEach(e => errors.push(`${f.name}: ${e}`));
+    kinds.add(parsed.kind);
+  }
+
+  if (files.length > 1) {  // stable browsing order across per-sample files
+    const order = records.map((_, i) => i);
+    order.sort((a, b) => getSampleId(records[a], a).localeCompare(getSampleId(records[b], b)));
+    allSamples = order.map(i => records[i]);
+    recordSources = order.map(i => sources[i]);
+  } else {
+    allSamples = records;
+    recordSources = sources;
+  }
+  lastParseErrors = errors;
   allTags.clear();
   selectedTags.clear();
   quickFilter = 'all';
   allSamples.forEach(s => collectSampleTags(s).forEach(t => allTags.add(t)));
   searchCache = allSamples.map(s => (JSON.stringify(s) + ' ' + [...collectSampleTags(s)].join(' ')).toLowerCase());
 
+  // Auto-adapt: switch to the report dashboard when records carry a verification
+  // report OR graph/evaluation data the report view can render (exp_01l reports).
+  const reportCount = allSamples.filter(s =>
+    isVerificationReport(s) || s.final_dag || getExpectedGraphData(s) || getEvaluation(s)
+  ).length;
+  if (allSamples.length > 0 && reportCount * 2 >= allSamples.length) currentView = 'report';
+  else if (currentView === 'report') currentView = 'tree';
+
   if (lastParseErrors.length > 0) {
-    console.warn(`解析失败 ${lastParseErrors.length} 行:`, lastParseErrors);
+    console.warn(`解析失败 ${lastParseErrors.length} 处:`, lastParseErrors);
   }
 
-  document.getElementById('current-file').textContent = file.name + ` (${allSamples.length} 条, ${parsed.kind})`;
+  const label = files.length > 1
+    ? `${files.length} 文件 (${allSamples.length} 条)`
+    : `${files[0].name} (${allSamples.length} 条, ${[...kinds][0]})`;
+  document.getElementById('current-file').textContent = label;
   document.getElementById('stats-bar').style.display = 'flex';
   updateQuickButtons();
   updateStats();
   buildTagFilters();
+  syncViewButtons();
   applyFilterNow();  // immediate on load (skip debounce)
 }
 
@@ -1133,6 +1424,8 @@ function renderContent(idx) {
     bodyHtml = renderJsonTree(s);
   } else if (currentView === 'flat') {
     bodyHtml = renderFlatView(s);
+  } else if (currentView === 'report') {
+    bodyHtml = renderReportView(s);
   } else {
     bodyHtml = `<pre class="raw-pre">${escHtml(JSON.stringify(s, null, 2))}</pre>`;
   }
@@ -1181,7 +1474,7 @@ function renderContent(idx) {
     ${evaluationHtml}
     <div class="sample-card">
       <div class="card-header">
-        <span class="card-title">📄 完整数据</span>
+        <span class="card-title">${currentView === 'report' ? '🔬 验证报告' : '📄 完整数据'}</span>
         <div class="card-badges">
           ${result ? `<span class="badge badge-${getStatusClass(s)}">${escHtml(result)}</span>` : ''}
           ${getDisplayTags(s).slice(0,6).map(t=>`<span class="badge badge-neutral">${escHtml(t)}</span>`).join('')}
@@ -1380,6 +1673,21 @@ function getEvaluation(sample) {
   return ev && typeof ev === 'object' ? ev : null;
 }
 
+// Standard records carry a top-level `report`; repair-loop records nest it under
+// `final.report` (resolved) / `initial.report`. Return the first one that has layers.
+function getReport(sample) {
+  if (!sample || typeof sample !== 'object') return null;
+  const candidates = [sample.report, getPath(sample, 'final.report'), getPath(sample, 'initial.report')];
+  for (const r of candidates) {
+    if (r && typeof r === 'object' && !Array.isArray(r) && Array.isArray(r.layers)) return r;
+  }
+  return null;
+}
+
+function isVerificationReport(sample) {
+  return !!getReport(sample);
+}
+
 function getSampleId(sample, idx) {
   return String(
     sample.sample_id ||
@@ -1432,6 +1740,9 @@ function hasHardError(sample) {
 function isPass(sample) {
   const ev = getEvaluation(sample);
   if (!ev) return false;
+  // exp_01l repair-pipeline records: final_pass is the authoritative verdict
+  // (其余布尔如 repair_attempted=false 不代表失败,不能走全真启发式)。
+  if (typeof ev.final_pass === 'boolean') return ev.final_pass;
   if (typeof ev.first_pass === 'boolean') return ev.first_pass;
   const bools = Object.values(ev).filter(v => typeof v === 'boolean');
   return bools.length > 0 && bools.every(Boolean);
@@ -1441,6 +1752,7 @@ function isFail(sample) {
   if (hasHardError(sample)) return true;
   const ev = getEvaluation(sample);
   if (!ev) return false;
+  if (typeof ev.final_pass === 'boolean') return !ev.final_pass;
   if (typeof ev.first_pass === 'boolean') return !ev.first_pass;
   return Object.values(ev).some(v => v === false);
 }
@@ -1572,6 +1884,598 @@ function renderEvaluationSummary(evaluation) {
   </div>`;
 }
 
+// ════════ Verification Report Dashboard renderers ════════
+function renderReportView(sample) {
+  const report = getReport(sample);
+  const critical = report ? getCriticalPath(report) : new Set();
+  const parts = [];
+  if (report) {
+    const parsed = parseGcjpCode(getExtractedCode(sample));
+    parts.push(renderReportBanner(sample, report));
+    parts.push(renderLayerPipeline(report));
+    parts.push(renderGantt(report, parsed, critical));
+    parts.push(renderAttribution(report));
+  } else {
+    // exp_01l 等记录无内嵌 VerificationReport:以 evaluation 合成 banner,
+    // 后续 DAG / 代码 / 修复区块照常渲染。
+    parts.push(renderEvalBanner(sample));
+  }
+  parts.push(renderDagCompare(sample, critical));
+  parts.push(renderGeneratedCode(sample));
+  parts.push(renderRepairAttempts(sample));
+  const body = parts.filter(Boolean).join('');
+  if (!body) {
+    return `<div class="report-dashboard"><div class="report-empty">该记录不包含验证报告或图数据。<br>请切换到 🌳 树形 / 📋 表状 / { } Raw 视图查看原始数据。</div></div>`;
+  }
+  return `<div class="report-dashboard">${body}</div>`;
+}
+
+function renderEvalBanner(sample) {
+  const ev = getEvaluation(sample);
+  if (!ev) return '';
+  const passed = isPass(sample);
+  const pills = [];
+  if (typeof ev.initial_pass === 'boolean') {
+    pills.push(`<span class="kv-pill ${ev.initial_pass ? 'true' : 'false'}">首过 ${ev.initial_pass}</span>`);
+  }
+  const dagExact = (typeof ev.final_dag_exact === 'boolean') ? ev.final_dag_exact
+                 : (typeof ev.initial_dag_exact === 'boolean') ? ev.initial_dag_exact : null;
+  if (dagExact !== null) {
+    pills.push(`<span class="kv-pill ${dagExact ? 'true' : 'false'}">dag_exact ${dagExact}</span>`);
+  }
+  if (ev.repair_rounds != null && Number(ev.repair_rounds) > 0) {
+    pills.push(`<span class="kv-pill">修复 ${escHtml(String(ev.repair_rounds))} 轮</span>`);
+  }
+  if (ev.initial_error_type || ev.final_error_type) {
+    pills.push(`<span class="kv-pill">${escHtml(String(ev.initial_error_type || '—'))} → ${escHtml(String(ev.final_error_type || '—'))}</span>`);
+  }
+  return `<div class="report-banner ${passed ? 'pass' : 'fail'}">
+    <span class="verdict">${passed ? '✓ PASS' : '✗ FAIL'}</span>
+    <span class="seg">${escHtml(getSampleId(sample, 0))}</span>
+    <span class="meta-pills">${pills.join('')}</span>
+  </div>`;
+}
+
+function getExtractedCode(sample) {
+  return getPath(sample, 'generation.extracted_code')
+      || getPath(sample, 'generation.extraction.code')
+      || getPath(sample, 'generation.raw_response')
+      || sample.final_code   // repair-loop: resolved code
+      || sample.initial_code
+      || '';
+}
+
+// final_dag 对应修复后的最终代码;解析模型侧同步约束时必须配套用它。
+function getFinalCode(sample) {
+  return sample.final_code || getExtractedCode(sample);
+}
+
+function getLayer(report, n) {
+  return (Array.isArray(report.layers) ? report.layers : []).find(l => l && l.layer === n) || null;
+}
+
+function getCriticalPath(report) {
+  const l2 = getLayer(report, 2);
+  const cp = l2 && l2.details && Array.isArray(l2.details.critical_path) ? l2.details.critical_path : [];
+  return new Set(cp);
+}
+
+function fmtMs(ms) {
+  const n = Number(ms);
+  if (!isFinite(n)) return String(ms);
+  if (n < 1) return n.toFixed(3) + ' ms';
+  if (n < 1000) return n.toFixed(1) + ' ms';
+  return (n / 1000).toFixed(2) + ' s';
+}
+
+// Deterministic per-actor hue so the same fleet keeps one colour across panels.
+function actorColor(actor) {
+  const s = String(actor || '');
+  if (!s) return 'hsl(220, 14%, 60%)';
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
+  return `hsl(${h}, 58%, 68%)`;
+}
+
+// Recover task nodes + dependency edges from generated GCJP code (edges are not in the report JSON).
+function parseGcjpCode(code) {
+  const nodes = [];
+  const edges = [];
+  if (!code || typeof code !== 'string') return {nodes, edges};
+  const Q = `["']`;
+  const taskRe = new RegExp(`add_task\\(\\s*${Q}([^"']+)${Q}([^)]*)\\)`, 'g');
+  let m;
+  while ((m = taskRe.exec(code)) !== null) {
+    const rest = m[2] || '';
+    const grab = key => {
+      const km = new RegExp(`${key}\\s*=\\s*${Q}([^"']*)${Q}`).exec(rest);
+      return km ? km[1] : '';
+    };
+    nodes.push({id: m[1], actor: grab('actor'), action: grab('action'), target: grab('target')});
+  }
+  const depRe = new RegExp(`add_dependency\\(\\s*${Q}([^"']+)${Q}\\s*,\\s*${Q}([^"']+)${Q}([^)]*)\\)`, 'g');
+  while ((m = depRe.exec(code)) !== null) {
+    const rest = m[3] || '';
+    const relM = new RegExp(`relation\\s*=\\s*${Q}([^"']*)${Q}`).exec(rest);
+    const condM = new RegExp(`condition\\s*=\\s*${Q}([^"']*)${Q}`).exec(rest);
+    edges.push({src: m[1], dst: m[2], relation: relM ? relM[1] : '', condition: condM ? condM[1] : ''});
+  }
+  return {nodes, edges};
+}
+
+function renderReportBanner(sample, report) {
+  const passed = !!report.overall_passed;
+  const seg = report.segment_id || getSampleId(sample, 0);
+  const expected = getPath(sample, 'case.expected_result') ?? getPath(sample, 'expected_result');
+  const l3 = getLayer(report, 3);
+  const actual = l3 && l3.details ? l3.details.z3_result : undefined;
+  const total = report.total_elapsed_ms;
+  const pills = [];
+  if (expected != null) {
+    const ok = actual == null || String(expected).toLowerCase() === String(actual).toLowerCase();
+    pills.push(`<span class="kv-pill ${ok ? 'true' : 'false'}">期望 ${escHtml(String(expected))}${actual != null ? ` · 实际 ${escHtml(String(actual))}` : ''}</span>`);
+  } else if (actual != null) {
+    pills.push(`<span class="kv-pill">Z3 ${escHtml(String(actual))}</span>`);
+  }
+  if (typeof total === 'number') pills.push(`<span class="kv-pill">⏱ ${fmtMs(total)}</span>`);
+  return `<div class="report-banner ${passed ? 'pass' : 'fail'}">
+    <span class="verdict">${passed ? '✓ PASS' : '✗ FAIL'}</span>
+    <span class="seg">${escHtml(String(seg))}</span>
+    <span class="meta-pills">${pills.join('')}</span>
+  </div>`;
+}
+
+function layerDetailLine(l) {
+  const d = l.details || {};
+  switch (l.layer) {
+    case 1: {
+      const bits = [`error_type=${escHtml(String(d.error_type ?? '—'))}`];
+      if (Array.isArray(d.warnings) && d.warnings.length) bits.push(`${d.warnings.length} warnings`);
+      if (Array.isArray(d.violations) && d.violations.length) bits.push(`${d.violations.length} violations`);
+      return bits.join(' · ');
+    }
+    case 2: {
+      let s = `${d.node_count ?? '?'} nodes · ${d.edge_count ?? '?'} edges · DAG=${d.is_dag}`;
+      if (d.critical_path_length != null) s += ` · 关键路径 ${escHtml(String(d.critical_path_length))}`;
+      return s;
+    }
+    case 3:
+      if (d.z3_result === 'sat') return `z3=sat · ${d.tasks_scheduled ?? '?'} 个任务已排期`;
+      if (d.z3_result === 'unsat') {
+        const n = Array.isArray(d.unsat_core_semantic) ? d.unsat_core_semantic.length
+                : (Array.isArray(d.unsat_core) ? d.unsat_core.length : 0);
+        return `z3=unsat · ${n} 条语义冲突`;
+      }
+      return d.z3_result ? `z3=${escHtml(String(d.z3_result))}` : '';
+    case 4:
+      return d.status ? escHtml(String(d.status)) : '';
+    default:
+      return '';
+  }
+}
+
+function renderLayerPipeline(report) {
+  const layers = Array.isArray(report.layers) ? report.layers : [];
+  if (!layers.length) return '';
+  const cards = layers.map(l => {
+    const passed = !!l.passed;
+    const detail = layerDetailLine(l);
+    return `<div class="layer-card ${passed ? 'passed' : 'failed'}">
+      <div class="lc-head"><span class="lc-icon">${passed ? '✓' : '✗'}</span><span class="lc-name">L${escHtml(String(l.layer ?? '?'))} ${escHtml(String(l.name || ''))}</span></div>
+      ${detail ? `<div class="lc-detail">${detail}</div>` : ''}
+      ${l.error_msg ? `<div class="lc-err">${escHtml(String(l.error_msg))}</div>` : ''}
+      <div class="lc-time">⏱ ${fmtMs(l.elapsed_ms)}</div>
+    </div>`;
+  });
+  return `<div class="report-section">
+    <div class="sec-title">🔬 分层验证管线</div>
+    <div class="layer-pipe">${cards.join('<div class="layer-arrow">▶</div>')}</div>
+  </div>`;
+}
+
+function renderGantt(report, parsed, critical) {
+  const schedule = report.schedule && typeof report.schedule === 'object' ? report.schedule : {};
+  const entries = Object.entries(schedule).filter(([, v]) => v && typeof v === 'object');
+  const sec = inner => `<div class="report-section"><div class="sec-title">📅 调度甘特图</div>${inner}</div>`;
+  if (!entries.length) {
+    return sec(`<div class="gantt"><div class="gantt-empty">无可行调度（UNSAT 或未排期）</div></div>`);
+  }
+  entries.sort((a, b) => (Number(a[1].start) || 0) - (Number(b[1].start) || 0));
+  const l2 = getLayer(report, 2);
+  const cpLen = l2 && l2.details ? l2.details.critical_path_length : null;
+  let maxEnd = 0;
+  entries.forEach(([, v]) => { maxEnd = Math.max(maxEnd, Number(v.end) || 0); });
+  if (cpLen != null) maxEnd = Math.max(maxEnd, Number(cpLen) || 0);
+  if (maxEnd <= 0) maxEnd = 1;
+  const actorOf = {};
+  parsed.nodes.forEach(n => { actorOf[n.id] = n.actor; });
+  const round = x => parseFloat(Number(x).toFixed(2));
+  const calcLeft = frac => `calc(140px + ${frac} * (100% - 140px))`;
+
+  const tickCount = 5;
+  let ticks = '';
+  for (let i = 0; i <= tickCount; i++) {
+    ticks += `<span class="gantt-tick" style="left: ${calcLeft(i / tickCount)}">${round(maxEnd * i / tickCount)}</span>`;
+  }
+  const rows = entries.map(([id, v]) => {
+    const start = Number(v.start) || 0;
+    const end = Number(v.end) || 0;
+    const dur = v.duration != null ? Number(v.duration) : (end - start);
+    const left = start / maxEnd * 100;
+    const width = Math.max(dur / maxEnd * 100, 1.5);
+    const crit = critical.has(id) ? ' critical' : '';
+    const tip = `${id}: ${round(start)} → ${round(end)} (dur ${round(dur)})`;
+    return `<div class="gantt-row">
+      <div class="gantt-label" title="${escHtml(id)}">${escHtml(id)}</div>
+      <div class="gantt-track">
+        <div class="gantt-bar${crit}" style="left:${left}%; width:${width}%; background:${actorColor(actorOf[id])}" title="${escHtml(tip)}">${round(dur)}</div>
+      </div>
+    </div>`;
+  });
+  let makespan = '';
+  if (cpLen != null && Number(cpLen) > 0) {
+    const frac = Math.min(Number(cpLen) / maxEnd, 1);
+    makespan = `<div class="gantt-makespan" style="left: ${calcLeft(frac)}"><span class="ms-label">makespan ${round(cpLen)}</span></div>`;
+  }
+  return sec(`<div class="gantt">
+    <div class="gantt-axis">${ticks}</div>
+    <div class="gantt-body">${rows.join('')}${makespan}</div>
+  </div>`);
+}
+
+function renderAttribution(report) {
+  const l3 = getLayer(report, 3);
+  const d = (l3 && l3.details) || {};
+  const pick = key => (Array.isArray(report[key]) && report[key].length) ? report[key]
+                    : (Array.isArray(d[key]) ? d[key] : []);
+  const attribution = pick('attribution');
+  const semantic = pick('unsat_core_semantic');
+  const framework = pick('unsat_core_framework');
+  if (!attribution.length && !semantic.length) return '';
+  const cards = attribution.map(a =>
+    `<div class="attribution-card"><span class="ac-icon">⚠</span><span>${escHtml(String(a))}</span></div>`).join('');
+  let chips = '';
+  if (semantic.length) {
+    chips += `<div class="unsat-sub">语义冲突约束 (${semantic.length})</div><div class="unsat-chips">`
+      + semantic.map(c => `<span class="unsat-chip semantic">${escHtml(String(c))}</span>`).join('') + `</div>`;
+  }
+  if (framework.length) {
+    chips += `<div class="unsat-sub">框架约束 (${framework.length})</div><div class="unsat-chips">`
+      + framework.map(c => `<span class="unsat-chip framework">${escHtml(String(c))}</span>`).join('') + `</div>`;
+  }
+  return `<div class="report-section">
+    <div class="sec-title">❌ 不可满足约束归因 (UNSAT)</div>
+    <div class="attribution-list">${cards}</div>
+    ${chips}
+  </div>`;
+}
+
+// ── DAG 数据抽取 / 模型-真值 diff / SVG 渲染 ──────────────────────────────
+// final_dag 与 expected_graph 同构:{nodes:[{task_id,actor,action,target}], edges:[{source,target,relation,condition}]}
+function normalizeGraph(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const nodes = (Array.isArray(raw.nodes) ? raw.nodes : []).map(n => ({
+    id: String(n.task_id ?? n.id ?? ''),
+    actor: n.actor || '', action: n.action || '', target: n.target || '',
+  })).filter(n => n.id);
+  const edges = (Array.isArray(raw.edges) ? raw.edges : []).map(e => ({
+    src: String(e.source ?? e.src ?? ''), dst: String(e.target ?? e.dst ?? ''),
+    relation: e.relation || '', condition: e.condition || '',
+  })).filter(e => e.src && e.dst);
+  if (!nodes.length) return null;
+  return {nodes, edges};
+}
+
+function getModelGraph(sample) {
+  const direct = normalizeGraph(sample.final_dag);
+  if (direct) return {graph: direct, source: 'final_dag'};
+  const parsed = parseGcjpCode(getExtractedCode(sample));
+  if (parsed.nodes.length) return {graph: parsed, source: 'code'};
+  const self = normalizeGraph(sample);  // 直接浏览 final_dag/*.json 文件本身
+  if (self) return {graph: self, source: 'graph json'};
+  return null;
+}
+
+function getExpectedGraphData(sample) {
+  return normalizeGraph(getPath(sample, 'case.expected_graph') || sample.expected_graph);
+}
+
+// 解析最终代码中的 standalone 同步约束(add_sync_constraint / add_group_sync_constraint)
+function parseSyncFromCode(code) {
+  const groups = [];
+  if (!code || typeof code !== 'string') return groups;
+  const Q = `["']`;
+  let m;
+  const pairRe = new RegExp(`add_sync_constraint\\(\\s*${Q}([^"']+)${Q}\\s*,\\s*${Q}([^"']+)${Q}([^)]*)\\)`, 'g');
+  while ((m = pairRe.exec(code)) !== null) {
+    const tol = /tolerance\s*=\s*([0-9.]+)/.exec(m[3] || '');
+    groups.push({ids: [m[1], m[2]], tol: tol ? parseFloat(tol[1]) : null});
+  }
+  const grpRe = /add_group_sync_constraint\(\s*\[([^\]]*)\]([^)]*)\)/g;
+  while ((m = grpRe.exec(code)) !== null) {
+    const ids = [...m[1].matchAll(/["']([^"']+)["']/g)].map(x => x[1]);
+    const tol = /tolerance\s*=\s*([0-9.]+)/.exec(m[2] || '');
+    if (ids.length >= 2) groups.push({ids, tol: tol ? parseFloat(tol[1]) : null});
+  }
+  return groups;
+}
+
+function getSyncGroups(sample, side) {
+  const groups = [];
+  if (side === 'model') {
+    parseSyncFromCode(getFinalCode(sample)).forEach(g => groups.push(g));
+  } else {
+    const plan = getPath(sample, 'case.canonical_task_plan') || sample.canonical_task_plan || {};
+    (Array.isArray(plan.explicit_constraints) ? plan.explicit_constraints : []).forEach(c => {
+      if (c && c.type === 'group_sync' && Array.isArray(c.task_ids) && c.task_ids.length >= 2) {
+        groups.push({ids: c.task_ids.map(String), tol: c.tolerance ?? null});
+      }
+    });
+    (Array.isArray(plan.relations) ? plan.relations : []).forEach(r => {
+      if (r && r.type === 'sync') {
+        groups.push({ids: [String(r.source), String(r.target)], tol: r.sync_tolerance ?? null});
+      }
+    });
+  }
+  return dedupeSyncGroups(groups);
+}
+
+function dedupeSyncGroups(groups) {
+  const seen = new Map();
+  groups.forEach(g => {
+    const k = [...g.ids].sort().join('|');
+    const prev = seen.get(k);
+    if (!prev || (prev.tol == null && g.tol != null)) seen.set(k, g);
+  });
+  return [...seen.values()];
+}
+
+const syncPairKey = (a, b) => [a, b].sort().join(' ↔ ');
+const edgeKeyOf = e => `${e.src}→${e.dst}|${e.relation}`;
+
+// 同步语义统一展开为无序任务对(sync 边 ≡ sync 约束 ≡ group_sync,互认)→ Map<pairKey, tol>
+function expandSyncPairs(graph, groups) {
+  const pairs = new Map();
+  const add = (a, b, tol) => {
+    const k = syncPairKey(a, b);
+    if (!pairs.has(k) || (pairs.get(k) == null && tol != null)) pairs.set(k, tol ?? null);
+  };
+  (graph ? graph.edges : []).forEach(e => { if (e.relation === 'sync') add(e.src, e.dst, null); });
+  (groups || []).forEach(g => {
+    for (let i = 0; i < g.ids.length; i++)
+      for (let j = i + 1; j < g.ids.length; j++) add(g.ids[i], g.ids[j], g.tol);
+  });
+  return pairs;
+}
+
+// 与 Python 侧 dag_exact(experiments/phase1_common.py)同口径的前端 diff
+function graphDiff(model, gt, syncM, syncG) {
+  const mEdges = new Set(model.edges.filter(e => e.relation !== 'sync').map(edgeKeyOf));
+  const gEdges = new Set(gt.edges.filter(e => e.relation !== 'sync').map(edgeKeyOf));
+  const missingEdges = new Set([...gEdges].filter(k => !mEdges.has(k)));
+  const extraEdges = new Set([...mEdges].filter(k => !gEdges.has(k)));
+  const mPairs = expandSyncPairs(model, syncM);
+  const gPairs = expandSyncPairs(gt, syncG);
+  const missingSync = new Set([...gPairs.keys()].filter(k => !mPairs.has(k)));
+  const extraSync = new Set([...mPairs.keys()].filter(k => !gPairs.has(k)));
+  const tolMismatch = [...gPairs.keys()].filter(k =>
+    mPairs.has(k) && gPairs.get(k) != null && mPairs.get(k) != null
+    && Number(gPairs.get(k)) !== Number(mPairs.get(k)));
+  const sig = g => { const m = new Map(); g.nodes.forEach(n => m.set(n.id, `${n.actor}|${n.action}|${n.target}`)); return m; };
+  const mN = sig(model), gN = sig(gt);
+  const nodeDiff = [];
+  gN.forEach((v, k) => { if (mN.get(k) !== v) nodeDiff.push(k); });
+  mN.forEach((_, k) => { if (!gN.has(k)) nodeDiff.push(`${k} (多余)`); });
+  const verdict = !missingEdges.size && !extraEdges.size && !missingSync.size
+    && !extraSync.size && !tolMismatch.length && !nodeDiff.length;
+  return {missingEdges, extraEdges, missingSync, extraSync, tolMismatch, nodeDiff, verdict};
+}
+
+// 渲染单个 DAG 为 SVG。graph 为 normalize 后格式;syncGroups 画成橙色虚线连接。
+// opts: {critical:Set, edgeClass:fn(edge)→''/'extra'/'missing', syncClass:fn(pairKey)→同}
+function renderDagSvg(graph, syncGroups, opts = {}) {
+  const critical = opts.critical || new Set();
+  const edgeClass = opts.edgeClass || (() => '');
+  const syncClass = opts.syncClass || (() => '');
+  const nodes = graph.nodes.slice();
+  if (!nodes.length) return '';
+  const ids = new Set(nodes.map(n => n.id));
+  const edges = graph.edges.filter(e => e.relation !== 'sync' && ids.has(e.src) && ids.has(e.dst));
+  const syncEdgeGroups = graph.edges
+    .filter(e => e.relation === 'sync' && ids.has(e.src) && ids.has(e.dst))
+    .map(e => ({ids: [e.src, e.dst], tol: null}));
+  const groups = dedupeSyncGroups([...(syncGroups || []), ...syncEdgeGroups])
+    .map(g => ({...g, ids: g.ids.filter(id => ids.has(id))}))
+    .filter(g => g.ids.length >= 2);
+
+  // 无有向边、无同步、节点无属性 → 退化为文本链
+  if (!edges.length && !groups.length && nodes.every(n => !n.actor && !n.action)) {
+    const chain = nodes.map(n => `<span class="dag-chain-node">${escHtml(n.id)}</span>`)
+      .join('<span class="dag-chain-arrow">→</span>');
+    return `<div class="dag-chain">${chain}</div>`;
+  }
+
+  // Longest-path layering(无有向边时全部 depth=0 → 单列排布,同步组照画)
+  const depth = {};
+  nodes.forEach(n => { depth[n.id] = 0; });
+  let changed = true, guard = 0;
+  while (changed && guard++ < nodes.length + 2) {
+    changed = false;
+    edges.forEach(e => {
+      if (depth[e.dst] < depth[e.src] + 1) { depth[e.dst] = depth[e.src] + 1; changed = true; }
+    });
+  }
+  const cols = {};
+  nodes.forEach(n => { (cols[depth[n.id]] = cols[depth[n.id]] || []).push(n); });
+  const colKeys = Object.keys(cols).map(Number).sort((a, b) => a - b);
+  const NODE_W = 132, NODE_H = 44, COL_GAP = 64, ROW_GAP = 26, PAD = 10;
+  const pos = {};
+  let maxRows = 0;
+  colKeys.forEach((k, i) => {
+    cols[k].forEach((n, r) => { pos[n.id] = {x: i * (NODE_W + COL_GAP) + PAD, y: r * (NODE_H + ROW_GAP) + PAD}; });
+    maxRows = Math.max(maxRows, cols[k].length);
+  });
+  const syncBow = groups.length ? 46 : 0;  // 同步弧线在右侧需要额外画布宽度
+  const width = colKeys.length * (NODE_W + COL_GAP) - COL_GAP + 2 * PAD + syncBow;
+  const height = maxRows * (NODE_H + ROW_GAP) - ROW_GAP + 2 * PAD;
+  const markerId = `dag-arrow-${++domIdSeq}`;
+
+  const edgeSvg = edges.map(e => {
+    const a = pos[e.src], b = pos[e.dst];
+    if (!a || !b) return '';
+    const x1 = a.x + NODE_W, y1 = a.y + NODE_H / 2;
+    const x2 = b.x, y2 = b.y + NODE_H / 2;
+    const mx = (x1 + x2) / 2;
+    const cls = edgeClass(e);
+    const crit = (!cls && critical.has(e.src) && critical.has(e.dst)) ? ' critical' : '';
+    const labelText = [e.relation, e.condition ? truncateText(String(e.condition), 20) : '']
+      .filter(Boolean).join(': ');
+    const label = labelText
+      ? `<text class="dag-edge-label ${cls}" x="${mx}" y="${(y1 + y2) / 2 - 4}" text-anchor="middle">${escHtml(labelText)}</text>`
+      : '';
+    return `<path class="dag-edge${crit} ${cls}" d="M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}" marker-end="url(#${markerId})"/>${label}`;
+  }).join('');
+
+  // 同步组:组内相邻成员间的右弓形虚线(无向、无箭头)+ sync±tol 标签
+  const syncSvg = groups.map(g => {
+    const members = g.ids.filter(id => pos[id]);
+    if (members.length < 2) return '';
+    const tolLabel = g.tol != null ? `sync±${g.tol}` : 'sync';
+    let parts = '';
+    for (let i = 0; i + 1 < members.length; i++) {
+      const a = pos[members[i]], b = pos[members[i + 1]];
+      const k = syncClass(syncPairKey(members[i], members[i + 1]));
+      const x1 = a.x + NODE_W, y1 = a.y + NODE_H / 2;
+      const x2 = b.x + NODE_W, y2 = b.y + NODE_H / 2;
+      const bow = Math.max(x1, x2) + 38;
+      parts += `<path class="dag-edge sync ${k}" d="M ${x1} ${y1} C ${bow} ${y1}, ${bow} ${y2}, ${x2} ${y2}"/>`;
+      if (i === 0) {
+        parts += `<text class="dag-edge-label sync ${k}" x="${bow + 3}" y="${(y1 + y2) / 2 + 3}" text-anchor="start">${escHtml(tolLabel)}</text>`;
+      }
+    }
+    return parts;
+  }).join('');
+
+  const nodeSvg = nodes.map(n => {
+    const p = pos[n.id];
+    const crit = critical.has(n.id) ? ' critical' : '';
+    const sub = [n.action, n.target].filter(Boolean).join(' · ');
+    const fill = n.actor ? actorColor(n.actor) : 'var(--elevated)';
+    return `<g class="dag-node${crit}" transform="translate(${p.x},${p.y})">
+      <rect class="dag-node-rect" width="${NODE_W}" height="${NODE_H}" rx="6" style="fill:${fill};fill-opacity:.22"/>
+      <text class="dag-node-id" x="9" y="19">${escHtml(truncateText(n.id, 18))}</text>
+      ${sub ? `<text class="dag-node-sub" x="9" y="34">${escHtml(truncateText(sub, 22))}</text>` : ''}
+    </g>`;
+  }).join('');
+
+  return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+    <defs><marker id="${markerId}" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L7,3 L0,6 Z" fill="var(--border2)"/></marker></defs>
+    ${edgeSvg}${syncSvg}${nodeSvg}
+  </svg>`;
+}
+
+// 并排对比:模型输出 DAG vs Ground Truth DAG(边集差异高亮 + 精确匹配徽标)
+function renderDagCompare(sample, critical = new Set()) {
+  const model = getModelGraph(sample);
+  const gt = getExpectedGraphData(sample);
+  if (!model && !gt) return '';
+
+  const syncM = model ? getSyncGroups(sample, 'model') : [];
+  const syncG = gt ? getSyncGroups(sample, 'gt') : [];
+
+  let verdictRow = '', legendDiff = '';
+  let modelOpts = {critical};
+  let gtOpts = {};
+  if (model && gt) {
+    const diff = graphDiff(model.graph, gt, syncM, syncG);
+    const evDag = getPath(sample, 'evaluation.final_dag_exact');
+    const exact = (typeof evDag === 'boolean') ? evDag : diff.verdict;
+    const bits = [];
+    if (diff.missingEdges.size) bits.push(`缺 ${diff.missingEdges.size} 边`);
+    if (diff.extraEdges.size) bits.push(`多 ${diff.extraEdges.size} 边`);
+    if (diff.missingSync.size) bits.push(`缺同步 ${diff.missingSync.size} 对`);
+    if (diff.extraSync.size) bits.push(`多同步 ${diff.extraSync.size} 对`);
+    if (diff.tolMismatch.length) bits.push(`tolerance 不一致 ${diff.tolMismatch.length}`);
+    if (diff.nodeDiff.length) bits.push(`节点差异: ${diff.nodeDiff.slice(0, 4).join(', ')}`);
+    verdictRow = `<div class="dag-verdict-row">
+      <span class="kv-pill ${exact ? 'true' : 'false'}">${exact ? '✓ DAG 精确匹配' : '✗ 存在差异'}</span>
+      ${bits.length ? `<span class="kv-pill false">${escHtml(bits.join(' · '))}</span>` : ''}
+      ${typeof evDag === 'boolean' ? `<span class="kv-pill">评分器 dag_exact=${evDag}</span>` : ''}
+    </div>`;
+    modelOpts = {critical, edgeClass: e => diff.extraEdges.has(edgeKeyOf(e)) ? 'extra' : '',
+                 syncClass: k => diff.extraSync.has(k) ? 'extra' : ''};
+    gtOpts = {edgeClass: e => diff.missingEdges.has(edgeKeyOf(e)) ? 'missing' : '',
+              syncClass: k => diff.missingSync.has(k) ? 'missing' : ''};
+    if (!exact || diff.extraEdges.size || diff.missingEdges.size || diff.extraSync.size || diff.missingSync.size) {
+      legendDiff = `<span><span class="sw extra"></span>模型多余(左图红)</span>
+        <span><span class="sw missing"></span>模型缺失(右图橙虚)</span>`;
+    }
+  }
+
+  const panel = (title, srcNote, inner) => `<div class="dag-panel">
+    <div class="dag-panel-title">${title}${srcNote ? `<span class="dag-src">${escHtml(srcNote)}</span>` : ''}</div>
+    <div class="dag-wrap">${inner}</div>
+  </div>`;
+
+  const panels = [];
+  if (model) panels.push(panel('🤖 模型输出', `来源: ${model.source}`, renderDagSvg(model.graph, syncM, modelOpts)));
+  if (gt) panels.push(panel('🎯 Ground Truth', 'expected_graph', renderDagSvg(gt, syncG, gtOpts)));
+
+  const legend = `<div class="dag-legend">
+    <span><span class="sw"></span>依赖边(箭头)</span>
+    <span><span class="sw sync"></span>同步组 sync±tol</span>
+    ${legendDiff}
+  </div>`;
+
+  const title = (model && gt) ? '🔗 任务结构对比(模型 vs 真值)' : '🔗 任务依赖图';
+  return `<div class="report-section"><div class="sec-title">${title}</div>${verdictRow}<div class="dag-compare">${panels.join('')}</div>${legend}</div>`;
+}
+
+function renderGeneratedCode(sample) {
+  const code = getExtractedCode(sample);
+  if (!code) return '';
+  const id = nextDomId('code');
+  return `<div class="report-section">
+    <div class="sec-title">🐍 生成代码 (GCJP)</div>
+    <div class="code-block">
+      <button class="btn copy-btn" onclick="copyText(document.getElementById('${id}').textContent)">📋 复制</button>
+      <pre id="${id}">${escHtml(code)}</pre>
+    </div>
+  </div>`;
+}
+
+function renderRepairAttempts(sample) {
+  const attempts = sample && Array.isArray(sample.attempts) ? sample.attempts : [];
+  if (!attempts.length) return '';
+  const items = attempts.map((a, i) => {
+    const rep = getPath(a, 'evaluation.report') || (a && a.report);
+    const code = getPath(a, 'generation.repaired_code')
+              || getPath(a, 'generation.extraction.code')
+              || getPath(a, 'generation.raw_response')
+              || (a && (a.repaired_code || a.code)) || '';
+    const round = a && a.repair_round != null ? a.repair_round : i + 1;
+    return {round, passed: !!(rep && rep.overall_passed), code, id: nextDomId('repair')};
+  });
+  const chips = items.map(it =>
+    `<div class="repair-chip ${it.passed ? 'pass' : 'fail'}" onclick="toggleRepair('${it.id}')">
+      <span class="rc-title">尝试 #${it.round}</span>
+      <span class="rc-status">${it.passed ? '✓ 通过' : '✗ 未通过'}</span>
+    </div>`).join('');
+  const details = items.filter(it => it.code).map(it =>
+    `<div class="repair-detail" id="${it.id}"><div class="code-block"><pre>${escHtml(String(it.code))}</pre></div></div>`).join('');
+  return `<div class="report-section">
+    <div class="sec-title">🔧 修复迭代 (${attempts.length})</div>
+    <div class="repair-timeline">${chips}</div>
+    ${details}
+  </div>`;
+}
+
+function toggleRepair(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('open');
+}
+
 function renderParseErrors() {
   const preview = lastParseErrors.slice(0, 5).map(escHtml).join('<br>');
   const more = lastParseErrors.length > 5 ? `<br>... 还有 ${lastParseErrors.length - 5} 条` : '';
@@ -1621,11 +2525,17 @@ function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+function syncViewButtons() {
+  const map = {tree: 'btn-tree', flat: 'btn-flat', raw: 'btn-raw', report: 'btn-report'};
+  Object.entries(map).forEach(([view, id]) => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('active', currentView === view);
+  });
+}
+
 function setView(view) {
   currentView = view;
-  document.getElementById('btn-tree').classList.toggle('active', view === 'tree');
-  document.getElementById('btn-flat').classList.toggle('active', view === 'flat');
-  document.getElementById('btn-raw').classList.toggle('active', view === 'raw');
+  syncViewButtons();
   if (currentIndex >= 0) renderContent(currentIndex);
 }
 
@@ -1681,7 +2591,7 @@ document.addEventListener('keydown', e => {
 });
 
 // Init
-document.getElementById('btn-tree').classList.add('active');
+syncViewButtons();
 </script>
 </body>
 </html>
